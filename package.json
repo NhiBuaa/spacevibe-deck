@@ -4,6 +4,7 @@
   "version": "2.10.0",
   "type": "module",
   "scripts": {
+    "release:cut": "node scripts/release-cut.mjs",
     "lint": "oxlint && prettier --check .",
     "postinstall": "node scripts/fix-spawn-helper-permissions.mjs",
     "prepare": "git config core.hooksPath .githooks || exit 0",
