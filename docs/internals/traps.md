@@ -128,7 +128,7 @@ Named because a maintainer will otherwise read them as bugs to fix on sight. Eac
 at and left; changing one is a decision, not a cleanup.
 
 - **An explorer channel's `root` is any absolute path the renderer sends,** not a workspace
-  this window has open. `resolveRoot` proves *containment*, not authorization, and
+  this window has open. `resolveRoot` proves _containment_, not authorization, and
   `registerExplorer` takes the renderer's `root` verbatim — a property of every explorer
   channel, not something `create_entry` introduced. Binding roots to the owning window would
   change every explorer channel's authorization at once. The exposure is bounded: `wx` and a
@@ -169,3 +169,43 @@ pass cannot delete the half they exist to keep.
 Two more retirements follow the same pattern without a constant: the theme gallery, colour
 overrides and theme import are unmounted from Settings but still build and still resolve a
 stored id; and `RepositoryRail` is mounted only in the gallery.
+
+### Release switch convention
+
+New unfinished features use the one [release-switch module](../../src/lib/release-switches.ts),
+not another scattered constant. Each positively named definition has an explicit boolean
+release value and `createdOn: "YYYY-MM-DD"`; record `enabledOn` for its first stable
+publication when known. No production placeholder flag is defined. The
+[resolver](../../src/lib/release-switches.ts) returns immutable snapshots: development enables
+all defined feature switches; packaged releases use the file values. Unknown keys stay off.
+
+The renderer reads the validated host development identity at invocation time through
+[action availability](../../src/terminal/action-availability.ts). Electron uses
+`!app.isPackaged`, including dev-once with a production Vite renderer; browser-only preview
+may use Vite's dev mode. A dev URL cannot override a packaged host. Main-owned handlers use
+[the IPC guard](../../electron/ipc/release-switch-guard.ts); never accept a renderer's claim
+that a feature is enabled. Shared IPC services guard only the feature-specific branch.
+
+Each feature adoption must guard its mount and clicks, direct actions, default/rebound
+shortcuts, native menu/registry entries, IPC, restore and background starts. Reuse
+[registry availability](../../src/terminal/action-registry.ts),
+[the central action guard](../../src/terminal/tab-manager.ts), and the IPC guard before side
+effects. A hidden button is insufficient. Test both true and false with real entrance
+coverage; preserve both branches while the switch exists and inspect shipping bundles.
+Electron-only registry entries also declare the `electron` capability: the
+[frozen menu generator](../../scripts/generate-menu.ts) always uses release values and no
+Electron capabilities, independent of the process's dev mode.
+
+Activation is a small main commit after checkout handoff: flip the release value to true
+and write its user-facing `## Unreleased` CHANGELOG entry in that same commit. Keep worktree
+feature commits disabled and do not announce disabled behavior as available. A rollback
+also records the changed behavior and clears the activation date. After fourteen consecutive
+days enabled in published stable releases, remove the switch and old branch together,
+retaining regression coverage and updating this passage's affected references. Verify the
+first publication date before removal; local activation alone does not start the clock.
+[The cleanup predicate](../../src/lib/release-switches.ts) refuses to consider a switch due
+without an activation date. Removal is reviewed code work, never a timed runtime action.
+
+This rule applies to new temporary feature gates only. The five legacy controls above
+retain their existing semantics: development-all-on and automatic retirement would invert
+safety/consent/retirement decisions. Migrating one requires its own approved scope.

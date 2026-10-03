@@ -40,19 +40,31 @@ Report the checks actually performed; omitted checks are not successful test res
   release itself. A failure anywhere leaves a draft that no installed app can see. A run that
   dies in `promote` and publishes nothing is the design working, not a bug.
 
-## The four jobs
+## The five jobs
 
-`prepare` → `mac` + `windows` (parallel) → `promote`. All four run on Node 22 with `npm ci`.
+`prepare` → `source-check` + `mac` + `windows` (parallel) → `promote` in
+[the release workflow](../../.github/workflows/electron-release.yml). Ubuntu jobs are pinned
+at `ubuntu-24.04`; Node stays at 22. Source/platform jobs install with `npm ci`.
+The shortened critical path still includes signing and notarization; a ~7-minute release
+workflow is a target, not a time guarantee, and the cut also waits for main CI beforehand.
 
 ### `prepare` (ubuntu)
 
 1. Full-history checkout, then refuse a tag whose commit is not an ancestor of `origin/main`.
 2. Validate the tag against `package.json`'s version and derive the channel.
-3. Validate source: `npm run lint`, `npm test`, `npm run build` — the same gates as CI's `check` job, so a red commit cannot ship.
-4. Create the draft release with `gh release create "$TAG" --draft --target "$GITHUB_SHA"`.
+3. Require the tagged commit's nonempty exact `## <version>` CHANGELOG section.
+4. Create the draft with `gh release create "$TAG" --draft --target "$(git rev-parse HEAD)"`.
+   Use the peeled checkout commit, including for annotated trigger tags.
    Creating it upstream of both platform jobs is what stops the two electron-builder
    publishers from each creating their own release. `--target` is required because the
    release tag does not exist yet.
+
+### `source-check` (ubuntu-24.04)
+
+After `prepare` creates the draft, independently check out the exact tag, install dependencies
+and run `generate:menu:check`, `npm test`, `npm run build` with a fail-fast shell. This
+[read-only job](../../.github/workflows/electron-release.yml) runs alongside both platform
+builds. If it fails, platform uploads can remain in the draft, but promotion cannot run.
 
 ### `mac` (macos-latest)
 
@@ -81,25 +93,26 @@ runner, so this job proves only that the installer and its manifest were produce
 
 ### `promote` (ubuntu)
 
-`needs: [prepare, mac, windows]` names `prepare` directly on purpose: `needs.<job>.outputs`
+`needs: [prepare, source-check, mac, windows]` names `prepare` directly on purpose: `needs.<job>.outputs`
 resolves only for jobs in that list, and an empty `TAG` makes `gh release view ""` answer
 with the latest release, so every assertion would run against whatever shipped last.
 
 1. Refuse empty `TAG` or `CHANNEL`.
 2. Read the asset names the release actually serves and require all six:
 
-   | Asset            | Role                                                             |
-   | ---------------- | ---------------------------------------------------------------- |
-   | `*.dmg`          | macOS first install                                              |
-   | `*-mac.zip`      | macOS update payload (electron-updater reads the zip, never the dmg) |
-   | `latest-mac.yml` | macOS update feed                                                |
-   | `*-setup.exe`    | Windows first install and update payload (NSIS reruns the installer) |
-   | `latest.yml`     | Windows update feed                                              |
-   | `<payload>.blockmap` | Differential download, by the exact `path` each manifest names |
+   | Asset                | Role                                                                 |
+   | -------------------- | -------------------------------------------------------------------- |
+   | `*.dmg`              | macOS first install                                                  |
+   | `*-mac.zip`          | macOS update payload (electron-updater reads the zip, never the dmg) |
+   | `latest-mac.yml`     | macOS update feed                                                    |
+   | `*-setup.exe`        | Windows first install and update payload (NSIS reruns the installer) |
+   | `latest.yml`         | Windows update feed                                                  |
+   | `<payload>.blockmap` | Differential download, by the exact `path` each manifest names       |
 
    The manifests are `latest-mac.yml` / `latest.yml`, not `electron-mac.yml`: for the GitHub
    provider app-builder-lib always writes the default name. The client asks for its channel
    file first and falls back to the default one, so the two halves meet.
+
 3. Write the final notes. A fixed header states the platform limitations (unsigned Windows
    installer, Windows not runtime-verified, no Intel Macs). Under it, a **stable** release
    carries the `## <version>` section of the **tagged commit's** `CHANGELOG.md`; a
@@ -121,12 +134,53 @@ section is empty**. Consequences:
 - Each section is written for users and frozen at its tag. It is never an auto-generated
   commit list.
 
+## Cut from clean main
+
+[`npm run release:cut`](../../scripts/release-cut.mjs) bumps the version, freezes pending
+notes, commits only `package.json`, `package-lock.json` and `CHANGELOG.md`, pushes main,
+waits for successful push CI on that exact SHA, pushes `build/vX.Y.Z`, and observes public
+promotion and updater assets. Invoking it authorizes those remote actions. Run on clean
+local `main` after the primary checkout's writer hands it off; it refuses dirty, behind,
+diverged, wrong-repository and incomplete-release states. Never run it as a release probe.
+
+Maintain reviewed user-facing notes under exactly `## Unreleased` at the top of CHANGELOG
+on main at integration time. The command renames that heading to exactly `## X.Y.Z`; it
+refuses missing/empty/duplicate sections and preserves older release sections. It does not
+invent notes. Switch activation and its pending notes share one main commit; see
+[release switches](../internals/traps.md#release-switch-convention).
+
+The [version policy](../../scripts/release-cut-model.mjs) inspects commits since the latest
+promoted stable baseline: fix-only means patch, any `feat` means minor, including a hidden
+feature. Breaking metadata stops for a separate major-release decision. Maintenance-only
+or ambiguous history needs `npm run release:cut -- --bump patch` (or `minor`) and reviewed
+notes; a bump override cannot bypass safety checks. Beta/prerelease tags remain blocked.
+
+`npm run release:cut -- --dry-run` reads eligibility and prints the proposed version/notes;
+it does not fetch, lock, edit, commit, push, tag or dispatch. Missing local baseline history
+must be fetched deliberately. Once a cut commit exists, resume using
+`npm run release:cut -- --resume <full-cut-SHA>` on main containing that commit (exact HEAD before a missing tag push); it verifies versions,
+notes, immutable tags and run identity and never bumps again or reruns successful prepare.
+Existing pushed attempts can be monitored even if remote main has since advanced.
+
+[Failures](../../scripts/release-cut.mjs) stop downstream actions and print the failed stage,
+version/SHA when captured and inspection commands. Completed changes remain visible;
+there is no automatic reset, draft/tag deletion or workflow rerun. CI cancellation (including
+main's superseding-run policy), skipped required jobs, a wrong SHA, API errors or bounded
+30-minute CI / 45-minute release waits do not authorize tagging or a success claim. A tag
+push timeout may have succeeded remotely: inspect refs, then resume, never force a ref.
+
+Cuts that change the client telemetry payload stop for the backend compatibility prerequisite
+below; after owner confirmation pass `--backend-compatible` to acknowledge it. This flag
+only acknowledges that prerequisite; the command never runs a migration/deploy. Release once daily when releasable changes
+exist, and resolve a concrete stop before the gap reaches two days rather than collecting
+another batch. No empty release or scheduled automatic publication is required.
+
 ## Before tagging and recovering a failed run
 
 Require an ordinary [CI run](../../.github/workflows/ci.yml) on the exact integrated
 `main` commit to reach and pass Ubuntu **Test** and **Build frontend** before tagging.
-`prepare` repeats lint, tests and build, but it must not be the first evidence that the
-source works on Ubuntu: a red `prepare` costs a cleanup of the trigger tag. A local macOS pass is not that evidence. If CI is still
+`source-check` runs lint, tests and build alongside the platform builds; it must not be the first
+evidence that the source works on Ubuntu. A local macOS pass is not that evidence. If CI is still
 red, stop for an explicit owner decision rather than treating a tag as a test run.
 
 Run the `landing-sync` skill
@@ -148,8 +202,8 @@ A retry depends on both the failed step and whether the source must change:
 - **Same commit, failure before draft creation:** fix the runner/service problem and rerun
   the failed jobs. No release exists to delete; a missing release must be confirmed as a
   404, not inferred from an authentication or network error.
-- **Same commit, draft exists and `prepare` succeeded:** rerun the failed platform or
-  `promote` jobs. Keep the draft so successful platform assets remain available. Do not
+- **Same commit, draft exists and `prepare` succeeded:** rerun the failed `source-check`,
+  platform or `promote` jobs. Keep the draft so successful platform assets remain available. Do not
   rerun successful `prepare`: its create-draft step would collide with the existing draft.
   While the draft waits, the trigger tag stays the feed's newest entry and every build
   through 1.2.0 fails its update check against it, so do not leave it waiting: finish the
@@ -184,6 +238,7 @@ For example, recovery of an **unpublished** `build/v1.1.0` attempt after `prepar
    `git ls-remote --tags origin refs/tags/build/v1.1.0`. A failed `prepare` that never created
    a draft needs only the trigger-tag cleanup. If a bare `v1.1.0` ref also exists, stop and
    inspect its origin and SHA; do not remove or reuse it blindly.
+
 3. Confirm the corrected commit is on `origin/main`, its `package.json` and lock root are
    `1.1.0`, and its `CHANGELOG.md` has a non-empty exact `## 1.1.0` section. Capture the green
    Ubuntu Test + Build run for that commit. With release approval, tag **that exact SHA**
@@ -196,14 +251,14 @@ For example, recovery of an **unpublished** `build/v1.1.0` attempt after `prepar
 
 Stored on the repository; `GITHUB_TOKEN` is supplied by Actions.
 
-| Secret                       | Used by                                                              |
-| ---------------------------- | -------------------------------------------------------------------- |
-| `APPLE_CERTIFICATE`          | Base64 `.p12` Developer ID Application certificate                   |
-| `APPLE_CERTIFICATE_PASSWORD` | Password of that `.p12`                                              |
-| `KEYCHAIN_PASSWORD`          | The throwaway build keychain                                         |
-| `APPLE_ID`                   | Notarization account                                                 |
+| Secret                       | Used by                                                                                                       |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `APPLE_CERTIFICATE`          | Base64 `.p12` Developer ID Application certificate                                                            |
+| `APPLE_CERTIFICATE_PASSWORD` | Password of that `.p12`                                                                                       |
+| `KEYCHAIN_PASSWORD`          | The throwaway build keychain                                                                                  |
+| `APPLE_ID`                   | Notarization account                                                                                          |
 | `APPLE_PASSWORD`             | App-specific password; exported to the build as `APPLE_APP_SPECIFIC_PASSWORD`, the name app-builder-lib reads |
-| `APPLE_TEAM_ID`              | Notarization team                                                    |
+| `APPLE_TEAM_ID`              | Notarization team                                                                                             |
 
 Run [`verify-signing-credentials.yml`](../../.github/workflows/verify-signing-credentials.yml)
 (`workflow_dispatch`) before the first release and after rotating any credential. It imports
