@@ -19,6 +19,8 @@ import type { ShortcutAction } from "./keymap";
 export type StageOwner = "terminal" | "surface" | "overlay";
 
 export interface PerformableContext {
+  /** Registry release/capability decision, supplied before a chord consumes its key. */
+  readonly actionAvailable?: boolean;
   readonly stageOwner: StageOwner;
   /** Whether the ACTIVE TERMINAL PANE holds a selection. */
   readonly hasSelection: boolean;
@@ -113,6 +115,7 @@ const PREDICATES: ReadonlyMap<ShortcutAction, Predicate> = new Map<ShortcutActio
 ]);
 
 export function isActionPerformable(action: ShortcutAction, context: PerformableContext): boolean {
+  if (context.actionAvailable === false) return false;
   const predicate = PREDICATES.get(action);
   return predicate === undefined ? true : predicate(context);
 }

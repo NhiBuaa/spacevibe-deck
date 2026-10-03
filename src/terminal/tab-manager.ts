@@ -56,6 +56,7 @@ import { lastSessionIdFor, noteExplicitTail } from "./session-tail-store";
 import { usageConsentOpen } from "../telemetry/consent-store";
 import { activeKeymapPlatform } from "./active-keymap";
 import { matchBinding, selectTabIndex, type ShortcutAction } from "./keymap";
+import { isRegisteredActionAvailable } from "./action-availability";
 import { TIER_RANK } from "./action-registry";
 import {
   isActionPerformable,
@@ -2877,8 +2878,9 @@ export function createTabManager(
     return "terminal";
   }
 
-  function performableContext(): PerformableContext {
+  function performableContext(action: ShortcutAction): PerformableContext {
     return {
+      actionAvailable: isRegisteredActionAvailable(action),
       stageOwner: stageOwner(),
       // `?? false` is the fail-toward-the-PTY rule (spec D5): no manager means
       // no selection means the key is not consumed.
@@ -3046,6 +3048,7 @@ export function createTabManager(
 
   /** The dispatch half, shared by the keymap and the menu. */
   function dispatchAction(action: ShortcutAction): void {
+    if (!isRegisteredActionAvailable(action)) return;
     const pageIsTop = agentLaunchPageIsTop();
     if (pageIsTop && (action === "new-tab" || action === "close-pane")) {
       agentLaunchPage.close(true);
@@ -3175,7 +3178,7 @@ export function createTabManager(
     // that ordering is what made a matched-but-blocked chord a dead key over an
     // open document. Returning here leaves the event alone so it reaches
     // whatever holds focus — Monaco, a modal, or the pane's own xterm.
-    if (!isActionPerformable(action, performableContext())) {
+    if (!isActionPerformable(action, performableContext(action))) {
       return;
     }
     event.preventDefault();

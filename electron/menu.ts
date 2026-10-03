@@ -11,11 +11,13 @@
 import { Menu, app, type MenuItemConstructorOptions } from "electron";
 import {
   ACTION_REGISTRY,
+  isActionAvailable,
   MACOS_KEYMAP,
   type ActionDefinition,
   type KeyBinding,
   type MenuSubmenu,
 } from "../src/terminal/action-registry";
+import { resolveReleaseSwitches } from "../src/lib/release-switches";
 import { EVENTS } from "./ipc/channels";
 import type { WindowRegistry } from "./window-lifecycle";
 
@@ -175,8 +177,10 @@ function itemsFor(submenu: MenuSubmenu, deps: MenuDeps): MenuItemConstructorOpti
   // `ACTION_REGISTRY` is a const tuple, so only the members that declare a
   // menu carry the field in their literal type. Read it through the shared
   // interface rather than narrowing each member.
+  const switches = resolveReleaseSwitches(!app.isPackaged);
   const actions = (ACTION_REGISTRY as readonly ActionDefinition[]).filter(
-    (action) => action.menu?.submenu === submenu,
+    (action) =>
+      action.menu?.submenu === submenu && isActionAvailable(action, switches, ["electron"]),
   );
   const keymap = deps.keymap ?? MACOS_KEYMAP;
   const items: MenuItemConstructorOptions[] = [];
@@ -192,6 +196,8 @@ function itemsFor(submenu: MenuSubmenu, deps: MenuDeps): MenuItemConstructorOpti
       accelerator:
         deps.suspendAccelerators === true ? undefined : acceleratorFor(action.id, keymap),
       click: () => {
+        if (!isActionAvailable(action, resolveReleaseSwitches(!app.isPackaged), ["electron"]))
+          return;
         const target = deps.focused();
         if (target !== null) {
           // The BARE action id, not an object: the renderer does

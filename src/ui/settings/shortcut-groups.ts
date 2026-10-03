@@ -11,6 +11,7 @@
  * empty, so adding an action to the registry without placing it fails a test
  * instead of shipping a row under a meaningless heading.
  */
+import { isRegisteredActionAvailable } from "../../terminal/action-availability";
 import {
   ACTION_REGISTRY,
   type ActionDefinition,
@@ -173,7 +174,7 @@ export function shortcutGroups(): readonly ShortcutGroup[] {
     byGroup.set(group.id, []);
   }
   for (const action of ACTION_REGISTRY as readonly ActionDefinition[]) {
-    if (NOT_REBINDABLE.has(action.id)) {
+    if (NOT_REBINDABLE.has(action.id) || !isRegisteredActionAvailable(action.id)) {
       continue;
     }
     const target = PLACEMENT[action.id] ?? "other";

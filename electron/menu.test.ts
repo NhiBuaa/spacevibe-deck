@@ -10,6 +10,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MenuItemConstructorOptions } from "electron";
 
+const switchFixture = vi.hoisted(() => ({ enabled: true }));
+vi.mock("../src/lib/release-switches", async (original) => {
+  const actual = await original<typeof import("../src/lib/release-switches")>();
+  return { ...actual, resolveReleaseSwitches: () => ({ menuFixture: switchFixture.enabled }) };
+});
+vi.mock("../src/terminal/action-registry", async (original) => {
+  const actual = await original<typeof import("../src/terminal/action-registry")>();
+  return {
+    ...actual,
+    ACTION_REGISTRY: actual.ACTION_REGISTRY.map((action) =>
+      action.id === "find" ? { ...action, releaseSwitch: "menuFixture" } : action,
+    ),
+  };
+});
+
 const built: MenuItemConstructorOptions[][] = [];
 
 vi.mock("electron", () => ({
@@ -64,6 +79,7 @@ function render(
 
 describe("menu accelerators", () => {
   beforeEach(() => {
+    switchFixture.enabled = true;
     // The menu is macOS-only; without this every assertion below would pass
     // vacuously on a Linux CI runner.
     Object.defineProperty(process, "platform", { value: "darwin" });
@@ -150,5 +166,33 @@ describe("menu accelerators", () => {
   it("keeps the labels while accelerators are suspended", () => {
     const suspended = items(render(undefined, true));
     expect(suspended.find((item) => item.id === "split-row")?.label).toBe("Split Vertically");
+  });
+});
+
+describe("release switch menu entrance", () => {
+  afterEach(() => {
+    switchFixture.enabled = true;
+    Object.defineProperty(process, "platform", { value: realPlatform });
+  });
+  it.each([false, true])("omits disabled items and accelerators with enabled=%s", (enabled) => {
+    Object.defineProperty(process, "platform", { value: "darwin" });
+    switchFixture.enabled = enabled;
+    const item = items(render()).find((entry) => entry.id === "find");
+    expect(item !== undefined).toBe(enabled);
+    if (!enabled) expect(accelerator(render(), "find")).toBeUndefined();
+  });
+  it("rechecks a direct click before emitting to a renderer", () => {
+    Object.defineProperty(process, "platform", { value: "darwin" });
+    switchFixture.enabled = true;
+    const emitTo = vi.fn();
+    built.length = 0;
+    buildMenu({ registry: new WindowRegistry(), focused: () => "main", emitTo });
+    const click = items(built[0]).find((entry) => entry.id === "find")!.click!;
+    switchFixture.enabled = false;
+    click({} as never, {} as never, {} as never);
+    expect(emitTo).not.toHaveBeenCalled();
+    switchFixture.enabled = true;
+    click({} as never, {} as never, {} as never);
+    expect(emitTo).toHaveBeenCalledOnce();
   });
 });

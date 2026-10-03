@@ -5,6 +5,14 @@
  * reads `scope`. See docs/internals/terminal.md.
  */
 
+import {
+  isReleaseSwitchEnabled,
+  type ReleaseSwitchId,
+  type ReleaseSwitchSnapshot,
+} from "../lib/release-switches";
+
+export type ActionCapability = "electron";
+
 export type OverlayTier = "pane" | "settings" | "board" | "modal";
 
 /**
@@ -49,6 +57,8 @@ export type ActionScope = OverlayTier | "always";
 export type MenuSubmenu = "App" | "File" | "Edit" | "View" | "Window";
 
 export interface ActionDefinition {
+  readonly releaseSwitch?: ReleaseSwitchId;
+  readonly capability?: ActionCapability;
   /** Stable string — also the id sent over Tauri IPC (`menu:action` payload). */
   readonly id: string;
   /** Display name — today's macOS menu label; reserved for a future cheat sheet/command palette. */
@@ -628,3 +638,16 @@ export function isActionId(
 // below so no consumer of this module had to change its import path.
 export type { KeyBinding, CharKeyBinding, PhysicalKeyBinding } from "./default-keymaps";
 export { MACOS_KEYMAP, WINDOWS_KEYMAP } from "./default-keymaps";
+
+/** Shared UI/chord/menu policy; preserve registry entries and stable IDs. */
+export function isActionAvailable(
+  action: ActionDefinition,
+  switches: ReleaseSwitchSnapshot,
+  capabilities: readonly ActionCapability[],
+): boolean {
+  return (
+    (action.releaseSwitch === undefined ||
+      isReleaseSwitchEnabled(action.releaseSwitch, switches)) &&
+    (action.capability === undefined || capabilities.includes(action.capability))
+  );
+}

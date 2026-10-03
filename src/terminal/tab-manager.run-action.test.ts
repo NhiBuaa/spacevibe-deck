@@ -13,6 +13,11 @@ import { sendAgentNotification } from "../lib/native-notification";
 import { initializeDesktopEnvironment, resetDesktopEnvironmentForTests } from "../lib/platform";
 import { fakePane, flush, freshWindowFocusController, setup } from "./tab-manager.fixtures";
 
+const releaseFixture = vi.hoisted(() => ({ enabled: true }));
+vi.mock("./action-availability", () => ({
+  isRegisteredActionAvailable: (id: unknown) => id !== "new-tab" || releaseFixture.enabled,
+}));
+
 // Task 23: the production-default notifier sends through this adapter. Mock
 // it at the module boundary so NO test can ever reach the real Tauri
 // `@tauri-apps/plugin-notification` API, regardless of the
@@ -64,6 +69,7 @@ vi.mock("../host/window-host", () => ({
 }));
 
 beforeEach(() => {
+  releaseFixture.enabled = true;
   resetDesktopEnvironmentForTests();
   initializeDesktopEnvironment({
     platform: "macos",
@@ -88,6 +94,46 @@ describe("runAction — the macOS menu bridge", () => {
   // directly, so the launcher stub is the observable, not `tabViews.length`.
   const onOpenTaskLauncher = vi.fn();
 
+  it.each([false, true])(
+    "gates a saved rebound chord without consuming a disabled feature key: %s",
+    async (enabled) => {
+      releaseFixture.enabled = enabled;
+      onOpenTaskLauncher.mockClear();
+            settings.value = {
+        ...DEFAULT_SETTINGS,
+        keybindings: { macos: { "new-tab": [{ key: "j", meta: true }] }, windows: {} },
+      };
+      const { tm } = setup({ deps: { onOpenTaskLauncher } });
+      await tm.init();
+      boardOpen.value = false;
+      const event = new KeyboardEvent("keydown", {
+        key: "j",
+        metaKey: true,
+        bubbles: true,
+        cancelable: true,
+      });
+      window.dispatchEvent(event);
+      await flush();
+      expect(event.defaultPrevented).toBe(enabled);
+      expect(onOpenTaskLauncher).toHaveBeenCalledTimes(enabled ? 1 : 0);
+      tm.dispose();
+    },
+  );
+  it.each([false, true])(
+    "gates direct action/event dispatch before feature side effects: %s",
+    async (enabled) => {
+      releaseFixture.enabled = enabled;
+      onOpenTaskLauncher.mockClear();
+            boardOpen.value = false;
+      const { tm } = setup({ deps: { onOpenTaskLauncher } });
+      await tm.init();
+      boardOpen.value = false;
+      tm.runAction("new-tab");
+      await flush();
+      expect(onOpenTaskLauncher).toHaveBeenCalledTimes(enabled ? 1 : 0);
+      tm.dispose();
+    },
+  );
   async function ready(): Promise<TabManager> {
     boardOpen.value = false;
     onOpenTaskLauncher.mockClear();

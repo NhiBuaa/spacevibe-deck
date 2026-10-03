@@ -1,5 +1,5 @@
 /* oxlint-disable jest/valid-expect, vitest/valid-expect -- vitest expect() takes a failure message as its second argument */
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   NOT_REBINDABLE,
   SHORTCUT_GROUPS,
@@ -13,6 +13,24 @@ import {
   WINDOWS_KEYMAP,
   isActionId,
 } from "../../terminal/action-registry";
+
+const switchFixture = vi.hoisted(() => ({ enabled: true }));
+vi.mock("../../lib/release-switches", async (original) => {
+  const actual = await original<typeof import("../../lib/release-switches")>();
+  return { ...actual, resolveReleaseSwitches: () => ({ shortcutFixture: switchFixture.enabled }) };
+});
+vi.mock("../../terminal/action-registry", async (original) => {
+  const actual = await original<typeof import("../../terminal/action-registry")>();
+  return {
+    ...actual,
+    ACTION_REGISTRY: actual.ACTION_REGISTRY.map((action) =>
+      action.id === "find" ? { ...action, releaseSwitch: "shortcutFixture" } : action,
+    ),
+  };
+});
+afterEach(() => {
+  switchFixture.enabled = true;
+});
 
 const rows = () => shortcutGroups().flatMap((group) => group.rows);
 
@@ -95,5 +113,16 @@ describe("shortcutGroups", () => {
     const shown = shortcutGroups().map((group) => group.id);
     const declared = SHORTCUT_GROUPS.map((group) => group.id).filter((id) => shown.includes(id));
     expect(shown).toEqual(declared);
+  });
+});
+
+describe("release switch shortcut settings entrance", () => {
+  it.each([false, true])("lists only available feature actions with enabled=%s", (enabled) => {
+    switchFixture.enabled = enabled;
+    const actions = rows().map((row) => row.action);
+    expect(actions.includes("find")).toBe(enabled);
+    expect(actions).toContain("new-tab");
+    for (let index = 1; index <= TAB_SELECT_COUNT; index += 1)
+      expect(actions).toContain(`select-tab-${index}`);
   });
 });

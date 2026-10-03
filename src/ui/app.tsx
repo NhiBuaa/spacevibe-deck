@@ -1,3 +1,4 @@
+import { createMenuActionHandler } from "../terminal/action-availability";
 import { AgentLaunchPage } from "../launcher/agent-launch-page";
 import type { AgentLaunchContextProps } from "../launcher/agent-launch-context";
 import { TERMINAL_LAUNCH_ID, type AgentLaunchTarget } from "../terminal/agent-launch-target";
@@ -965,36 +966,39 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
     // the very action the keymap would have — same dispatch table, via
     // `runAction`. The payload crosses an IPC boundary as a plain string, so
     // it is validated rather than cast.
-    void listen<string>("menu:action", (event) => {
-      if (isUpdateMenuAction(event.payload)) {
-        void runUpdateMenuAction(event.payload, {
-          controller: updater,
-          openUrl: (url) => defaultLinkClient.openUrl(url),
-          notify: async (body, kind) => {
-            await message(body, { title: "SpaceVibe Deck", kind });
-          },
-          report: (diagnostic, error) => console.error(`${diagnostic}:`, error),
-        });
-        return;
-      }
-      if (event.payload === SEND_FEEDBACK_ACTION) {
-        defaultLinkClient
-          .openUrl(feedbackUrl(appVersion.value, getDesktopEnvironment().platform))
-          .catch(async (error: unknown) => {
-            console.error("Opening the feedback page failed:", error);
-            await message("Couldn't open the feedback page in your browser.", {
-              title: "SpaceVibe Deck",
-              kind: "error",
-            }).catch((dialogError: unknown) => {
-              console.error("Feedback error dialog failed:", dialogError);
-            });
+    void listen<string>(
+      "menu:action",
+      createMenuActionHandler((action) => {
+        if (isUpdateMenuAction(action)) {
+          void runUpdateMenuAction(action, {
+            controller: updater,
+            openUrl: (url) => defaultLinkClient.openUrl(url),
+            notify: async (body, kind) => {
+              await message(body, { title: "SpaceVibe Deck", kind });
+            },
+            report: (diagnostic, error) => console.error(`${diagnostic}:`, error),
           });
-        return;
-      }
-      if (isShortcutAction(event.payload)) {
-        tabsRef.current?.runAction(event.payload);
-      }
-    }).then((fn) => unsubs.push(fn));
+          return;
+        }
+        if (action === SEND_FEEDBACK_ACTION) {
+          defaultLinkClient
+            .openUrl(feedbackUrl(appVersion.value, getDesktopEnvironment().platform))
+            .catch(async (error: unknown) => {
+              console.error("Opening the feedback page failed:", error);
+              await message("Couldn't open the feedback page in your browser.", {
+                title: "SpaceVibe Deck",
+                kind: "error",
+              }).catch((dialogError: unknown) => {
+                console.error("Feedback error dialog failed:", dialogError);
+              });
+            });
+          return;
+        }
+        if (isShortcutAction(action)) {
+          tabsRef.current?.runAction(action);
+        }
+      }),
+    ).then((fn) => unsubs.push(fn));
     return () => unsubs.forEach((fn) => fn());
   }, []);
   /* oxlint-enable react-hooks/exhaustive-deps */
