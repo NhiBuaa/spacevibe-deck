@@ -42,7 +42,7 @@ name: Electron Release
 # holds a `tag_name` without creating the git ref, measured with a probe
 # release that produced an `untagged-…` URL and no remote tag.
 #
-# Why one file and four jobs, not one workflow per platform: two files
+# Why one file and five jobs, not one workflow per platform: two files
 # triggered by the same tag run with no knowledge of each other — both would
 # race to create the release (measured as run 32232669706, two drafts on one
 # tag, one target apart), and neither would have a point at which the full
@@ -60,7 +60,7 @@ permissions:
 
 jobs:
   prepare:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     outputs:
@@ -79,10 +79,6 @@ jobs:
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Refuse a tag that is not on main
         run: |
@@ -131,11 +127,18 @@ jobs:
             exit 1
           fi
 
-      - name: Validate source
+      - name: Require the exact nonempty release notes
+        env:
+          TAG: ${{ steps.target.outputs.tag }}
         run: |
-          npm run lint
-          npm test
-          npm run build
+          set -euo pipefail
+          awk -v ver="${TAG#v}" \
+            '$0 == "## " ver { found = 1; next } /^## / && found { exit } found { print }' \
+            CHANGELOG.md > section.md
+          if ! grep -q '[^[:space:]]' section.md; then
+            echo "CHANGELOG.md has no nonempty ## ${TAG#v} section"
+            exit 1
+          fi
 
       - name: Create the draft release before anything can publish into it
         env:
@@ -156,8 +159,34 @@ jobs:
           # the full asset set. `--target` is required because the release tag
           # does not exist yet, and must not until the artifacts are proven.
           # GitHub creates it from this commit at promotion time.
-          gh release create "$TAG" --draft --target "$GITHUB_SHA" \
+          gh release create "$TAG" --draft --target "$(git rev-parse HEAD)" \
             --title "$TAG" --notes "Build in progress."
+
+  source-check:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the exact tag
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate source
+        run: |
+          set -euo pipefail
+          npm run generate:menu:check
+          npm run lint
+          npm test
+          npm run build
 
   mac:
     needs: prepare
@@ -218,7 +247,7 @@ jobs:
           # a missing identity does NOT fail electron-builder, it silently
           # produces an unsigned app.
           node scripts/verify-electron-release-signing.mjs
-          # The renderer bundle is packed from `dist/`; `prepare`'s build ran
+          # The renderer bundle is packed from `dist/`; `source-check`'s build ran
           # on another runner and does not carry over.
           npm run build
           npm run electron:build
@@ -307,8 +336,8 @@ jobs:
     # transitive need leaves TAG/CHANNEL empty — measured on run 32382369994,
     # where `gh release view ""` quietly answered with the LATEST release
     # (the Tauri v0.12.3) and the asset census failed against the wrong one.
-    needs: [prepare, mac, windows]
-    runs-on: ubuntu-latest
+    needs: [prepare, source-check, mac, windows]
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     env:

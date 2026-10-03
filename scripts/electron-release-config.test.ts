@@ -25,7 +25,10 @@
  *
  * The package these lines produce is described in docs/operations/release.md.
  */
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const RELEASE_CONFIG_PATH = new URL("../electron-builder.release.yml", import.meta.url);
@@ -301,7 +304,7 @@ describe("the Electron release workflow", () => {
     // `[mac, windows]` alone, TAG/CHANNEL arrived empty and `gh release view`
     // quietly audited the LATEST release instead of the draft (run
     // 32382369994). The empty-output guard is the runtime half of this test.
-    expect(workflow).toContain("needs: [prepare, mac, windows]");
+    expect(workflow).toContain("needs: [prepare, source-check, mac, windows]");
     expect(workflow).toContain("prepare's outputs did not arrive");
   });
 
@@ -359,4 +362,155 @@ describe("the Electron release workflow", () => {
     expect(workflow).toContain('gh release edit "$TAG" --draft=false --latest');
     expect(workflow).toContain('gh release edit "$TAG" --draft=false --prerelease');
   });
+});
+
+describe("the release train dependency graph", () => {
+  function job(name: string): string {
+    const start = workflow.indexOf(`\n  ${name}:\n`);
+    expect(start).toBeGreaterThan(0);
+    // Match only top-level job keys, not indented steps.
+    return workflow.slice(start + 1).split(/\n(?=  [a-z][a-z-]*:\n)/)[0];
+  }
+  it("lets source and platforms overlap after one prepared draft", () => {
+    expect(job("prepare")).not.toContain("npm ci");
+    expect(job("prepare")).not.toContain("npm test");
+    expect(job("prepare")).toContain(
+      'gh release create "$TAG" --draft --target "$(git rev-parse HEAD)"',
+    );
+    for (const name of ["source-check", "mac", "windows"]) {
+      expect(job(name)).toMatch(/^    needs: prepare$/m);
+      expect(job(name)).not.toContain("needs: source-check");
+    }
+    expect(job("source-check")).toContain("set -euo pipefail");
+    for (const command of ["npm ci", "npm run generate:menu:check", "npm test", "npm run build"]) {
+      expect(job("source-check")).toContain(command);
+    }
+    expect(job("promote")).toMatch(/^    needs: \[prepare, source-check, mac, windows\]$/m);
+    expect(workflow).not.toMatch(/^\s*(?:if:.*always\(\)|continue-on-error:\s*true)/m);
+  });
+  it("pins only the Linux jobs participating in the train", () => {
+    for (const name of ["prepare", "source-check", "promote"]) {
+      expect(job(name)).toContain("runs-on: ubuntu-24.04");
+    }
+    const ci = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
+    expect(ci.match(/runs-on: ubuntu-24\.04/g)).toHaveLength(2);
+    expect(ci).not.toContain("runs-on: ubuntu-latest");
+  });
+  it("refuses empty notes before drafting and again before promotion", () => {
+    expect(job("prepare")).toContain("Require the exact nonempty release notes");
+    expect(job("promote")).toContain("CHANGELOG.md > section.md");
+    expect(job("promote")).toContain("the release stays a draft");
+  });
+});
+
+describe("release train executes fail-closed shell checks", () => {
+  function shellStep(name: string): string {
+    const start = workflow.indexOf(`      - name: ${name}\n`);
+    expect(start).toBeGreaterThan(0);
+    const remaining = workflow.slice(start);
+    const end = remaining.indexOf("\n      - name:", 1);
+    const step = remaining.slice(0, end < 0 ? undefined : end);
+    const run = step.indexOf("        run: |\n");
+    expect(run).toBeGreaterThan(0);
+    return step
+      .slice(run + "        run: |\n".length)
+      .split("\n")
+      .filter((line) => line.startsWith("          "))
+      .map((line) => line.slice(10))
+      .join("\n");
+  }
+  it("stops the actual source step at its first failed command", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "deck-source-check-"));
+    try {
+      writeFileSync(
+        join(cwd, "npm"),
+        '#!/bin/sh\nprintf "%s\\n" "$*" >> "$DECK_COMMAND_LOG"\nexit 7\n',
+        { mode: 0o700 },
+      );
+      const result = spawnSync("/bin/bash", ["-c", shellStep("Validate source")], {
+        cwd,
+        env: {
+          ...process.env,
+          PATH: `${cwd}:${process.env.PATH}`,
+          DECK_COMMAND_LOG: join(cwd, "commands.txt"),
+        },
+      });
+      expect(result.status).toBe(7);
+      expect(readFileSync(join(cwd, "commands.txt"), "utf8").trim()).toBe(
+        "run generate:menu:check",
+      );
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+  it.each([false, true])(
+    "requires nonempty exact-version notes before draft creation: %s",
+    (nonempty) => {
+      const cwd = mkdtempSync(join(tmpdir(), "deck-release-notes-"));
+      try {
+        writeFileSync(
+          join(cwd, "CHANGELOG.md"),
+          `## 2.2.1\n${nonempty ? "- Reviewed notes." : ""}\n## 2.2.0\nOld notes.\n`,
+        );
+        const result = spawnSync(
+          "/bin/bash",
+          ["-c", shellStep("Require the exact nonempty release notes")],
+          { cwd, env: { ...process.env, TAG: "v2.2.1" } },
+        );
+        expect(result.status).toBe(nonempty ? 0 : 1);
+      } finally {
+        rmSync(cwd, { recursive: true, force: true });
+      }
+    },
+  );
+  it.each(["success", "missing-zip", "missing-blockmap", "empty-output"])(
+    "checks the actual served-asset shell step: %s",
+    (scenario) => {
+      const cwd = mkdtempSync(join(tmpdir(), "deck-release-assets-"));
+      try {
+        const names = [
+          "deck.dmg",
+          "deck-mac.zip",
+          "deck-setup.exe",
+          "latest-mac.yml",
+          "latest.yml",
+          "deck-mac.zip.blockmap",
+          "deck-setup.exe.blockmap",
+        ]
+          .filter((name) => scenario !== "missing-zip" || name !== "deck-mac.zip")
+          .filter((name) => scenario !== "missing-blockmap" || name !== "deck-mac.zip.blockmap");
+        writeFileSync(join(cwd, "assets.txt"), names.join("\n") + "\n");
+        writeFileSync(
+          join(cwd, "gh"),
+          `#!/bin/sh
+if [ "$2" = "view" ]; then
+  cat assets.txt
+elif [ "$2" = "download" ]; then
+  printf 'path: deck-mac.zip\\n' > manifests/latest-mac.yml
+  printf 'path: deck-setup.exe\\n' > manifests/latest.yml
+else
+  exit 3
+fi
+`,
+          { mode: 0o700 },
+        );
+        const result = spawnSync(
+          "/bin/bash",
+          ["-c", shellStep("Confirm the draft carries the full two-platform asset set")],
+          {
+            cwd,
+            env: {
+              ...process.env,
+              PATH: `${cwd}:${process.env.PATH}`,
+              TAG: scenario === "empty-output" ? "" : "v2.2.1",
+              CHANNEL: "stable",
+            },
+          },
+        );
+        expect(result.status).toBe(scenario === "success" ? 0 : 1);
+      } finally {
+        rmSync(cwd, { recursive: true, force: true });
+      }
+    },
+  );
 });

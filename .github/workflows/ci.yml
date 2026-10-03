@@ -30,7 +30,7 @@ permissions:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -73,7 +73,7 @@ jobs:
   # No `wrangler deploy --dry-run` here: that step reads the live Cloudflare
   # account, and CI holds no credentials for it by design.
   backend-check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: backend
