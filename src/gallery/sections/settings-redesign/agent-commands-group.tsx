@@ -11,8 +11,8 @@ import { UndoSlot, useUndo } from "./use-undo-slot";
 /*
  * The launch-command list — the fix for "saved commands could never be removed"
  * and "commands for unknown binaries became orphans". One radio group: the
- * recommended command first (it ships with Deck and has no ×), then every
- * saved command with its own ×. The chosen one is `defaultCommandId`, null
+ * recommended command first (it ships with Deck and has no remove button), then every
+ * saved command with its own remove button. The chosen one is `defaultCommandId`, null
  * meaning the recommended one.
  */
 

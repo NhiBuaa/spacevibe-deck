@@ -89,7 +89,7 @@ function SearchField({ inputRef }: { readonly inputRef: RefObject<HTMLInputEleme
 
 function resultPath(hit: SettingEntry): string {
   const page = pageInfo(hit.page).label;
-  return hit.group === page ? page : `${page} › ${hit.group}`;
+  return hit.group === page ? page : `${page} · ${hit.group}`;
 }
 
 function SearchResults({

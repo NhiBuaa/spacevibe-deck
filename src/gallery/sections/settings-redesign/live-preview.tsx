@@ -117,7 +117,7 @@ function FocusedSample({ cursor, blink, detailed }: FocusedSampleProps) {
       </div>
       <div class="srd-preview__line">$ claude</div>
       <div class="srd-preview__line">
-        <span class="is-prompt">›</span> Refine the settings experience
+        <span class="is-prompt">❯</span> Refine the settings experience
       </div>
       <div class="srd-preview__line is-dim">Reading the workspace…</div>
       <div class="srd-preview__line is-ok">

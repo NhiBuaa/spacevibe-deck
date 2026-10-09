@@ -9,7 +9,7 @@ const MODIFIER_KEYS: ReadonlySet<string> = new Set(["Meta", "Control", "Alt", "S
 
 /** What the physical key prints, independent of what ⌥ turns it into. */
 const KEY_GLYPHS: Readonly<Record<string, string>> = {
-  Enter: "↩",
+  Enter: "⏎",
   Tab: "⇥",
   ArrowUp: "↑",
   ArrowDown: "↓",
@@ -31,7 +31,7 @@ const KEY_GLYPHS: Readonly<Record<string, string>> = {
 
 /*
  * Modifier order is ⌃⌘⌥⇧ — the order the demo keymap in model.ts is written in
- * (`⌃⇧⇥`, `⌘⌥↩`, `⌘⇧D`). Conflicts are found by string equality, so a recorded
+ * (`⌃⇧⇥`, `⌘⌥⏎`, `⌘⇧D`). Conflicts are found by string equality, so a recorded
  * chord must spell itself exactly like the seeded ones or it never collides.
  */
 function formatChord(event: KeyboardEvent): string {

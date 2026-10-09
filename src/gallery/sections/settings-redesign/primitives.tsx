@@ -39,7 +39,7 @@ interface SettingRowProps {
   readonly children: ComponentChildren;
 }
 
-/** One setting: key left, one value right, changed dot + ↺ when it differs from default. */
+/** One setting: key left, one value right, changed dot + reset when it differs from default. */
 export function SettingRow({ k, label, desc, children }: SettingRowProps) {
   const entry = registryEntry(k);
   const modified = isModified(k, settings.value);

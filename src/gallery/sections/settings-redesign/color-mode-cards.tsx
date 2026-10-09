@@ -35,7 +35,7 @@ function ModeMini({ mode }: { readonly mode: ColorMode }) {
 
 /**
  * Light / Dark / Match system as pictured radio cards. The row is the registry
- * row for `colorMode`, so the changed dot, ↺ and search-jump flash all work;
+ * row for `colorMode`, so the changed dot, reset and search-jump flash all work;
  * its stylesheet turns it into a header line with the cards underneath.
  */
 export function ColorModeCards() {
