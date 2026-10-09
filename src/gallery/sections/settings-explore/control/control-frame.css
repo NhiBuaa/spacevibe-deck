@@ -12,6 +12,12 @@
   outline-offset: 2px;
 }
 
+/* A heading takes focus only so a screen reader announces the new screen; it is not a
+   control, so it draws no ring. */
+.ctl-frame.srd-frame [data-ctl-heading]:focus-visible {
+  outline: 0;
+}
+
 /* The field's own ring is drawn by its label, so the input inside draws none. */
 .ctl-frame.srd-frame .ctl-search input:focus-visible {
   outline: 0;

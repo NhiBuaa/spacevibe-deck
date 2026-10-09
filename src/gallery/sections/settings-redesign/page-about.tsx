@@ -5,7 +5,7 @@ import { Action, Group, PageIntro, PlainRow } from "./primitives";
 import { Result, useTransient } from "./misc-actions";
 import "./pages-misc.css";
 
-const APP_VERSION = "2.3.0";
+const APP_VERSION = "2.9.0";
 const CHECK_MS = 900;
 const LATEST = "You're on the latest version";
 const ANALYTICS_SUMMARY = "Always on. No code, paths or prompts.";

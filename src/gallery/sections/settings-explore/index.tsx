@@ -62,6 +62,9 @@ export function SettingsExploreSection() {
       {current.replaces.length > 0 && (
         <p class="sx-replaces">Replaces: {current.replaces.join(" · ")}</p>
       )}
+      {current.invariants.length > 0 && (
+        <p class="sx-replaces">Bends invariants: {current.invariants.join(" · ")}</p>
+      )}
       <DemoToolbar />
       <Frame />
     </div>

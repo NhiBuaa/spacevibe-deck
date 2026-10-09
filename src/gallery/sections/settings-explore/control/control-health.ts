@@ -49,7 +49,7 @@ export interface HealthTile {
   readonly fix?: HealthFix;
 }
 
-export const APP_VERSION = "2.3.0";
+export const APP_VERSION = "2.9.0";
 const LOADING_FACT = "…";
 
 const plural = (count: number, noun: string): string => `${count} ${noun}${count === 1 ? "" : "s"}`;
