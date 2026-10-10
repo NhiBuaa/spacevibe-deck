@@ -16,6 +16,8 @@ interface LaunchCommandPreviewProps {
   readonly commandFor: (agentId: string) => string | null;
   /** The checkout the launch lands in, as the context row prints it. */
   readonly folder: string;
+  /** The same checkout in full: the line shortens `folder` with an ellipsis, this is its title. */
+  readonly folderPath: string;
   /** The context row's chip: where a card press lands. */
   readonly placement: string;
   /** The profile chip, at the line's right end (DL-32.6). */
@@ -41,8 +43,12 @@ export function LaunchCommandPreview(props: LaunchCommandPreviewProps) {
         ) : (
           <>
             {shell ? <span>Opens a plain shell</span> : <code>{command}</code>}
-            <span>in {props.folder}</span>
-            <span class="agent-launch-page__preview-faint">· {where}</span>
+            <span class="agent-launch-page__preview-path" title={props.folderPath}>
+              in {props.folder}
+            </span>
+            <span class="agent-launch-page__preview-faint agent-launch-page__preview-where">
+              · {where}
+            </span>
           </>
         )}
       </p>

@@ -137,11 +137,14 @@ export function AgentLaunchPage(props: AgentLaunchPageProps) {
           preview={{ describedBy: PREVIEW_ID, shown: preview, onPreview }}
           terminal
         />
+        {/* The preview line pins to the page's bottom edge, so it stays the last child. */}
+        {props.pending ? <p role="status">Opening agent…</p> : null}
         <LaunchCommandPreview
           id={PREVIEW_ID}
           subject={preview}
           commandFor={activeCommand}
           folder={tildify(context.checkoutPath, homeDir)}
+          folderPath={context.checkoutPath}
           placement={context.chip}
         >
           {/* DL-32.5: nothing to choose between, so no chip. */}
@@ -155,7 +158,6 @@ export function AgentLaunchPage(props: AgentLaunchPageProps) {
             />
           ) : null}
         </LaunchCommandPreview>
-        {props.pending ? <p role="status">Opening agent…</p> : null}
       </div>
     </section>
   );

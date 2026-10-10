@@ -292,6 +292,26 @@ describe("compact Original launch page", () => {
       expect(preview().querySelector("code")).toBeNull();
     });
 
+    it("lets the folder shorten, with its full path as the title, and keeps the placement whole", () => {
+      mount({
+        contextRow: contextRow({ checkoutPath: "/Users/dev/code/a-very-long-checkout-name" }),
+      });
+      hover(claudeCard());
+      const path = preview().querySelector<HTMLElement>(".agent-launch-page__preview-path")!;
+      expect(path.textContent).toBe("in ~/code/a-very-long-checkout-name");
+      expect(path.title).toBe("/Users/dev/code/a-very-long-checkout-name");
+      expect(preview().querySelector(".agent-launch-page__preview-where")?.textContent).toBe(
+        "· Split beside Claude Code",
+      );
+    });
+
+    it("stays the page's last child, below the Opening line, so it can pin to the bottom", () => {
+      mount({ pending: true });
+      const inner = host.querySelector(".agent-launch-page__inner")!;
+      expect(inner.lastElementChild?.className).toBe("agent-launch-page__preview");
+      expect(inner.textContent).toContain("Opening agent…");
+    });
+
     it("always says New space for the ⊕ button, then falls back to the press", () => {
       mount({ onRunInNewSpace: vi.fn() });
       const alt = host.querySelector<HTMLButtonElement>(".agent-launch-page__alt")!;

@@ -118,44 +118,47 @@ export function LaunchProfilePopover(props: LaunchProfilePopoverProps) {
       </button>
       {open.value ? (
         <div class="launch-profile__menu" role="menu" aria-label="Launch profile">
-          {props.sections.map((section) => (
-            <div key={section.id} role="group" aria-label={section.label}>
-              <div class="launch-profile__section">
-                <AgentGlyph
-                  agent={section.id.startsWith("custom:") ? section.label : section.id}
-                  className="launch-profile__glyph"
-                />
-                {section.label}
+          {/* Only the commands scroll: the Settings row below stays in reach. */}
+          <div class="launch-profile__list">
+            {props.sections.map((section) => (
+              <div key={section.id} role="group" aria-label={section.label}>
+                <div class="launch-profile__section">
+                  <AgentGlyph
+                    agent={section.id.startsWith("custom:") ? section.label : section.id}
+                    className="launch-profile__glyph"
+                  />
+                  {section.label}
+                </div>
+                {section.choices.commands.map((command) => {
+                  const selected = command === section.active;
+                  return (
+                    <button
+                      key={command}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={selected}
+                      tabIndex={-1}
+                      title={command}
+                      onClick={() => {
+                        close();
+                        props.onPick(section.id, command);
+                      }}
+                    >
+                      {selected ? (
+                        <DeckIcon icon={Check} size={ROW_ICON} />
+                      ) : (
+                        <span class="launch-profile__check" />
+                      )}
+                      <span class="launch-profile__command">{command}</span>
+                      {command === section.choices.default ? (
+                        <span class="launch-profile__default">default</span>
+                      ) : null}
+                    </button>
+                  );
+                })}
               </div>
-              {section.choices.commands.map((command) => {
-                const selected = command === section.active;
-                return (
-                  <button
-                    key={command}
-                    type="button"
-                    role="menuitemradio"
-                    aria-checked={selected}
-                    tabIndex={-1}
-                    title={command}
-                    onClick={() => {
-                      close();
-                      props.onPick(section.id, command);
-                    }}
-                  >
-                    {selected ? (
-                      <DeckIcon icon={Check} size={ROW_ICON} />
-                    ) : (
-                      <span class="launch-profile__check" />
-                    )}
-                    <span class="launch-profile__command">{command}</span>
-                    {command === section.choices.default ? (
-                      <span class="launch-profile__default">default</span>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
+            ))}
+          </div>
           <div class="launch-profile__separator" role="separator" />
           <button
             type="button"

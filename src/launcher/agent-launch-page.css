@@ -12,6 +12,10 @@
   overflow: auto;
   overscroll-behavior: contain;
   padding: clamp(24px, 4vw, 48px);
+  /* The preview line pins to the bottom edge, so no padding may sit under it: a sticky offset
+     is measured from the scrollport, and a gap here would make the line rise by that much
+     over the last stretch of a scroll instead of resting where it pins. */
+  padding-bottom: 0;
   color: var(--text-primary);
   background: var(--bg);
   container-type: inline-size;
@@ -26,6 +30,11 @@
   outline: none;
 }
 .agent-launch-page__inner {
+  /* A column as tall as the page, so the preview line rests at the bottom of a short page
+     (`margin-top: auto`) and pins there on a long one. */
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
   max-width: 800px;
   margin: 0 auto;
 }
@@ -46,6 +55,7 @@
   opacity: 0.5;
 }
 .agent-launch-page__back {
+  align-self: flex-start;
   display: inline-flex;
   gap: 8px;
   align-items: center;
@@ -123,6 +133,13 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
   gap: 8px;
+}
+/* Flex items do not collapse margins: say the gaps the block flow used to give. */
+.agent-launch-page__inner > p {
+  margin: 0 0 12px;
+}
+.agent-launch-page__inner > .agent-launch-page__grid {
+  margin-bottom: 14px;
 }
 /* A tile (mock `.tile`): one press covering the card, the ⊕ and Install as its siblings. */
 .agent-launch-page__card {
@@ -245,28 +262,50 @@
    the line changes under the pointer. DL-4.1's one exception: the command is `--board-font`,
    because its flags, quotes and spaces must read exactly as they will run. */
 .agent-launch-page__preview {
+  /* Pinned to the scrollport's bottom edge (mock `.preview`): tiles scroll under it, so the
+     line is on screen whichever tile is hovered. `margin-top: auto` rests it at the bottom of a
+     page too short to scroll. Above the tiles' own z-index 1 controls. */
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 10px;
   box-sizing: border-box;
   min-height: 46px;
-  margin-top: 14px;
+  margin-top: auto;
   padding: 8px 0;
   border-top: 1px solid var(--hair);
+  background: var(--bg);
   color: var(--text-muted);
   font-size: var(--type-meta);
 }
+/* One line: the folder gives way first, the command never does. */
 .agent-launch-page .agent-launch-page__preview-line {
   display: flex;
   flex: 1 1 auto;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 4px 10px;
   min-width: 0;
   margin: 0;
   font-size: var(--type-meta);
 }
+.agent-launch-page__preview-path {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-launch-page__preview-where {
+  flex: none;
+  white-space: nowrap;
+}
 .agent-launch-page__preview-line code {
+  /* Wraps only when it alone is wider than 60% of the line; it is never cut short. */
+  flex: 0 0 auto;
+  max-width: 60%;
   min-width: 0;
   padding: 3px 7px;
   border: 1px solid var(--hair);
@@ -281,8 +320,9 @@
 .agent-launch-page__preview-faint {
   color: var(--text-faint);
 }
-/* The profile chip and its popover (DL-13.1, PAGE4). The menu opens downward: the page scrolls,
-   so a tall menu stays reachable, whereas one opening upward would clip at the page's top. */
+/* The profile chip and its popover (DL-13.1, PAGE4). The line is pinned to the page's bottom
+   edge, so the menu opens upward: below it there is no room. The page is always as tall as
+   its scrollport (`__inner` min-height), so the room above is the page's own height. */
 .launch-profile {
   position: relative;
   flex: none;
@@ -310,19 +350,24 @@
 }
 .launch-profile__menu {
   position: absolute;
-  top: calc(100% + 8px);
+  bottom: calc(100% + 8px);
   right: 0;
   z-index: 3;
   /* No global reset (traps.md): the padding must stay inside the width. */
   box-sizing: border-box;
   width: min(380px, calc(100cqw - 48px));
   max-height: min(360px, 60vh);
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   padding: 5px;
   border-radius: var(--radius-surface);
   background: var(--chrome-2);
   box-shadow: inset 0 0 0 1px var(--seam-raised);
   color: var(--text-primary);
+}
+.launch-profile__list {
+  min-height: 0;
+  overflow-y: auto;
 }
 .agent-launch-page .launch-profile__menu button {
   display: flex;
@@ -374,6 +419,10 @@
   flex: none;
   color: var(--text-faint);
   font-size: var(--type-micro);
+}
+.launch-profile__separator,
+.agent-launch-page .launch-profile__menu > button {
+  flex: none;
 }
 .launch-profile__separator {
   height: 1px;
