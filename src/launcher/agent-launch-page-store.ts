@@ -4,6 +4,7 @@ import type {
   AgentLaunchPlacement,
   AgentLaunchResult,
   AgentLaunchReceipt,
+  LaunchCommandOverride,
 } from "../terminal/agent-launch-target";
 
 export interface AgentLaunchPageRequest {
@@ -14,6 +15,8 @@ export interface AgentLaunchPageRequest {
     placement: AgentLaunchPlacement,
     /** The target as it stands when the press runs: a re-target may have replaced the opened one. */
     target: AgentLaunchTarget,
+    /** The command a profile pick (PAGE4) asks to type instead of the agent's default. */
+    override?: LaunchCommandOverride,
   ) => Promise<AgentLaunchResult>;
   /**
    * Re-captures the target for another workspace path; null when none can be
@@ -37,8 +40,10 @@ export interface AgentLaunchPageRequest {
  */
 export function eventInOpenLaunchPopover(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
-  const picker = target.closest(".agent-launch-page .nt-workspace-picker");
-  return picker?.querySelector('[role="menu"]') != null;
+  const popover = target.closest(
+    ".agent-launch-page .nt-workspace-picker, .agent-launch-page .launch-profile",
+  );
+  return popover?.querySelector('[role="menu"]') != null;
 }
 
 /** A page request owns navigation until another explicit navigation supersedes it. */
@@ -85,7 +90,11 @@ export function createAgentLaunchPageStore() {
     return true;
   }
 
-  async function run(agentId: string, placement: AgentLaunchPlacement = "target"): Promise<void> {
+  async function run(
+    agentId: string,
+    placement: AgentLaunchPlacement = "target",
+    override?: LaunchCommandOverride,
+  ): Promise<void> {
     const current = request.value;
     if (current === null || pending.value) return;
     const ownEpoch = epoch;
@@ -93,7 +102,7 @@ export function createAgentLaunchPageStore() {
     pending.value = true;
     error.value = null;
     try {
-      const result = await current.launch(agentId, isCurrent, placement, current.target);
+      const result = await current.launch(agentId, isCurrent, placement, current.target, override);
       if (!isCurrent()) return;
       if (result.kind === "spawned") {
         request.value = null;

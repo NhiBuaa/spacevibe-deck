@@ -38,7 +38,11 @@ import {
   probeNames,
   resolveAgentCommand,
 } from "../lib/agent-catalog";
-import { agentLaunchCommand, resolveLaunchCommand } from "../lib/launch-command";
+import {
+  agentLaunchCommand,
+  agentLaunchCommandChoices,
+  resolveLaunchCommand,
+} from "../lib/launch-command";
 import { countAgentLaunch } from "../telemetry/usage-counters";
 import { createAgentRegistrySync } from "./agent-registry-sync";
 import { agentRegistry as fetchAgentRegistry } from "../host/agent-registry-host";
@@ -1512,6 +1516,22 @@ export function createTabManager(
     return id === null ? null : { owner, paneId: id };
   }
 
+  /**
+   * A launch-page pick (PAGE4) is typed into a live shell, so it is accepted only
+   * while the agent is launchable and still lists that exact command.
+   */
+  function pageProfileCommand(agentId: string, picked: string): string | null {
+    if (pageAgentCommand(agentId) === null) return null;
+    const current = settings.value;
+    const choices = agentLaunchCommandChoices(
+      agentId,
+      current.launchProfiles,
+      current.defaultLaunchProfiles,
+      current.customAgents,
+    );
+    return choices?.commands.includes(picked) === true ? picked : null;
+  }
+
   async function launchAgentAtTarget(
     target: AgentLaunchTarget,
     agentId: string,
@@ -1528,14 +1548,29 @@ export function createTabManager(
       return { kind: "failed", message: "This install command cannot be run." };
     // The Terminal card runs no command: the pane stays a bare shell.
     const shell = agentId === TERMINAL_LAUNCH_ID;
-    const command = install ? override.command : shell ? null : pageAgentCommand(agentId);
+    const profile = override?.kind === "profile" ? override.command : null;
+    const command = install
+      ? override.command
+      : shell
+        ? null
+        : profile !== null
+          ? pageProfileCommand(agentId, profile)
+          : pageAgentCommand(agentId);
     if (!shell && command === null)
       return {
         kind: "failed",
-        message: "This agent is no longer available. Choose another agent.",
+        message:
+          profile !== null && pageAgentCommand(agentId) !== null
+            ? "That launch command is no longer available. Choose another."
+            : "This agent is no longer available. Choose another agent.",
       };
     const valid = () =>
-      !disposed && canCommit() && (shell || install || pageAgentCommand(agentId) === command);
+      !disposed &&
+      canCommit() &&
+      (shell ||
+        install ||
+        (profile !== null ? pageProfileCommand(agentId, profile) : pageAgentCommand(agentId)) ===
+          command);
     const finishStartupSpawn = beginWindowsStartupSpawn();
     try {
       const created = await createPageLaunchPane(target, valid, checkoutRoots);

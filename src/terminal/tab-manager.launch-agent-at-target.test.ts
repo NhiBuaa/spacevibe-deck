@@ -12,6 +12,10 @@ vi.mock("../lib/native-notification", () => ({
   sendAgentNotification: vi.fn(),
 }));
 
+vi.mock("../telemetry/usage-counters", () => ({
+  countAgentLaunch: vi.fn(),
+}));
+
 let windowFocus = freshWindowFocusController();
 
 vi.mock("../host/window-host", () => ({
@@ -28,6 +32,7 @@ vi.mock("../host/window-host", () => ({
 }));
 
 import { detectedAgents } from "./agent-detection-store";
+import { countAgentLaunch } from "../telemetry/usage-counters";
 import { persistError } from "../chrome/events";
 import { createMemoryTransferClient } from "./transfer-client";
 
@@ -395,6 +400,152 @@ describe("explicit agent launch target", () => {
     expect((await tm.launchAgentAtTarget(target, "claude", () => true)).kind).toBe("failed");
     expect(pty.sessions.size).toBe(sessionsBefore);
     expect(pty.writes).toEqual([]);
+    tm.dispose();
+  });
+});
+
+describe("profile launch override (PAGE4)", () => {
+  const PLAN = "claude --permission-mode plan";
+  const NEW_SPACE = { kind: "new-space", workspacePath: "/repo" } as const;
+  const pick = (command: string) => ({ kind: "profile", command }) as const;
+  const shellPty = (...ids: number[]) =>
+    createMemoryPtyClient({
+      nextId: 1,
+      infos: new Map(ids.map((id) => [id, processInfo(id, "/repo", "zsh", "idle-shell", null)])),
+    });
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.mocked(countAgentLaunch).mockClear();
+    settings.value = {
+      ...DEFAULT_SETTINGS,
+      launchProfiles: [{ id: "lp:plan", command: PLAN }],
+    };
+    initializeDesktopEnvironment({ platform: "macos", homeDir: "/Users/dev" });
+    tabViews.value = [];
+    activeTabIndex.value = -1;
+    detectedAgents.value = [{ name: "claude", path: "/bin/claude" }];
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    resetDesktopEnvironmentForTests();
+  });
+
+  it("types a command the agent lists, and records and counts it like any launch", async () => {
+    const pty = shellPty(1, 2);
+    const { tm } = wire(pty);
+    await tm.openQuickAgent(null, "/repo");
+    const result = await tm.launchAgentAtTarget(
+      NEW_SPACE,
+      "claude",
+      () => true,
+      undefined,
+      pick(PLAN),
+    );
+    if (result.kind !== "spawned") throw new Error("Expected spawned pane");
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(pty.writes).toEqual([{ id: result.receipt.paneId, data: `${PLAN}\r` }]);
+    expect(tm.launchCommandFor(result.receipt.paneId)).toBe(PLAN);
+    expect(countAgentLaunch).toHaveBeenCalledExactlyOnceWith("claude");
+    tm.dispose();
+  });
+
+  it("refuses a command the agent does not list, before any pane exists", async () => {
+    const pty = shellPty(1, 2);
+    const { tm } = wire(pty);
+    await tm.openQuickAgent(null, "/repo");
+    for (const command of [
+      "claude --not-a-listed-flag",
+      "codex --sandbox read-only",
+      "claude; rm",
+    ]) {
+      const result = await tm.launchAgentAtTarget(
+        NEW_SPACE,
+        "claude",
+        () => true,
+        undefined,
+        pick(command),
+      );
+      expect(result).toEqual({
+        kind: "failed",
+        message: "That launch command is no longer available. Choose another.",
+      });
+    }
+    expect(tm.allPaneIds()).toEqual([1]);
+    expect(pty.writes).toEqual([]);
+    expect(countAgentLaunch).not.toHaveBeenCalled();
+    tm.dispose();
+  });
+
+  it("cannot launch an agent that is not installed", async () => {
+    detectedAgents.value = [];
+    const pty = shellPty(1, 2);
+    const { tm } = wire(pty);
+    await tm.openQuickAgent(null, "/repo");
+    const result = await tm.launchAgentAtTarget(
+      NEW_SPACE,
+      "claude",
+      () => true,
+      undefined,
+      pick(PLAN),
+    );
+    expect(result).toEqual({
+      kind: "failed",
+      message: "This agent is no longer available. Choose another agent.",
+    });
+    expect(tm.allPaneIds()).toEqual([1]);
+    tm.dispose();
+  });
+
+  it("launches the stored default with no override, and ignores a pick on the Terminal card", async () => {
+    const pty = shellPty(1, 2, 3);
+    const { tm } = wire(pty);
+    await tm.openQuickAgent(null, "/repo");
+    const plain = await tm.launchAgentAtTarget(NEW_SPACE, "claude", () => true);
+    const shell = await tm.launchAgentAtTarget(
+      NEW_SPACE,
+      TERMINAL_LAUNCH_ID,
+      () => true,
+      undefined,
+      pick(PLAN),
+    );
+    if (plain.kind !== "spawned" || shell.kind !== "spawned") throw new Error("Expected panes");
+    await vi.advanceTimersByTimeAsync(3000);
+    // No profile is starred, so the plain launch types the first command the user wrote.
+    expect(tm.launchCommandFor(plain.receipt.paneId)).toBe(PLAN);
+    expect(tm.launchCommandFor(shell.receipt.paneId)).toBeNull();
+    expect(pty.writes.map((write) => write.id)).toEqual([plain.receipt.paneId]);
+    tm.dispose();
+  });
+
+  it("drops a pick that stopped being listed while the pane was opening", async () => {
+    const base = shellPty(1);
+    let release!: () => void;
+    const wait = new Promise<void>((done) => {
+      release = done;
+    });
+    const pty = {
+      ...base,
+      spawnShell: async (...args: Parameters<typeof base.spawnShell>) => {
+        await wait;
+        return base.spawnShell(...args);
+      },
+    };
+    const { tm } = wire(pty);
+    const pending = tm.launchAgentAtTarget(
+      tm.captureAgentLaunchTarget("/repo")!,
+      "claude",
+      () => true,
+      undefined,
+      pick(PLAN),
+    );
+    settings.value = { ...DEFAULT_SETTINGS, launchProfiles: [] };
+    release();
+    expect((await pending).kind).toBe("failed");
+    expect(base.sessions.size).toBe(0);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(base.writes).toEqual([]);
+    expect(countAgentLaunch).not.toHaveBeenCalled();
     tm.dispose();
   });
 });

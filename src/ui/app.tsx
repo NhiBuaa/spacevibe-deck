@@ -1397,7 +1397,7 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
           element.inert = false;
       },
       retarget: (path) => manager.captureAgentLaunchTarget(path, roots()),
-      launch: async (agentId, canCommit, placement, current) => {
+      launch: async (agentId, canCommit, placement, current, override) => {
         const result = await manager.launchAgentAtTarget(
           placement === "new-space"
             ? { kind: "new-space", workspacePath: current.workspacePath }
@@ -1405,6 +1405,7 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
           agentId,
           canCommit,
           roots,
+          override,
         );
         // A space the launch created beside the folder's others — the `New
         // space` press, or a captured new-space target (RAIL4) — is named
@@ -2560,11 +2561,11 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
                 !agentQuickPickerOpen.value &&
                 !usageConsentOpen.value
               }
-              onRun={(id) => {
-                void agentLaunchPage.run(id);
+              onRun={(id, override) => {
+                void agentLaunchPage.run(id, "target", override);
               }}
-              onRunInNewSpace={(id) => {
-                void agentLaunchPage.run(id, "new-space");
+              onRunInNewSpace={(id, override) => {
+                void agentLaunchPage.run(id, "new-space", override);
               }}
               onBack={() => agentLaunchPage.close(true)}
               onSettings={() => {

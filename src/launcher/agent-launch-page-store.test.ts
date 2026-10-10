@@ -27,6 +27,16 @@ describe("agent launch page state", () => {
     expect(restoreFocus).toHaveBeenCalledOnce();
   });
 
+  it("hands a profile override to the launch, and none when a Run carries none", async () => {
+    const page = createAgentLaunchPageStore();
+    const launch = vi.fn<AgentLaunchRequest["launch"]>(async () => ({ kind: "cancelled" }));
+    page.open({ target, launch, restoreFocus: vi.fn(), reveal: vi.fn() });
+    const pick = { kind: "profile", command: "claude --plan" } as const;
+    await page.run("claude", "new-space", pick);
+    await page.run("claude");
+    expect(launch.mock.calls.map((call) => call[4])).toEqual([pick, undefined]);
+  });
+
   it("serializes Run and prevents stale completion from closing a newer page", async () => {
     const page = createAgentLaunchPageStore();
     let resolve!: (result: AgentLaunchResult) => void;
