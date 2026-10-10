@@ -2,7 +2,39 @@
 import { render } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { probeNames } from "../lib/agent-catalog";
+import { initializeDesktopEnvironment, resetDesktopEnvironmentForTests } from "../lib/platform";
+import { DEFAULT_SETTINGS } from "../settings/settings-schema";
+import { settings } from "../settings/settings-store";
+import { agentsProbed, detectedAgents } from "../terminal/agent-detection-store";
+import {
+  registerAgentInstallHost,
+  resetAgentInstallForTests,
+  startAgentInstall,
+} from "./agent-install-store";
 import { AgentLaunchPage, type AgentLaunchPageProps } from "./agent-launch-page";
+
+// Track B's real commands are not the subject here: `amp` has one, every other agent has none.
+vi.mock("../lib/agent-catalog", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/agent-catalog")>();
+  const amp = {
+    macos: { command: "amp-installer", source: "https://example.test", checked: "2026-10-10" },
+    windows: null,
+  };
+  return {
+    ...actual,
+    BUILTIN_AGENTS: actual.BUILTIN_AGENTS.map((agent) => ({
+      ...agent,
+      install: agent.id === "amp" ? amp : { macos: null, windows: null },
+    })),
+  };
+});
+
+const probe = vi.hoisted(() => ({ ensureAgentsDetected: vi.fn(async () => []) }));
+vi.mock("../terminal/agent-detection-store", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../terminal/agent-detection-store")>()),
+  ensureAgentsDetected: probe.ensureAgentsDetected,
+}));
 
 // Keep the real module's other exports (CHROME_ICON, ...) so a new export cannot break this mock.
 vi.mock("../ui/controls/deck-icon", async (importOriginal) => ({
@@ -250,5 +282,43 @@ describe("compact Original launch page", () => {
     });
     expect(host.querySelector('[role="menu"]')).toBeNull();
     expect(props.onBack).not.toHaveBeenCalled();
+  });
+});
+
+describe("launch cards and a pending install", () => {
+  beforeEach(() => {
+    initializeDesktopEnvironment({ platform: "macos", homeDir: "/Users/dev" });
+    settings.value = DEFAULT_SETTINGS;
+    detectedAgents.value = [];
+    agentsProbed.value = true;
+    probe.ensureAgentsDetected.mockClear();
+  });
+  afterEach(() => {
+    resetAgentInstallForTests();
+    resetDesktopEnvironmentForTests();
+    detectedAgents.value = [];
+    agentsProbed.value = false;
+  });
+
+  it("forces one full-list probe when the cards mount with an install pending", async () => {
+    registerAgentInstallHost({
+      open: async () => ({
+        kind: "spawned",
+        receipt: { tabKey: 1, paneId: 2, canFocus: () => false },
+      }),
+      focus: vi.fn(),
+    });
+    await startAgentInstall("amp");
+    expect(probe.ensureAgentsDetected).not.toHaveBeenCalled();
+    mount();
+    expect(probe.ensureAgentsDetected).toHaveBeenCalledExactlyOnceWith(
+      probeNames(settings.value.customAgents),
+      { force: true },
+    );
+  });
+
+  it("does not probe when nothing is pending", () => {
+    mount();
+    expect(probe.ensureAgentsDetected).not.toHaveBeenCalled();
   });
 });

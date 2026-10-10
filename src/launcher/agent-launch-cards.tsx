@@ -4,6 +4,7 @@ import { ArrowRight, Plus, PlusCircle, Terminal } from "@phosphor-icons/react";
 import type { AgentOption } from "../lib/agent-catalog";
 import { TERMINAL_LAUNCH_ID } from "../terminal/agent-launch-target";
 import { AgentGlyph } from "../ui/controls/agent-glyph";
+import { noteAgentListShown } from "./agent-install-store";
 import { CHROME_ICON, DeckIcon } from "../ui/controls/deck-icon";
 import { useStageOverlayFlag, useSurfacePlacement } from "../ui/worktree-card-menus";
 import "./agent-launch-page.css";
@@ -106,6 +107,7 @@ function NewSpaceButton(props: { agent: AgentOption; disabled: boolean; onPress:
 
 /** DL-32.1 / DL-32.6: one card treatment on both launch surfaces. */
 export function AgentLaunchCards(props: AgentLaunchCardsProps) {
+  useEffect(() => noteAgentListShown(), []);
   const cards = props.terminal === true ? [...props.agents, TERMINAL_OPTION] : props.agents;
   return (
     <div class="agent-launch-page__grid" aria-busy={props.pending}>
