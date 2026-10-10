@@ -156,4 +156,64 @@ describe("agent detection store", () => {
     expect(recovered).toEqual([CLAUDE]);
     expect(host.detectAgents).toHaveBeenCalledTimes(2);
   });
+  describe("forced probes", () => {
+    it("probes again on a fresh warm cache and resolves to the new list", async () => {
+      await ensureAgentsDetected(["claude"]);
+      host.detectAgents.mockResolvedValue([CLAUDE, CODEX]);
+
+      vi.setSystemTime(NOW + 1);
+      const found = await ensureAgentsDetected(["claude"], { force: true });
+
+      expect(found).toEqual([CLAUDE, CODEX]);
+      expect(detectedAgents.value).toEqual([CLAUDE, CODEX]);
+      expect(host.detectAgents).toHaveBeenCalledTimes(2);
+    });
+
+    it("queues one follow-up behind a probe in flight and shares it", async () => {
+      const gates: (() => void)[] = [];
+      let probes = 0;
+      host.detectAgents.mockImplementation(async () => {
+        const n = ++probes;
+        await new Promise<void>((resolve) => gates.push(resolve));
+        return n === 1 ? [CLAUDE] : [CLAUDE, CODEX];
+      });
+
+      // The unforced probe is already running when the forced calls arrive: it
+      // began before the install finished, so none of them may join it.
+      const first = ensureAgentsDetected(["claude"]);
+      const forced = [1, 2, 3].map(() => ensureAgentsDetected(["claude"], { force: true }));
+      expect(host.detectAgents).toHaveBeenCalledTimes(1);
+
+      gates[0]();
+      await first;
+      await vi.waitFor(() => {
+        expect(host.detectAgents).toHaveBeenCalledTimes(2);
+      });
+      gates[1]();
+
+      expect(await Promise.all(forced)).toEqual([
+        [CLAUDE, CODEX],
+        [CLAUDE, CODEX],
+        [CLAUDE, CODEX],
+      ]);
+      expect(host.detectAgents).toHaveBeenCalledTimes(2);
+      expect(detectedAgents.value).toEqual([CLAUDE, CODEX]);
+    });
+
+    it("keeps the last good list on failure and does not stamp the cache", async () => {
+      await ensureAgentsDetected(["claude"]);
+      host.detectAgents.mockRejectedValueOnce(new Error("bridge is gone"));
+
+      vi.setSystemTime(NOW + 1);
+      const found = await ensureAgentsDetected(["claude"], { force: true });
+
+      expect(found).toEqual([CLAUDE]);
+      expect(detectedAgents.value).toEqual([CLAUDE]);
+      // The failed probe stamped nothing, so the original stamp still ages out
+      // on schedule and the next unforced caller refreshes behind its answer.
+      vi.setSystemTime(NOW + REVALIDATE_AFTER_MS);
+      await ensureAgentsDetected(["claude"]);
+      expect(host.detectAgents).toHaveBeenCalledTimes(3);
+    });
+  });
 });
