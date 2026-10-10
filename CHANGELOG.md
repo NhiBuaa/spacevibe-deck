@@ -36,9 +36,9 @@ the release PR, and frozen at the tag — never an auto-generated commit list.
   launch list. It opens a terminal named after the agent and runs the vendor's own
   [install command](src/lib/agents/agent-definition.ts) there; hover the button to see the
   command, and answer the installer's prompts in the terminal. Deck notices the new agent
-  when you come back to the window or open an agent list, and **Refresh** now always checks
-  again. An agent with no known command shows **Get**, which opens its website.
-  Electron only.
+  when you come back to the window or open an agent list, adds it to your quick agents, and
+  **Refresh** now always checks again. An agent with no known command shows **Get**, which
+  opens its website. Electron only.
 
 ## 2.9.0
 
