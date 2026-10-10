@@ -1,8 +1,9 @@
 # Install agents from Deck
 
 Date: 2026-10-10
-Status: Draft. The owner chose the direction on 2026-10-10 (decision 1). Two questions are still open
-([Open decisions](#open-decisions)), and the plan is drafted once they are answered.
+Status: Active. Every decision was taken on 2026-10-10 (1–4). The plan is
+`docs/plans/2026-10-10-agent-install.md`, which is local and gitignored. The owner authorized
+implementing it on 2026-10-10.
 Owner checkout: `/Users/kyantran/Documents/Development/spacevibe-workspace/spacevibe-deck`
 Baseline: `main` at `8c1d83cd` (2026-10-10), one commit ahead of `origin/main` `b9ef2e16`.
 Host: Electron. Tauri is feature-frozen and keeps today's `Not installed` text
@@ -50,6 +51,15 @@ them. Today:
      with versions, updates and licensing to own.
 2. **This change gets a spec**, because it changes what the app does for every user without
    a given agent.
+3. **An agent with no verified command gets a `Get` link (Q1).** The link opens the agent's
+   `url` in the default browser, and appears only while the agent is missing. This partly
+   reverses the 2026-08-19 removal of ↗, which also covered installed agents. Turned down:
+   keeping today's `Not installed` text, which leaves those rows with no way forward.
+4. **With no workspace open, the pane opens in the home folder (Q2).** It uses the existing
+   `first-pane` launch target with the home folder as its workspace, so the home folder joins
+   the rail like any other opened folder. No launch target without a workspace is added.
+   Turned down: disabling `Install` with the tooltip `Open a folder first`, which the agent had
+   recommended.
 
 ## Requirements and acceptance criteria
 
@@ -80,8 +90,8 @@ them. Today:
 - **INST-S3**: The button's tooltip is the exact command, as plain tooltip text. The button
   label stays one word.
 - **INST-S4**: Settings → Agents' `Install <Agent>, then refresh detection.` line goes wherever
-  the button is present. Where the button is absent (INST-F1), its replacement is decided by
-  Q1.
+  the button is present. Where the button is absent, the `Get` link from INST-F1 takes its
+  place.
 - **INST-S5**: The button appears only where the host can open the install pane, behind an
   `available` flag. Tauri and the browser preview keep today's `Not installed` text.
 
@@ -89,8 +99,10 @@ them. Today:
 
 - **INST-R1**: `Install` opens one terminal pane in a new space of the active workspace, named
   `Install <Agent>`, and focuses it. Once the shell's prompt is up, Deck types the command and
-  presses Enter. The prompt-readiness gate is the same one an agent launch uses. For when no
-  workspace is open, see Q2.
+  presses Enter. The prompt-readiness gate is the same one an agent launch uses.
+- **INST-R1a** (decision 4): With no workspace open, `Install` opens that pane as the first pane
+  of the home folder, through the existing `first-pane` target. The home folder then shows in
+  the rail like any opened folder.
 - **INST-R2**: Deck adds nothing to the command: no `sudo`, flags or environment. The user
   answers the installer's prompts in the pane, such as a password, a confirmation or a vendor
   sign-in.
@@ -125,26 +137,13 @@ them. Today:
 
 ### Agents without a command
 
-- **INST-F1**: A missing built-in with no verified command for this platform shows the fallback
-  chosen in Q1.
+- **INST-F1** (decision 3): A missing built-in with no verified command for this platform shows
+  a `Get` link on the same surfaces as INST-S1. The link opens the agent's `url` in the default
+  browser, and its tooltip is that URL. An installed agent shows no link.
 
 ## Open decisions
 
-- **Q1. Fallback for an agent with no verified command.**
-  - (a) Keep today's `Not installed` text.
-  - (b) A `Get` link that opens the agent's `url` in the default browser, only while the agent
-    is missing.
-
-  Recommended: (b). It gives the user a way forward on every row. It brings the agent's link
-  back only in the missing state, which partly reverses the 2026-08-19 removal of ↗, a removal
-  that also covered installed agents.
-- **Q2. Where the pane opens when no workspace is open.**
-  - (a) `Install` is disabled, with the tooltip `Open a folder first`.
-  - (b) Open the pane in the home folder.
-
-  Recommended: (a). Option (b) either adds the home folder to the rail as a project, or needs a
-  launch target that exists without a workspace. Launch-actions EMPTY1 already names that target
-  as an R4 change.
+None. Q1 and Q2 were answered on 2026-10-10 as decisions 3 and 4.
 
 ## Forks and constraints
 
@@ -156,7 +155,8 @@ them. Today:
   [Launch actions](2026-10-08-launch-actions.md) PAGE4 (package C, not started) plans a
   command-override parameter on the same function. There is one shared parameter: whichever
   package lands first adds it, and the other reuses it. The plan carries the cross-boundary
-  verification and needs the owner's approval before any code.
+  verification. The owner authorized the plan's implementation on 2026-10-10, before the plan
+  was written. Any departure from this spec needs a new decision.
 - **No PTY watch after spawn.** Launch-actions decision 7 classes reading an exit code as a
   fork, so Deck does not detect when the installer finishes. Detection is by re-probe
   (INST-P1).
