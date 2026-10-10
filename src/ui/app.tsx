@@ -2,6 +2,8 @@ import { AgentLaunchPage } from "../launcher/agent-launch-page";
 import type { AgentLaunchContextProps } from "../launcher/agent-launch-context";
 import { TERMINAL_LAUNCH_ID, type AgentLaunchTarget } from "../terminal/agent-launch-target";
 import { agentLaunchPage, agentLaunchPageAvailable } from "../launcher/agent-launch-page-store";
+import { createAgentInstallHost } from "../launcher/agent-install-host";
+import { registerAgentInstallHost } from "../launcher/agent-install-store";
 import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { useSignal, useSignalEffect } from "@preact/signals";
 import { quickAgentChoices, toggleQuickAgent } from "../settings/quick-agent-choices";
@@ -667,6 +669,25 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
       }),
     });
     tabsRef.current = manager;
+    // The Install offer exists only where a host can open the pane (INST-S5).
+    const unregisterInstallHost = agentLaunchPageAvailable
+      ? registerAgentInstallHost(
+          createAgentInstallHost({
+            manager,
+            checkoutRoots: () =>
+              [...repositoryScans.value.values()].flatMap((scan) =>
+                scan.kind === "repository" ? scan.worktrees.map((entry) => entry.path) : [],
+              ),
+            homeDir: () => getDesktopEnvironment().homeDir,
+            revealStage: () => {
+              settingsOpen.value = false;
+              agentLaunchPage.close();
+              boardOpen.value = false;
+            },
+            nextFrame: (run) => void requestAnimationFrame(run),
+          }),
+        )
+      : () => {};
     // Usage analytics (spec §3): ask main for consent state — the read also
     // tells main a window is ready, which triggers an enabled run's initial
     // snapshot — and install the window-scoped counting effect. Both are
@@ -759,6 +780,7 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
         void getCurrentWindow().close();
       });
     return () => {
+      unregisterInstallHost();
       disposeUsageCounters();
       manager.dispose();
     };
