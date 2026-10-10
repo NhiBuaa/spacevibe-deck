@@ -26,9 +26,36 @@ vi.mock("../../terminal/link-client", () => ({
   defaultLinkClient: { openUrl: vi.fn(async () => {}) },
 }));
 
+// Track B's real commands are not the subject here: `amp` has one, every other agent has none.
+vi.mock("../../lib/agent-catalog", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../lib/agent-catalog")>();
+  const amp = {
+    macos: { command: "amp-installer", source: "https://example.test", checked: "2026-10-10" },
+    windows: null,
+  };
+  return {
+    ...actual,
+    BUILTIN_AGENTS: actual.BUILTIN_AGENTS.map((agent) => ({
+      ...agent,
+      install: agent.id === "amp" ? amp : { macos: null, windows: null },
+    })),
+  };
+});
+
+const probe = vi.hoisted(() => ({ ensureAgentsDetected: vi.fn(async () => []) }));
+vi.mock("../../terminal/agent-detection-store", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../terminal/agent-detection-store")>()),
+  ensureAgentsDetected: probe.ensureAgentsDetected,
+}));
+
 import { LaunchProfileEditor } from "./launch-profile-editor";
-import { detectedAgents } from "../../terminal/agent-detection-store";
-import { BUILTIN_AGENTS } from "../../lib/agent-catalog";
+import { agentsProbed, detectedAgents } from "../../terminal/agent-detection-store";
+import { BUILTIN_AGENTS, probeNames } from "../../lib/agent-catalog";
+import { initializeDesktopEnvironment, resetDesktopEnvironmentForTests } from "../../lib/platform";
+import {
+  registerAgentInstallHost,
+  resetAgentInstallForTests,
+} from "../../launcher/agent-install-store";
 import { settings, updateSettings } from "../../settings/settings-store";
 import { DEFAULT_SETTINGS } from "../../settings/settings-schema";
 import { SIGNAL_ADAPTERS_REVISION } from "../../settings/signal-adapter-choice";
@@ -534,5 +561,97 @@ describe("LaunchProfileEditor", () => {
 
     expect(host.querySelector('[role="alert"]')?.textContent).toContain("letters, digits");
     expect(updateSettings).not.toHaveBeenCalled();
+  });
+});
+
+describe("LaunchProfileEditor install control", () => {
+  let host: HTMLDivElement;
+  const open = vi.fn();
+  const HELP_FULL =
+    "Install Amp, then refresh detection. Launch settings can be prepared in advance.";
+
+  beforeEach(() => {
+    initializeDesktopEnvironment({ platform: "macos", homeDir: "/Users/dev" });
+    settings.value = DEFAULT_SETTINGS;
+    detectedAgents.value = [{ name: "claude", path: "/bin/claude" }];
+    agentsProbed.value = true;
+    open.mockReset();
+    probe.ensureAgentsDetected.mockClear();
+    host = document.createElement("div");
+    document.body.appendChild(host);
+  });
+
+  afterEach(() => {
+    act(() => {
+      render(null, host);
+    });
+    host.remove();
+    resetAgentInstallForTests();
+    resetDesktopEnvironmentForTests();
+    settings.value = DEFAULT_SETTINGS;
+    detectedAgents.value = [];
+    agentsProbed.value = false;
+  });
+
+  const mount = (): void => {
+    act(() => {
+      render(<LaunchProfileEditor />, host);
+    });
+  };
+  const item = (label: string): Element =>
+    [...host.querySelectorAll(".lp-agent-item")].find(
+      (entry) => entry.querySelector(".lp-agent__name")?.textContent === label,
+    )!;
+  const help = (label: string): string | undefined =>
+    item(label).querySelector(".lp-install-help")?.textContent?.replace(/\s+/g, " ").trim();
+
+  it("puts Install on the Available to install row, outside any label, and trims the help", () => {
+    registerAgentInstallHost({ open, focus: vi.fn() });
+    mount();
+    const button = item("Amp").querySelector<HTMLButtonElement>(".lp-agent .agent-install button")!;
+    expect(button.textContent).toBe("Install");
+    expect(button.title).toBe("amp-installer");
+    expect(button.closest("label")).toBeNull();
+    expect(help("Amp")).toBe("Launch settings can be prepared in advance.");
+    act(() => button.click());
+    expect(open).toHaveBeenCalledExactlyOnceWith("amp", "amp-installer");
+  });
+
+  it("shows Get where there is no command, and nothing on an installed row", () => {
+    registerAgentInstallHost({ open, focus: vi.fn() });
+    mount();
+    expect(item("Kimi Code").querySelector(".lp-agent a")?.textContent).toBe("Get");
+    expect(help("Kimi Code")).toBe("Launch settings can be prepared in advance.");
+    expect(item("Claude Code").querySelector(".agent-install")).toBeNull();
+  });
+
+  it("offers nothing for a disabled missing agent and keeps today's help", () => {
+    registerAgentInstallHost({ open, focus: vi.fn() });
+    settings.value = { ...DEFAULT_SETTINGS, disabledAgents: ["amp"] };
+    mount();
+    expect(item("Amp").querySelector(".agent-install")).toBeNull();
+    expect(help("Amp")).toBe(HELP_FULL);
+  });
+
+  it("keeps today's text everywhere when the host cannot install", () => {
+    mount();
+    expect(host.querySelector(".agent-install")).toBeNull();
+    expect(help("Amp")).toBe(HELP_FULL);
+  });
+
+  it("forces a full-list probe on Refresh", () => {
+    settings.value = {
+      ...DEFAULT_SETTINGS,
+      customAgents: [{ id: "custom:aider", label: "Aider", command: "aider" }],
+    };
+    mount();
+    act(() => {
+      host.querySelector<HTMLButtonElement>('[aria-label="Refresh installed agents"]')!.click();
+    });
+    expect(probe.ensureAgentsDetected).toHaveBeenCalledExactlyOnceWith(
+      probeNames(settings.value.customAgents),
+      { force: true },
+    );
+    expect(probeNames(settings.value.customAgents)).toContain("aider");
   });
 });

@@ -14,7 +14,12 @@ import {
 import { BUILTIN_AGENTS, type BuiltinAgent } from "../../lib/agent-catalog";
 import { AGENT_LOGOS } from "../../lib/agent-logos";
 import { letterAvatar } from "../../lib/letter-avatar";
-import { detectedAgents, ensureAgentsDetected } from "../../terminal/agent-detection-store";
+import { detectedAgents } from "../../terminal/agent-detection-store";
+import {
+  AgentInstallControl,
+  useNoteAgentListWhileSettingsOpen,
+} from "../../launcher/agent-install-control";
+import { installOfferFor, probeAgentsNow } from "../../launcher/agent-install-store";
 import {
   commandAgentId,
   commandFlags,
@@ -41,9 +46,10 @@ import { modelsFor, runtimeFor, type AgentRuntimeDefault } from "../../launcher/
  * The list splits on what is actually on `$PATH`. **Installed** is what the
  * discovery probe found; **Available to install** is everything else Deck
  * knows how to launch, kept visible so the answer to "can Deck run X" is on
- * screen rather than in a docs page. Refresh re-runs the probe, because a CLI
- * installed in another terminal will not otherwise appear until the cache
- * expires.
+ * screen rather than in a docs page. A missing agent carries `Install` on its
+ * row (or `Get`, when Deck has no verified command), and Refresh forces a
+ * fresh probe, because a CLI installed in another terminal will not otherwise
+ * appear until the cache expires.
  *
  * Enabled/Disabled is per agent and it is the ONLY thing that removes a row
  * from the pickers — a built-in cannot be deleted, because Deck would just
@@ -53,7 +59,9 @@ import { modelsFor, runtimeFor, type AgentRuntimeDefault } from "../../launcher/
  * an agent's website, and Set default. `BuiltinAgent.url` and
  * `Settings.defaultAgent` are both KEPT — the data is right either way, and
  * "Set default" was called a temporary removal — so restoring either is markup,
- * not a migration.
+ * not a migration. The website link has since returned in one place only
+ * (2026-10-10): `Get`, on a missing agent with no install command. An installed
+ * row shows no link.
  */
 
 /** The agent's brand mark, or the letter avatar every unmarked agent wears. */
@@ -210,6 +218,7 @@ function AgentRow({
 }) {
   const expanded = useSignal(false);
   const configureLaunch = useSignal(false);
+  const offered = installOfferFor(agent.id).kind !== "none";
   const detailsRef = useRef<HTMLDivElement>(null);
   const detailsId = `agent-settings-${agent.id}`;
   useLayoutEffect(() => {
@@ -226,6 +235,7 @@ function AgentRow({
           <span class="lp-agent__name">{agent.label}</span>
           <CommandLine command={command} />
         </div>
+        <AgentInstallControl agentId={agent.id} label={agent.label} />
         <EnabledToggle agent={agent} enabled={enabled} onChange={onToggle} />
         <button
           type="button"
@@ -246,8 +256,8 @@ function AgentRow({
         {!installed && (
           <>
             <p class="lp-install-help">
-              Install {agent.label}, then refresh detection. Launch settings can be prepared in
-              advance.
+              {!offered && `Install ${agent.label}, then refresh detection. `}Launch settings can be
+              prepared in advance.
             </p>
             {!configureLaunch.value && (
               <ConfigRow label="Launch settings" desc="Optional before installation.">
@@ -405,6 +415,7 @@ export function LaunchProfileEditor() {
   useEffect(() => {
     void ensureAgentHooksSupportLoaded();
   }, []);
+  useNoteAgentListWhileSettingsOpen();
 
   const installedIds = new Set(detectedAgents.value.map((agent) => agent.name));
   const installed = BUILTIN_AGENTS.filter((agent) => installedIds.has(agent.id));
@@ -423,10 +434,10 @@ export function LaunchProfileEditor() {
       return;
     }
     refreshing.value = true;
-    // `ensureAgentsDetected` has no force flag: a warm cache answers instantly
-    // and revalidates behind. That is the right behaviour here too — the
-    // button's job is to start a scan, not to block on one.
-    void ensureAgentsDetected(BUILTIN_AGENTS.map((agent) => agent.id)).finally(() => {
+    // Forced, with the boot probe's full name list: a warm cache would answer
+    // within 30 s, and a built-ins-only list is a different cache key that
+    // would make every custom agent read as missing.
+    void probeAgentsNow().finally(() => {
       refreshing.value = false;
     });
   };
