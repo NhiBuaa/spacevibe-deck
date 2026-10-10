@@ -147,7 +147,9 @@ through `color-mix`.
   `--board-font` (the §31 code stack, declared once in `01-tokens.css`). The terminal's
   own font comes from the user's `fontFamily` setting through
   [`toFontStack`](../src/terminal/pane.ts); no chrome token reads it, and `--board-font`
-  never does either.
+  never does either. One exception in chrome: the launch page's command preview (DL-32.6)
+  prints the exact command in `--board-font`, because a shell line's flags, quotes and spaces
+  must read exactly as they will run.
 - **DL-4.2** Values use `font-variant-numeric: tabular-nums` so changing numbers do not
   jitter.
 - **DL-4.3** No `text-transform: uppercase`, no all-caps spelling used as styling and no

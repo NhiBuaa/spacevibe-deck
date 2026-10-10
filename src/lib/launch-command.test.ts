@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { applyResumeFlags, defaultLaunchCommand, resolveLaunchCommand } from "./launch-command";
+import { catalogLaunchCommand } from "./agent-catalog";
+import {
+  agentLaunchCommandChoices,
+  applyResumeFlags,
+  defaultLaunchCommand,
+  resolveLaunchCommand,
+} from "./launch-command";
 import type { LaunchProfile } from "./launch-profile";
 
 const plan: LaunchProfile = {
@@ -57,5 +63,46 @@ describe("applyResumeFlags", () => {
 
   it("adds nothing when the launch command was the bare binary", () => {
     expect(applyResumeFlags("claude --resume abc", "claude")).toBe("claude --resume abc");
+  });
+});
+
+describe("agentLaunchCommandChoices", () => {
+  const shipped = catalogLaunchCommand("claude", [])!;
+  const other: LaunchProfile = { id: "lp:other", command: "claude --model sonnet" };
+
+  it("lists the starred command first, then the agent's own, then the shipped one", () => {
+    const choices = agentLaunchCommandChoices("claude", [other, plan], { claude: plan.id });
+    expect(choices).toEqual({
+      default: plan.command,
+      commands: [plan.command, other.command, shipped],
+    });
+  });
+
+  it("falls back to the first own command, then to the shipped command alone", () => {
+    expect(agentLaunchCommandChoices("claude", [other], {})?.default).toBe(other.command);
+    expect(agentLaunchCommandChoices("claude", [], {})).toEqual({
+      default: shipped,
+      commands: [shipped],
+    });
+  });
+
+  it("lists a command once however many sources name it", () => {
+    const same: LaunchProfile = { id: "lp:same", command: shipped };
+    expect(agentLaunchCommandChoices("claude", [same], { claude: same.id })?.commands).toEqual([
+      shipped,
+    ]);
+  });
+
+  it("leaves other agents' profiles out and reads a declared agent's command", () => {
+    expect(agentLaunchCommandChoices("codex", [plan], {})?.commands).not.toContain(plan.command);
+    const custom = [{ id: "custom:aider", label: "Aider", command: "aider --yes" }];
+    expect(agentLaunchCommandChoices("custom:aider", [], {}, custom)).toEqual({
+      default: "aider --yes",
+      commands: ["aider --yes"],
+    });
+  });
+
+  it("is null for an agent nothing declares", () => {
+    expect(agentLaunchCommandChoices("custom:gone", [], {})).toBeNull();
   });
 });

@@ -22,11 +22,30 @@ const TERMINAL_OPTION: AgentOption = {
   missing: false,
 };
 
+/** What the launch page's preview line shows: a card's press, or its `New space` button. */
+export interface CardPreview {
+  readonly agentId: string;
+  readonly newSpace: boolean;
+}
+
+/** A pointer and keyboard focus can each rest on a card; the page decides which one wins. */
+export type CardPreviewSource = "pointer" | "focus";
+
+/** The hooks the launch page lends the cards to drive its command preview (DL-32.6). */
+export interface CardPreviewHooks {
+  /** Element id of the preview line: the shown card's controls are described by it. */
+  readonly describedBy: string;
+  readonly shown: CardPreview | null;
+  readonly onPreview: (source: CardPreviewSource, preview: CardPreview | null) => void;
+}
+
 interface AgentLaunchCardsProps {
   readonly agents: readonly AgentOption[];
   readonly pending: boolean;
   readonly disabled?: boolean;
   readonly onRun: (agentId: string) => void;
+  /** Only the launch page passes it; the Open board's cards have no preview line. */
+  readonly preview?: CardPreviewHooks;
   /**
    * When set, each installed agent's card gains a quiet `New space` button
    * beside the card's own press (which then means Split). Only the compact
@@ -55,7 +74,14 @@ function NewSpaceTip({ rect, id }: { rect: DOMRect; id: string }) {
 }
 
 /** DL-32.6: the alternate to a card's press, an icon with a DL-13.7 hover tip. */
-function NewSpaceButton(props: { agent: AgentOption; disabled: boolean; onPress: () => void }) {
+function NewSpaceButton(props: {
+  agent: AgentOption;
+  disabled: boolean;
+  onPress: () => void;
+  /** The preview line that describes this button while it is the one shown. */
+  describedBy?: string;
+  onPreview?: (source: CardPreviewSource, on: boolean) => void;
+}) {
   const [rect, setRect] = useState<DOMRect | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancel = (): void => {
@@ -74,6 +100,8 @@ function NewSpaceButton(props: { agent: AgentOption; disabled: boolean; onPress:
     setRect(null);
   };
   const tipId = `launch-tip-${props.agent.id}`;
+  // Two descriptions can apply at once, so the ids are joined, never one replacing the other.
+  const describedBy = [rect === null ? undefined : tipId, props.describedBy].filter(Boolean);
   return (
     <>
       <button
@@ -81,13 +109,25 @@ function NewSpaceButton(props: { agent: AgentOption; disabled: boolean; onPress:
         class="agent-launch-page__alt"
         disabled={props.disabled}
         aria-label={`Run ${props.agent.label} in a new space`}
-        aria-describedby={rect === null ? undefined : tipId}
-        onMouseEnter={(event) => show(event.currentTarget, TIP_OPEN_MS)}
-        onMouseLeave={hide}
-        onFocus={(event) => {
-          if (event.currentTarget.matches(":focus-visible")) show(event.currentTarget, 0);
+        aria-describedby={describedBy.length === 0 ? undefined : describedBy.join(" ")}
+        onMouseEnter={(event) => {
+          show(event.currentTarget, TIP_OPEN_MS);
+          props.onPreview?.("pointer", true);
         }}
-        onBlur={hide}
+        onMouseLeave={() => {
+          hide();
+          props.onPreview?.("pointer", false);
+        }}
+        onFocus={(event) => {
+          if (event.currentTarget.matches(":focus-visible")) {
+            show(event.currentTarget, 0);
+            props.onPreview?.("focus", true);
+          }
+        }}
+        onBlur={() => {
+          hide();
+          props.onPreview?.("focus", false);
+        }}
         onClick={() => {
           hide();
           props.onPress();
@@ -118,11 +158,16 @@ export function AgentLaunchCards(props: AgentLaunchCardsProps) {
       {cards.map((agent) => {
         const blocked = props.pending || props.disabled || agent.missing;
         const withSpace = props.onRunInNewSpace !== undefined && !agent.missing;
+        // A missing tile has nothing to run, so it has nothing to preview either.
+        const hooks = agent.missing ? undefined : props.preview;
+        const shown = hooks?.shown?.agentId === agent.id ? hooks.shown : null;
         return (
           <article
             class={`agent-launch-page__card${agent.missing ? " agent-launch-page__card--missing" : ""}`}
             key={agent.id}
             data-launch-terminal={agent.id === TERMINAL_LAUNCH_ID ? "" : undefined}
+            onMouseEnter={() => hooks?.onPreview("pointer", { agentId: agent.id, newSpace: false })}
+            onMouseLeave={() => hooks?.onPreview("pointer", null)}
           >
             <button
               type="button"
@@ -136,6 +181,12 @@ export function AgentLaunchCards(props: AgentLaunchCardsProps) {
                     ? `Split ${agent.label} into the current tab`
                     : `Run ${agent.label}`
               }
+              aria-describedby={shown?.newSpace === false ? hooks?.describedBy : undefined}
+              onFocus={(event) => {
+                if (event.currentTarget.matches(":focus-visible"))
+                  hooks?.onPreview("focus", { agentId: agent.id, newSpace: false });
+              }}
+              onBlur={() => hooks?.onPreview("focus", null)}
               onClick={() => props.onRun(agent.id)}
             >
               <span class="agent-launch-page__name">
@@ -160,6 +211,17 @@ export function AgentLaunchCards(props: AgentLaunchCardsProps) {
                 agent={agent}
                 disabled={blocked}
                 onPress={() => props.onRunInNewSpace?.(agent.id)}
+                describedBy={shown?.newSpace === true ? hooks?.describedBy : undefined}
+                onPreview={(source, on) =>
+                  hooks?.onPreview(
+                    source,
+                    on
+                      ? { agentId: agent.id, newSpace: true }
+                      : source === "pointer"
+                        ? { agentId: agent.id, newSpace: false }
+                        : null,
+                  )
+                }
               />
             )}
             {/* A sibling of the press, never inside it: the missing tile's press is disabled. */}

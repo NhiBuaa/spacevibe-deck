@@ -80,6 +80,7 @@ function mount(overrides: Partial<AgentLaunchPageProps> = {}) {
     target: { kind: "split", tabKey: 1, paneId: 2, workspacePath: "/repo" },
     contextRow: contextRow(),
     agents: [{ id: "claude", label: "Claude Code", missing: false, detail: "claude" }],
+    commands: { claude: { default: "claude --model opus", commands: ["claude --model opus"] } },
     resolved: true,
     pending: false,
     error: null,
@@ -226,6 +227,91 @@ describe("compact Original launch page", () => {
     act(() => route.click());
     expect(props.onSettings).toHaveBeenCalledOnce();
   });
+  describe("command preview", () => {
+    const CLAUDE_COMMAND = "claude --model opus";
+    const preview = () => host.querySelector<HTMLElement>(".agent-launch-page__preview-line")!;
+    const hover = (element: Element) =>
+      act(() => void element.dispatchEvent(new MouseEvent("mouseenter")));
+    const unhover = (element: Element) =>
+      act(() => void element.dispatchEvent(new MouseEvent("mouseleave")));
+    const claudeCard = () => host.querySelector<HTMLElement>(".agent-launch-page__card")!;
+
+    // jsdom answers `false` for a script-driven focus; Chromium answers `true` after a key.
+    function focusVisible(): () => void {
+      const original = Element.prototype.matches;
+      const spy = vi.spyOn(Element.prototype, "matches").mockImplementation(function (
+        this: Element,
+        selector: string,
+      ) {
+        return selector === ":focus-visible" ? true : original.call(this, selector);
+      });
+      return () => spy.mockRestore();
+    }
+
+    it("says how to see the command while nothing is hovered or keyboard-focused", () => {
+      mount();
+      expect(preview().textContent).toBe("Hover or focus an agent to see the exact command");
+      expect(preview().querySelector("code")).toBeNull();
+      // A line that changes on every hover must not be announced.
+      expect(preview().getAttribute("role")).toBeNull();
+      expect(preview().getAttribute("aria-live")).toBeNull();
+    });
+
+    it("prints the exact command, the folder and the chip's placement on hover", () => {
+      mount();
+      hover(claudeCard());
+      expect(preview().querySelector("code")?.textContent).toBe(CLAUDE_COMMAND);
+      expect(preview().textContent).toBe(`${CLAUDE_COMMAND}in /repo· Split beside Claude Code`);
+      unhover(claudeCard());
+      expect(preview().querySelector("code")).toBeNull();
+    });
+
+    it("always says New space for the ⊕ button, then falls back to the press", () => {
+      mount({ onRunInNewSpace: vi.fn() });
+      const alt = host.querySelector<HTMLButtonElement>(".agent-launch-page__alt")!;
+      hover(claudeCard());
+      hover(alt);
+      expect(preview().textContent).toContain(CLAUDE_COMMAND);
+      expect(preview().textContent).toContain("· New space");
+      expect(alt.getAttribute("aria-describedby")).toBe(preview().id);
+      unhover(alt);
+      expect(preview().textContent).toContain("· Split beside Claude Code");
+      unhover(claudeCard());
+      expect(preview().querySelector("code")).toBeNull();
+    });
+
+    it("shows it on keyboard focus, names it from the focused press, and drops it on blur", () => {
+      const restore = focusVisible();
+      try {
+        mount();
+        const press = host.querySelector<HTMLButtonElement>("[data-launch-primary]")!;
+        act(() => press.blur());
+        expect(preview().querySelector("code")).toBeNull();
+        act(() => press.focus());
+        expect(preview().querySelector("code")?.textContent).toBe(CLAUDE_COMMAND);
+        expect(press.getAttribute("aria-describedby")).toBe(preview().id);
+        act(() => press.blur());
+        expect(preview().querySelector("code")).toBeNull();
+        expect(press.getAttribute("aria-describedby")).toBeNull();
+      } finally {
+        restore();
+      }
+    });
+
+    it("describes the Terminal card in plain words, without a command", () => {
+      mount();
+      hover(host.querySelector("[data-launch-terminal]")!);
+      expect(preview().querySelector("code")).toBeNull();
+      expect(preview().textContent).toBe("Opens a plain shellin /repo· Split beside Claude Code");
+    });
+
+    it("keeps the hint for a missing tile, which has no command to run", () => {
+      mount({ agents: [{ id: "amp", label: "Amp", missing: true, detail: "amp" }] });
+      hover(host.querySelector(".agent-launch-page__card--missing")!);
+      expect(preview().textContent).toBe("Hover or focus an agent to see the exact command");
+    });
+  });
+
   it("consumes Escape only when this page owns interaction", () => {
     const props = mount();
     const event = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });

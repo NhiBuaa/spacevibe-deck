@@ -241,6 +241,46 @@
 .agent-launch-page__card button:focus-visible {
   outline-offset: -2px;
 }
+/* The command preview (mock `.preview`). A fixed minimum height keeps the grid from moving as
+   the line changes under the pointer. DL-4.1's one exception: the command is `--board-font`,
+   because its flags, quotes and spaces must read exactly as they will run. */
+.agent-launch-page__preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+  min-height: 46px;
+  margin-top: 14px;
+  padding: 8px 0;
+  border-top: 1px solid var(--hair);
+  color: var(--text-muted);
+  font-size: var(--type-meta);
+}
+.agent-launch-page .agent-launch-page__preview-line {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--type-meta);
+}
+.agent-launch-page__preview-line code {
+  min-width: 0;
+  padding: 3px 7px;
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-tab);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-family: var(--board-font);
+  font-size: var(--type-meta);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.agent-launch-page__preview-faint {
+  color: var(--text-faint);
+}
 .agent-launch-page__empty button {
   padding: 7px 12px;
   border: 1px solid var(--hair);

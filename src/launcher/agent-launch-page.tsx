@@ -1,10 +1,13 @@
-import { useLayoutEffect, useRef } from "preact/hooks";
+import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import { ArrowLeft } from "@phosphor-icons/react";
 import type { AgentOption } from "../lib/agent-catalog";
+import type { LaunchCommandChoices } from "../lib/launch-command";
+import { tildify } from "../lib/process-info";
 import type { AgentLaunchTarget } from "../terminal/agent-launch-target";
-import { AgentLaunchCards } from "./agent-launch-cards";
+import { AgentLaunchCards, type CardPreview, type CardPreviewSource } from "./agent-launch-cards";
 import { eventInOpenLaunchPopover } from "./agent-launch-page-store";
 import { AgentLaunchContext, type AgentLaunchContextProps } from "./agent-launch-context";
+import { LaunchCommandPreview } from "./launch-command-preview";
 import { DeckIcon } from "../ui/controls/deck-icon";
 import "./agent-launch-page.css";
 
@@ -13,6 +16,11 @@ export interface AgentLaunchPageProps {
   /** The context row: workspace, checkout and placement chip (DL-32.6). */
   readonly contextRow: AgentLaunchContextProps;
   readonly agents: readonly AgentOption[];
+  /**
+   * Each installed agent's launch commands, from the app's settings: the page
+   * never reads settings itself. Keyed by agent id; the Terminal card has none.
+   */
+  readonly commands: Readonly<Record<string, LaunchCommandChoices>>;
   readonly resolved: boolean;
   readonly pending: boolean;
   readonly error: string | null;
@@ -27,10 +35,20 @@ export interface AgentLaunchPageProps {
   readonly onSettings: () => void;
 }
 
+const PREVIEW_ID = "agent-launch-preview";
+
 /** DL-32.6: a transient stage page; no dialog, tab slot or PTY ownership. */
 export function AgentLaunchPage(props: AgentLaunchPageProps) {
   const root = useRef<HTMLElement>(null);
   const active = props.active !== false;
+  // A pointer and keyboard focus can each rest on a card; the pointer is the
+  // more recent intent, so it wins while it is over one.
+  const [pointer, setPointer] = useState<CardPreview | null>(null);
+  const [focus, setFocus] = useState<CardPreview | null>(null);
+  const preview = pointer ?? focus;
+  const onPreview = (source: CardPreviewSource, next: CardPreview | null): void =>
+    source === "pointer" ? setPointer(next) : setFocus(next);
+  const { context, homeDir } = props.contextRow;
   useLayoutEffect(() => {
     if (!active) return;
     const control = root.current?.querySelector<HTMLElement>(
@@ -77,7 +95,15 @@ export function AgentLaunchPage(props: AgentLaunchPageProps) {
           pending={props.pending}
           onRun={props.onRun}
           onRunInNewSpace={props.target.kind === "split" ? props.onRunInNewSpace : undefined}
+          preview={{ describedBy: PREVIEW_ID, shown: preview, onPreview }}
           terminal
+        />
+        <LaunchCommandPreview
+          id={PREVIEW_ID}
+          subject={preview}
+          commandFor={(agentId) => props.commands[agentId]?.default ?? null}
+          folder={tildify(context.checkoutPath, homeDir)}
+          placement={context.chip}
         />
         {props.pending ? <p role="status">Opening agent…</p> : null}
         {props.error ? (

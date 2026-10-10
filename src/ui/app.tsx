@@ -83,7 +83,11 @@ import { ensureTelemetryStateLoaded, usageConsentOpen } from "../telemetry/conse
 import { installUsageCounterEffects } from "../telemetry/usage-counters";
 import { OpenBoard } from "../open-board/open-board";
 import { clearDraft, newTaskDraft, taskDraftTouched } from "../launcher/launcher-store";
-import { agentLaunchCommand } from "../lib/launch-command";
+import {
+  agentLaunchCommand,
+  agentLaunchCommandChoices,
+  type LaunchCommandChoices,
+} from "../lib/launch-command";
 import type { NewTaskDraft } from "../launcher/new-task-draft";
 import { composeLaunchCommand } from "../launcher/compose-launch-command";
 import { mergeRuntimeDefaults, runtimeFor } from "../launcher/runtime-catalog";
@@ -1481,6 +1485,22 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
   const launcherAgents = () =>
     agentOptions(detectedAgents.value, settings.value.customAgents, settings.value.disabledAgents);
 
+  /** Each launch-page agent's commands (PAGE3/PAGE4): the page never reads settings itself. */
+  const launchPageCommands = (): Readonly<Record<string, LaunchCommandChoices>> => {
+    const { launchProfiles, defaultLaunchProfiles, customAgents } = settings.value;
+    return Object.fromEntries(
+      launcherAgents().flatMap((agent) => {
+        const choices = agentLaunchCommandChoices(
+          agent.id,
+          launchProfiles,
+          defaultLaunchProfiles,
+          customAgents,
+        );
+        return choices === null ? [] : [[agent.id, choices]];
+      }),
+    );
+  };
+
   /** Editor confirm: save the preset, then materialize a new tab. */
   async function handleEditorCreate(name: string, artifact: PresetArtifact): Promise<void> {
     const preset: Preset = {
@@ -2528,6 +2548,7 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
                 probed: agentsProbed.value,
                 disabledAgents: settings.value.disabledAgents,
               })}
+              commands={launchPageCommands()}
               resolved={agentsProbed.value}
               pending={agentLaunchPage.pending.value}
               error={agentLaunchPage.error.value}
