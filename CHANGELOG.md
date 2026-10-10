@@ -7,6 +7,16 @@ the release PR, and frozen at the tag — never an auto-generated commit list.
 
 ## Unreleased
 
+- **Usage prices the newest models.** Claude Opus, Sonnet and Haiku 5.5, Fable 5.1 and
+  the GPT-6 models Codex now runs had no price, so their tokens were left out of the
+  estimate: Today showed dashes, and September and October read far below their real
+  cost. The [price table](src/lib/usage-pricing-snapshot.ts) is refreshed from LiteLLM as
+  of 2026-10-10, which lists lower rates for GPT-5.6, so its estimates drop. Models
+  LiteLLM no longer lists — Claude 3, Claude Opus and Sonnet 4 (the 20250514 builds),
+  Claude Opus 4.1, codex-mini and the o3/o4-mini deep-research models — now show as
+  unpriced. A period whose tokens all went to unpriced models shows a dash instead of
+  $0.00.
+
 - **Cleaner pane headers.** The Effort menu and the split, expand and close buttons no
   longer appear in each pane's header. Claude Code's model/effort picker is still on Meta+P,
   and the pane actions are in More and on their shortcuts.
