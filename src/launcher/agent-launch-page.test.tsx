@@ -85,6 +85,7 @@ function mount(overrides: Partial<AgentLaunchPageProps> = {}) {
     pending: false,
     error: null,
     onRun: vi.fn(),
+    onRetry: vi.fn(),
     onBack: vi.fn(),
     onSettings: vi.fn(),
     ...overrides,
@@ -210,7 +211,31 @@ describe("compact Original launch page", () => {
     const props = mount({ pending: true, error: "Folder unavailable" });
     host.querySelector<HTMLButtonElement>("[data-launch-primary]")!.click();
     expect(props.onRun).not.toHaveBeenCalled();
-    expect(host.querySelector('[role="alert"]')?.textContent).toBe("Folder unavailable");
+    expect(host.querySelector(".agent-launch-page__notice-text")?.textContent).toBe(
+      "Folder unavailable",
+    );
+    expect(
+      host.querySelector<HTMLButtonElement>(".agent-launch-page__notice button")?.disabled,
+    ).toBe(true);
+  });
+
+  it("shows a failure as an alert with Retry, and no exit code (PAGE5)", () => {
+    const props = mount({ error: "Could not open the agent. Try again." });
+    const alert = host.querySelector<HTMLElement>(".agent-launch-page__notice")!;
+    expect(alert.getAttribute("role")).toBe("alert");
+    expect(alert.textContent).toContain("Could not open the agent. Try again.");
+    expect(alert.textContent).not.toMatch(/exit|code \d/i);
+    const retry = alert.querySelector<HTMLButtonElement>("button")!;
+    expect(retry.textContent).toBe("Retry");
+    expect(retry.disabled).toBe(false);
+    act(() => retry.click());
+    expect(props.onRetry).toHaveBeenCalledOnce();
+    expect(props.onRun).not.toHaveBeenCalled();
+  });
+
+  it("shows no notice while nothing has failed", () => {
+    mount();
+    expect(host.querySelector(".agent-launch-page__notice")).toBeNull();
   });
   it("shows discovery before empty-state settings, with no invented agent", () => {
     mount({ agents: [], resolved: false });

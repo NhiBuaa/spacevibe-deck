@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
-import { ArrowLeft } from "@phosphor-icons/react";
+import { ArrowLeft, Warning } from "@phosphor-icons/react";
 import type { AgentOption } from "../lib/agent-catalog";
 import type { LaunchCommandChoices } from "../lib/launch-command";
 import { tildify } from "../lib/process-info";
@@ -9,7 +9,7 @@ import { eventInOpenLaunchPopover } from "./agent-launch-page-store";
 import { AgentLaunchContext, type AgentLaunchContextProps } from "./agent-launch-context";
 import { LaunchCommandPreview } from "./launch-command-preview";
 import { LaunchProfilePopover, type LaunchProfileSection } from "./launch-profile-popover";
-import { DeckIcon } from "../ui/controls/deck-icon";
+import { DeckIcon, ROW_ICON } from "../ui/controls/deck-icon";
 import "./agent-launch-page.css";
 
 export interface AgentLaunchPageProps {
@@ -24,7 +24,10 @@ export interface AgentLaunchPageProps {
   readonly commands: Readonly<Record<string, LaunchCommandChoices>>;
   readonly resolved: boolean;
   readonly pending: boolean;
+  /** Why the last launch failed before its pane existed; null when it did not. */
   readonly error: string | null;
+  /** Repeats the failed launch: the same agent, placement and profile pick. */
+  readonly onRetry: () => void;
   readonly active?: boolean;
   /** The override is set only while the agent's profile pick differs from its default. */
   readonly onRun: (agentId: string, override?: LaunchCommandOverride) => void;
@@ -108,6 +111,15 @@ export function AgentLaunchPage(props: AgentLaunchPageProps) {
           <DeckIcon icon={ArrowLeft} size={15} /> Back <kbd>Esc</kbd>
         </button>
         <AgentLaunchContext {...props.contextRow} />
+        {props.error ? (
+          <div class="agent-launch-page__notice" role="alert">
+            <DeckIcon icon={Warning} size={ROW_ICON} />
+            <span class="agent-launch-page__notice-text">{props.error}</span>
+            <button type="button" disabled={props.pending} onClick={props.onRetry}>
+              Retry
+            </button>
+          </div>
+        ) : null}
         {!props.resolved ? <p role="status">Looking for installed agents…</p> : null}
         {props.resolved && props.agents.every((agent) => agent.missing) ? (
           <div class="agent-launch-page__empty">
@@ -144,11 +156,6 @@ export function AgentLaunchPage(props: AgentLaunchPageProps) {
           ) : null}
         </LaunchCommandPreview>
         {props.pending ? <p role="status">Opening agent…</p> : null}
-        {props.error ? (
-          <p class="agent-launch-page__error" role="alert">
-            {props.error}
-          </p>
-        ) : null}
       </div>
     </section>
   );

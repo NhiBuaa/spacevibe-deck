@@ -380,6 +380,40 @@
   margin: 5px 8px;
   background: var(--hair);
 }
+/* A launch that failed before its pane existed (PAGE5): the message, and Retry beside it. */
+.agent-launch-page__notice {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  box-sizing: border-box;
+  margin-bottom: 14px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--red) 45%, transparent);
+  border-radius: var(--radius-control);
+  background: var(--input-bg);
+  font-size: var(--type-meta);
+}
+.agent-launch-page__notice .deck-icon {
+  flex: none;
+  color: var(--red);
+}
+.agent-launch-page__notice-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.agent-launch-page .agent-launch-page__notice button {
+  flex: none;
+  padding: 3px 9px;
+  border: 1px solid var(--hair-strong);
+  border-radius: var(--radius-tab);
+  background: transparent;
+  font-size: var(--type-meta);
+  transition: background-color var(--duration) var(--ease);
+}
+.agent-launch-page .agent-launch-page__notice button:hover:not(:disabled) {
+  background: var(--state-hover-bg);
+}
 .agent-launch-page__empty button {
   padding: 7px 12px;
   border: 1px solid var(--hair);
@@ -394,7 +428,8 @@
   .agent-launch-page__card .agent-launch-page__alt,
   .agent-launch-page__main > .deck-icon,
   .agent-launch-page__context .nt-workspace-picker__trigger,
-  .agent-launch-page .launch-profile__trigger {
+  .agent-launch-page .launch-profile__trigger,
+  .agent-launch-page .agent-launch-page__notice button {
     transition: none;
   }
 }

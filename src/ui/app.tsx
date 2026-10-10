@@ -2552,7 +2552,10 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
               commands={launchPageCommands()}
               resolved={agentsProbed.value}
               pending={agentLaunchPage.pending.value}
-              error={agentLaunchPage.error.value}
+              error={agentLaunchPage.failure.value?.message ?? null}
+              onRetry={() => {
+                void agentLaunchPage.retry();
+              }}
               active={
                 !settingsOpen.value &&
                 !boardOpen.value &&
