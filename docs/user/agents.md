@@ -45,7 +45,7 @@ installed agents: these in this order, then your custom agents
 
 The catalog splits on what Deck found on your login shell's `PATH`:
 
-- **Installed** — agents whose binary was found. **Refresh** re-runs the probe.
+- **Installed** — agents whose binary was found. **Refresh** looks again straight away, including your custom agents.
 - **Available to install** — the rest.
 
 Each agent is one row showing its name and the command it launches with:
@@ -77,10 +77,27 @@ Each agent is one row showing its name and the command it launches with:
   also becomes its command; later ones stand behind it for the reset arrow above. The agent
   is derived from the command's first word.
 
-A command is typed verbatim into a live interactive shell, so it may use only letters, digits,
-spaces and `. , : @ + = _ - /`. Pipes, `&&`, `;`, quotes, redirects, variables and newlines
-are refused with a message saying why. A pipeline belongs in a wrapper script declared as a
-custom agent.
+A command you write is typed verbatim into a live interactive shell, so it may use only letters,
+digits, spaces and `. , : @ + = _ - /`. Pipes, `&&`, `;`, quotes, redirects, variables and
+newlines are refused with a message saying why. A pipeline belongs in a wrapper script declared
+as a custom agent. The install commands Deck ships are the vendors' own and are exempt from
+this rule.
+
+### Installing a missing agent
+
+A built-in agent that Deck did not find shows **Install** on its row, here and in Settings →
+Quick agents and the launcher's **Add agent** list. Hover it to see the exact command. It opens
+a terminal named `Install <Agent>` in a new space (in your home folder when no folder is open),
+types the vendor's install command and runs it there, so you see every prompt and answer them
+in that terminal. Pressing **Install** again while that terminal is open takes you back to it.
+
+Deck does not watch the installer finish. It looks again when you return to the Deck window or
+open an agent list, or when you press **Refresh**, and the row then moves to **Installed**
+without a restart. On Windows, an installer that adds a new folder to `PATH` is seen only after
+Deck restarts. An agent whose install command Deck has not verified shows **Get** instead, which
+opens its website. Install and Get appear only for enabled built-in agents, never for custom
+ones, and only in the Electron app
+([install control](../../src/launcher/agent-install-control.tsx)).
 
 ## Quick agents
 
