@@ -166,6 +166,13 @@ The page's launch receipt means a pane was created, not that its CLI is ready. S
 readiness still belongs to [AgentLauncher](../../src/terminal/agent-launch.ts); command-write
 failures from this route are reported visibly without automatically creating another pane.
 
+An Install press reaches `launchAgentAtTarget` with a
+[`LaunchCommandOverride`](../../src/terminal/agent-launch-target.ts) of kind `install`, the
+one parameter later overrides share. The agent need not be detected. The command is armed
+verbatim through `AgentLauncher`, with no signal-adapter augmentation, and is never recorded
+in `launchCommandByPane`, so the journal cannot replay an installer. It is never counted as
+an agent launch either, and a multi-line command is refused before any pane exists.
+
 ## Materialization and agent launch
 
 `MaterializeIntent` ([`tab-materialize.ts`](../../src/terminal/tab-materialize.ts)) is the
