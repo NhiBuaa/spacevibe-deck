@@ -237,3 +237,99 @@ describe("replies", () => {
     expect(host.readChanges).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("read counter", () => {
+  it("an unchanged reply raises it while the state stays the same object (DIFF5's same-count edit)", async () => {
+    const { host } = fakeHost([snapshot(), snapshot()]);
+    const controller = createChangesController({ host });
+    controller.setShown(ROOT);
+    await settle();
+    const first = controller.state.value;
+    expect(controller.readCount.value).toBe(1);
+
+    controller.trigger("refresh");
+    await settle();
+    expect(controller.state.value).toBe(first);
+    expect(controller.readCount.value).toBe(2);
+  });
+
+  it("a failure reply counts as a completed read", async () => {
+    const failure: ChangesFailure = { kind: "timeout", message: "slow" };
+    const { host } = fakeHost([snapshot(), failure]);
+    const controller = createChangesController({ host });
+    controller.setShown(ROOT);
+    await settle();
+    controller.trigger("refresh");
+    await settle();
+    expect(controller.readCount.value).toBe(2);
+  });
+
+  it("setShown alone raises nothing; only the completed read does", async () => {
+    const { host } = fakeHost();
+    const controller = createChangesController({ host });
+    controller.setShown(ROOT);
+    expect(controller.readCount.value).toBe(0);
+    await settle();
+    expect(controller.readCount.value).toBe(1);
+
+    controller.setShown(null);
+    await settle();
+    expect(controller.readCount.value).toBe(1);
+  });
+
+  it("a hidden list or window raises nothing", async () => {
+    const { host, fire } = fakeHost();
+    const controller = createChangesController({ host });
+    controller.setShown(ROOT);
+    await settle();
+    controller.setWindowVisible(false);
+    fire(ROOT);
+    controller.trigger("focus");
+    await settle(60_000);
+    expect(controller.readCount.value).toBe(1);
+
+    controller.setWindowVisible(true);
+    await settle();
+    expect(controller.readCount.value).toBe(2);
+  });
+
+  it("a reply that lands after the list moved raises nothing", async () => {
+    let finishFirst: (reply: ChangesReply) => void = () => {};
+    const host: ChangesHostPort = {
+      readChanges: vi.fn((root: string) =>
+        root === ROOT
+          ? new Promise<ChangesReply>((resolve) => {
+              finishFirst = resolve;
+            })
+          : Promise.resolve(snapshot(9, "other.ts")),
+      ),
+      watchChanges: vi.fn(async () => {}),
+      listenChanged: vi.fn(async () => () => {}),
+    };
+    const controller = createChangesController({ host });
+    controller.setShown(ROOT);
+    await settle();
+    controller.setShown(OTHER);
+    finishFirst(snapshot(1));
+    await settle();
+    await settle();
+    // Only OTHER's own read counts; the discarded ROOT reply did not.
+    expect(controller.state.value.root).toBe(OTHER);
+    expect(controller.readCount.value).toBe(1);
+  });
+
+  it("the state and the count change together", async () => {
+    const { host } = fakeHost([snapshot(1), snapshot(2)]);
+    const controller = createChangesController({ host });
+    controller.setShown(ROOT);
+    await settle();
+    const seen: Array<[number | undefined, number]> = [];
+    controller.state.subscribe(() => {
+      seen.push([controller.state.peek().snapshot?.totals.added, controller.readCount.peek()]);
+    });
+    seen.length = 0;
+    controller.trigger("refresh");
+    await settle();
+    expect(seen).toEqual([[2, 2]]);
+  });
+});
