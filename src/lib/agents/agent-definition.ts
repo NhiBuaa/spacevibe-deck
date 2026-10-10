@@ -8,7 +8,32 @@
  * owner's machine**, with the version and date written in the file. Nothing is
  * inferred from another agent, and an undocumented flag is `null` rather than
  * a guess — a wrong flag is typed verbatim into a live shell.
+ *
+ * **Every install command is read off the vendor's official install
+ * documentation** for the same reason: it is typed verbatim into a live shell.
+ * The data carries the page it was read off and the day it was read, and an
+ * unverified command is `null` rather than a guess. A Windows command runs in
+ * PowerShell, `pwsh` 7 or else Windows PowerShell 5.1, so it uses no `&&` or
+ * `||` and is never derived from the macOS form.
  */
+
+/** One vendor-documented install command for one OS, typed verbatim into a Deck pane. */
+export interface InstallCommand {
+  /** Exactly the vendor's text: one line, no leading/trailing whitespace. */
+  readonly command: string;
+  /** The official page it was read off (https). */
+  readonly source: string;
+  /** The day it was read, `YYYY-MM-DD`. */
+  readonly checked: string;
+}
+
+/** Per-OS install commands. `null` = no verified command for that OS (Deck offers `Get`). */
+export interface AgentInstall {
+  /** Run by the user's login shell (zsh by default). */
+  readonly macos: InstallCommand | null;
+  /** Run by PowerShell: `pwsh` 7, else Windows PowerShell 5.1 — so no `&&` / `||`. */
+  readonly windows: InstallCommand | null;
+}
 
 export interface BuiltinAgent {
   /** Also the binary name and the bare command — see `agent-catalog.ts`. */
@@ -29,8 +54,10 @@ export interface BuiltinAgent {
    * Absent = launch the bare binary.
    */
   readonly defaultCommand?: string;
-  /** Where to read about it. Opened by the row's ↗ control. */
+  /** Opened by the `Get` link of a missing agent with no install command. */
   readonly url: string;
+  /** Absent only on withdrawn agents. Never set for custom agents. */
+  readonly install?: AgentInstall;
 }
 
 /** One value a control can hold. `forms[0]` is written; every form is read. */
@@ -124,7 +151,9 @@ export function values(...raw: readonly string[]): readonly RuntimeValue[] {
  * than a guess, per the header above; the agent's own file replaces this
  * with a full definition once someone with the CLI installed reads its help.
  */
-export function unreadAgent(agent: Pick<BuiltinAgent, "id" | "label" | "url">): AgentDefinition {
+export function unreadAgent(
+  agent: Pick<BuiltinAgent, "id" | "label" | "url" | "install">,
+): AgentDefinition {
   return {
     ...agent,
     resume: { id: () => agent.id, latest: agent.id, bare: agent.id },
