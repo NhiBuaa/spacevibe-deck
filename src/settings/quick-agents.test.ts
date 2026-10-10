@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { agentOptions, BUILTIN_AGENTS } from "../lib/agent-catalog";
-import { quickAgentOptions } from "./quick-agents";
+import { launchPageAgents, quickAgentOptions } from "./quick-agents";
 import { validateSettings } from "./settings-schema";
 
 const detected = BUILTIN_AGENTS.map((agent) => ({ name: agent.id, path: `/bin/${agent.id}` }));
@@ -65,5 +65,44 @@ describe("quick agents", () => {
     expect(quickAgentOptions(agentOptions(detected, custom), ["custom:aider"])).toEqual([]);
     const options = agentOptions([...detected, { name: "aider", path: "/bin/aider" }], custom);
     expect(quickAgentOptions(options, ["custom:aider"])[0]?.id).toBe("custom:aider");
+  });
+});
+
+describe("launch page agents", () => {
+  const probed = { probed: true, disabledAgents: [] };
+  const ids = (list: readonly { readonly id: string }[]) => list.map((agent) => agent.id);
+  const without = (...names: string[]) => detected.filter((agent) => !names.includes(agent.name));
+
+  it("keeps the quick agents' order and appends the missing built-ins in catalog order", () => {
+    const options = agentOptions(without("claude", "amp"), []);
+    const list = launchPageAgents(options, ["gemini", "codex"], probed);
+    const absent = BUILTIN_AGENTS.filter((agent) => ["claude", "amp"].includes(agent.id)).map(
+      (agent) => agent.id,
+    );
+    expect(ids(list)).toEqual(["gemini", "codex", ...absent]);
+    expect(list.map((agent) => agent.missing)).toEqual([false, false, true, true]);
+  });
+
+  it("leaves out a disabled built-in, as the quick list does", () => {
+    const options = agentOptions(without("amp"), [], ["amp", "claude"]);
+    const list = launchPageAgents(options, null, {
+      probed: true,
+      disabledAgents: ["amp", "claude"],
+    });
+    expect(ids(list)).not.toContain("amp");
+    expect(ids(list)).not.toContain("claude");
+    expect(list.every((agent) => !agent.missing)).toBe(true);
+  });
+
+  it("puts a declared agent whose binary is gone after the missing built-ins", () => {
+    const custom = [{ id: "custom:aider", label: "Aider", command: "aider" }];
+    const options = agentOptions(without("amp"), custom);
+    const list = launchPageAgents(options, null, probed);
+    expect(ids(list).slice(-2)).toEqual(["amp", "custom:aider"]);
+    expect(list.slice(-2).map((agent) => agent.missing)).toEqual([true, true]);
+  });
+
+  it("adds nothing before the probe has answered", () => {
+    expect(launchPageAgents([], null, { probed: false, disabledAgents: [] })).toEqual([]);
   });
 });

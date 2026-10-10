@@ -149,7 +149,7 @@ describe("compact Original launch page", () => {
     expect(props.onRunInNewSpace).not.toHaveBeenCalled();
   });
 
-  it("shows a missing agent as disabled, with no New space button", () => {
+  it("shows a missing agent as a disabled tile, with no New space button or arrow", () => {
     mount({
       agents: [{ id: "codex", label: "Codex", missing: true, detail: "codex" }],
       onRunInNewSpace: vi.fn(),
@@ -157,7 +157,23 @@ describe("compact Original launch page", () => {
     const buttons = host.querySelectorAll<HTMLButtonElement>(AGENT_BUTTONS);
     expect(buttons).toHaveLength(1);
     expect(buttons[0].disabled).toBe(true);
+    expect(buttons[0].getAttribute("aria-label")).toBe("Codex is not installed");
     expect(buttons[0].textContent).toContain("Not installed");
+    expect(host.querySelector(".agent-launch-page__card--missing")).not.toBeNull();
+  });
+
+  it("puts the Terminal card after the installed agents and before the missing ones", () => {
+    mount({
+      agents: [
+        { id: "claude", label: "Claude Code", missing: false, detail: "claude" },
+        { id: "amp", label: "Amp", missing: true, detail: "amp" },
+        { id: "codex", label: "Codex", missing: false, detail: "codex" },
+      ],
+    });
+    const names = [...host.querySelectorAll(".agent-launch-page__main strong")].map(
+      (name) => name.textContent,
+    );
+    expect(names).toEqual(["Claude Code", "Codex", "Terminal", "Amp"]);
   });
 
   it("never offers the second button to a page that cannot open a space", () => {
@@ -202,6 +218,14 @@ describe("compact Original launch page", () => {
     act(() => host.querySelector<HTMLButtonElement>("[data-launch-primary]")!.click());
     expect(props.onSettings).toHaveBeenCalledOnce();
   });
+  it("keeps the route to Settings when only missing tiles are on the page", () => {
+    const props = mount({ agents: [{ id: "amp", label: "Amp", missing: true, detail: "amp" }] });
+    expect(host.textContent).toContain("No quick agents available");
+    const route = host.querySelector<HTMLButtonElement>("[data-launch-primary]:not(:disabled)")!;
+    expect(document.activeElement).toBe(route);
+    act(() => route.click());
+    expect(props.onSettings).toHaveBeenCalledOnce();
+  });
   it("consumes Escape only when this page owns interaction", () => {
     const props = mount();
     const event = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
@@ -220,45 +244,13 @@ describe("compact Original launch page", () => {
     expect(covered.onBack).not.toHaveBeenCalled();
   });
 
-  it("opens the agent editor from Add agent, and Escape closes it before leaving the page", () => {
-    const onToggleChoice = vi.fn();
-    const props = mount({
-      choices: [
-        { id: "claude", label: "Claude Code", pinned: true, blocked: null, toggleable: true },
-        { id: "droid", label: "Droid", pinned: false, blocked: "Not installed", toggleable: false },
-      ],
-      onToggleChoice,
-    });
-    const add = host.querySelector<HTMLButtonElement>("[data-launch-add]")!;
-    expect(host.querySelector(".agent-launch-page__editor")).toBeNull();
-    act(() => add.click());
-    expect(add.getAttribute("aria-expanded")).toBe("true");
-    const boxes = host.querySelectorAll<HTMLInputElement>(".agent-launch-page__editor input");
-    expect([...boxes].map((box) => [box.checked, box.disabled])).toEqual([
-      [true, false],
-      [false, true],
-    ]);
-    expect(host.querySelector(".agent-launch-page__editor")?.textContent).toContain(
-      "Not installed",
-    );
-    act(() => boxes[0].click());
-    expect(onToggleChoice).toHaveBeenCalledExactlyOnceWith("claude");
-    const escape = () =>
-      act(() => {
-        host
-          .querySelector("section")!
-          .dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-      });
-    escape();
-    expect(host.querySelector(".agent-launch-page__editor")).toBeNull();
-    expect(props.onBack).not.toHaveBeenCalled();
-    escape();
-    expect(props.onBack).toHaveBeenCalledOnce();
-  });
-
-  it("offers no Add agent card when the page cannot edit the list", () => {
+  it("has no heading, Add agent card, editor or footer (PAGE6)", () => {
     mount();
-    expect(host.querySelector("[data-launch-add]")).toBeNull();
+    expect(host.querySelector("h1, header, footer")).toBeNull();
+    expect(host.textContent).not.toContain("QUICK LAUNCH");
+    expect(host.textContent).not.toContain("Add agent");
+    expect(host.querySelector("[data-launch-add], .agent-launch-page__editor")).toBeNull();
+    expect(host.querySelector('[aria-label="Choose quick agents"]')).toBeNull();
   });
 
   it("lets an open popover take Escape before the page does", () => {
@@ -320,5 +312,27 @@ describe("launch cards and a pending install", () => {
   it("does not probe when nothing is pending", () => {
     mount();
     expect(probe.ensureAgentsDetected).not.toHaveBeenCalled();
+  });
+
+  it("carries Install on a missing tile as a sibling of its disabled press", () => {
+    const unregister = registerAgentInstallHost({ open: vi.fn(), focus: vi.fn() });
+    try {
+      mount({ agents: [{ id: "amp", label: "Amp", missing: true, detail: "amp" }] });
+      const card = host.querySelector<HTMLElement>(".agent-launch-page__card--missing")!;
+      const press = card.querySelector<HTMLButtonElement>("[data-launch-primary]")!;
+      const install = card.querySelector<HTMLButtonElement>('[aria-label="Install Amp"]');
+      expect(press.disabled).toBe(true);
+      expect(install).not.toBeNull();
+      expect(install!.disabled).toBe(false);
+      expect(press.contains(install)).toBe(false);
+      expect(card.contains(install)).toBe(true);
+    } finally {
+      unregister();
+    }
+  });
+
+  it("offers no Install control where the host cannot install", () => {
+    mount({ agents: [{ id: "amp", label: "Amp", missing: true, detail: "amp" }] });
+    expect(host.querySelector("[data-agent-install]")).toBeNull();
   });
 });

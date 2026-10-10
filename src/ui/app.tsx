@@ -6,8 +6,7 @@ import { createAgentInstallHost } from "../launcher/agent-install-host";
 import { registerAgentInstallHost } from "../launcher/agent-install-store";
 import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { useSignal, useSignalEffect } from "@preact/signals";
-import { quickAgentChoices, toggleQuickAgent } from "../settings/quick-agent-choices";
-import { quickAgentOptions } from "../settings/quick-agents";
+import { launchPageAgents, quickAgentOptions } from "../settings/quick-agents";
 import { activeCategory } from "./settings/active-category-store";
 import { listen, type UnlistenFn } from "../host/bridge";
 import { getCurrentWindow, currentWindowLabel } from "../host/window-host";
@@ -2525,7 +2524,10 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
             <AgentLaunchPage
               target={agentLaunchPage.request.value.target}
               contextRow={launchContextRow(agentLaunchPage.request.value.target)}
-              agents={quickAgentOptions(launcherAgents(), settings.value.quickAgentIds)}
+              agents={launchPageAgents(launcherAgents(), settings.value.quickAgentIds, {
+                probed: agentsProbed.value,
+                disabledAgents: settings.value.disabledAgents,
+              })}
               resolved={agentsProbed.value}
               pending={agentLaunchPage.pending.value}
               error={agentLaunchPage.error.value}
@@ -2543,8 +2545,6 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
               onRunInNewSpace={(id) => {
                 void agentLaunchPage.run(id, "new-space");
               }}
-              choices={quickAgentChoices()}
-              onToggleChoice={toggleQuickAgent}
               onBack={() => agentLaunchPage.close(true)}
               onSettings={() => {
                 activeCategory.value = "agents";

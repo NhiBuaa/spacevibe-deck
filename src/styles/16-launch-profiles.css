@@ -292,9 +292,9 @@
   min-width: 0;
 }
 
-/* The Install / Get control on a missing agent's row, shared by the three
-   agent lists (agent-install-control.tsx). It shrinks and wraps so a failure
-   message never widens a 220px editor cell or the 480px Settings row. */
+/* The Install / Get control on a missing agent's row or launch tile, shared by
+   every agent list (agent-install-control.tsx). It shrinks and wraps so a
+   failure message never widens the 480px Settings row or a launch tile. */
 .agent-install {
   display: inline-flex;
   flex: 0 1 auto;
@@ -306,8 +306,7 @@
 
 /* On a row the control may take at most half the width, so a failure message
    wraps under the button instead of squeezing the agent's name to a letter. */
-.lp-agent > .agent-install,
-.agent-launch-page__editor li > .agent-install {
+.lp-agent > .agent-install {
   max-width: 50%;
   justify-content: flex-end;
 }
