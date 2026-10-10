@@ -4,7 +4,7 @@
  *
  * It owns three things and nothing else: the last good reply per shown root,
  * the scheduler that decides when git runs, and the host watch that is held only
- * while the list is shown and the window is visible. The Explorer view reads
+ * while the Explorer shows the root (either view) and the window is visible. The Explorer view reads
  * `state` and calls `setShown`; the window installs the focus, visibility and
  * turn-end triggers once (`installChangesTriggers`).
  */

@@ -62,11 +62,14 @@ export function ExplorerTab(props: ExplorerTabProps) {
   const view = changesAvailable && changesDisabledReason === null ? explorerView.value : "files";
   const showChanges = workspacePath !== null && view === "changes";
 
-  // The list is "shown" only while its view is up: leaving it (or the tab, or
-  // the dock) releases the watch and stops every read (plan C5).
+  // The Changes chip carries the totals in either view, so the checkout is
+  // watched while the Explorer shows a repository, not only while the list is
+  // up (owner, 2026-10-10, replacing plan C5). Leaving the tab or closing the
+  // dock releases the watch and stops every read.
+  const watched = changesAvailable && changesDisabledReason === null ? workspacePath : null;
   useEffect(() => {
-    changes?.setShown(showChanges ? workspacePath : null);
-  }, [changes, showChanges, workspacePath]);
+    changes?.setShown(watched);
+  }, [changes, watched]);
   // Unmounting (another dock tab, a closed dock) hides the list for good.
   useEffect(() => () => changes?.setShown(null), [changes]);
   // The diff column lives only while the list that opened it is shown: leaving

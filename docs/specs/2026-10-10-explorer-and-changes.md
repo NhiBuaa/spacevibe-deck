@@ -72,12 +72,13 @@ read-only towards git and never types into a pane on the user's behalf.
   git missing and a timeout each produce a distinct message on the Explorer's status line
   (DL-19.5): never a dialog, never a silently empty list. A repository with no commit compares
   against the empty tree.
-- **CHG3** (decision 7): While the list is shown and the window is visible, a file change
+- **CHG3** (decision 7): While the Explorer shows a repository (either view, so the Changes
+  chip can carry the totals; owner, 2026-10-10) and the window is visible, a file change
   anywhere in the checkout, or a change to its index or `HEAD`, reaches the list within about a
   second. A burst of writes coalesces into one read, and at most one read runs at a time.
   Because file watching drops events on every platform, the list also refreshes when a pane in
   that checkout leaves `working`, when the window regains focus, and from a Refresh control.
-  Nothing polls, and no git read runs while the window is hidden or the list is not shown.
+  Nothing polls, and no git read runs while the window is hidden or the Explorer is not shown.
   Acceptance: on a fixture repository, an edit appears in the list within one second of the
   write; a burst of 500 writes causes a bounded number of reads, not one per write; a test
   proves no read while hidden.
@@ -168,7 +169,7 @@ colours (3) and the second docked column (4).
 2. **Watching the checkout recursively (CHG3).** Closed 2026-10-10: yes, with one addition. The
    current watcher is non-recursive by design ([watch.ts](../../electron/fs/watch.ts): "nothing
    here needs it"). Near-real-time Changes holds one recursive watch on the checkout's root on
-   macOS and Windows, only while the list is shown and the window is visible, with Node's
+   macOS and Windows, only while the Explorer is shown and the window is visible, with Node's
    built-in `fs.watch` and no watcher library. A linked worktree keeps its index and HEAD
    outside its root, so a second, non-recursive watch on the git directory covers them, and is
    the only watch on Linux. See [file-surface.md](../internals/file-surface.md#changes-list).

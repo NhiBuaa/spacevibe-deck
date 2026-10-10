@@ -173,7 +173,8 @@ describe("the switch", () => {
     expect(chip("changes").getAttribute("aria-selected")).toBe("false");
     expect(chip("changes").textContent).toContain("+15 −11");
     expect(host.querySelector(".changes-list")).toBeNull();
-    expect(controller.setShown).toHaveBeenLastCalledWith(null);
+    // The totals need a live read, so Files watches the checkout too.
+    expect(controller.setShown).toHaveBeenLastCalledWith(WS);
   });
 
   it("opens the list on press and hides the tree, and Files brings the tree back", () => {
@@ -186,7 +187,7 @@ describe("the switch", () => {
 
     act(() => chip("files").click());
     expect(host.querySelector(".file-tree")).not.toBeNull();
-    expect(controller.setShown).toHaveBeenLastCalledWith(null);
+    expect(controller.setShown).not.toHaveBeenCalledWith(null);
   });
 
   it("releases the list when the tab unmounts", () => {
@@ -220,6 +221,7 @@ describe("the switch", () => {
     mount(controller);
     expect(chip("changes").getAttribute("aria-disabled")).toBe("true");
     expect(chip("changes").title).toBe("Not a git repository");
+    expect(controller.setShown).not.toHaveBeenCalledWith(WS);
     showChanges();
     expect(host.querySelector(".changes-list")).toBeNull();
     expect(host.querySelector(".file-tree")).not.toBeNull();
