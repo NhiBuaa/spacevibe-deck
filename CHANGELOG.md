@@ -31,6 +31,15 @@ the release PR, and frozen at the tag — never an auto-generated commit list.
   clicked; they are back. With the tab list on the left the rail lists your
   spaces, so the row above the panes still leaves them out.
 
+- **Install a missing agent from Deck.** An agent Deck cannot find now shows
+  **Install** in Settings → Agents, Settings → Quick agents and the launcher's quick
+  launch list. It opens a terminal named after the agent and runs the vendor's own
+  [install command](src/lib/agents/agent-definition.ts) there; hover the button to see the
+  command, and answer the installer's prompts in the terminal. Deck notices the new agent
+  when you come back to the window or open an agent list, and **Refresh** now always checks
+  again. An agent with no known command shows **Get**, which opens its website.
+  Electron only.
+
 ## 2.9.0
 
 This update adds checkout changes and hidden files to the explorer, finds your dev servers,
