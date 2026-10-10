@@ -1,13 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ChangeEntry } from "../../host/git-changes-host";
+import type { ChangeEntry, HeadFileReply } from "../../host/git-changes-host";
 import type { FileStatResult, ReadFileResponse } from "../file-client";
 import { BINARY_REFUSAL, MAX_EDITABLE_BYTES } from "../file-content";
-import {
-  createDiffSides,
-  type DiffSidesPorts,
-  type DiffSidesRequest,
-  type HeadFileReply,
-} from "./diff-sides";
+import { createDiffSides, type DiffSidesPorts, type DiffSidesRequest } from "./diff-sides";
 
 const ROOT = "/work/repo";
 

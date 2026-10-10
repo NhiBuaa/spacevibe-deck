@@ -10,29 +10,11 @@
  * Newest request wins: a slower, older read is dropped, never published.
  */
 import { signal, type ReadonlySignal } from "@preact/signals";
-import type { ChangeEntry, ChangesFailure } from "../../host/git-changes-host";
+import type { ChangeEntry, HeadFileReply } from "../../host/git-changes-host";
 import { languageForPath } from "../editor-host";
 import type { FileStatResult, ReadFileResponse } from "../file-client";
-import { BINARY_REFUSAL, MAX_EDITABLE_BYTES, type Eol, type FileEncoding } from "../file-content";
+import { BINARY_REFUSAL, MAX_EDITABLE_BYTES } from "../file-content";
 import { absolutePath } from "./changes-model";
-
-/**
- * D8's reply of `git_head_file`. A structural copy until the host facade exports
- * it; the coordinator replaces it with the host's type at merge.
- */
-export type HeadFileReply =
-  | {
-      readonly kind: "ok";
-      readonly content: string;
-      readonly eol: Eol;
-      readonly encoding: FileEncoding;
-      readonly bytes: number;
-      readonly mixedEol: boolean;
-    }
-  | { readonly kind: "too-large"; readonly bytes: number }
-  | { readonly kind: "refused"; readonly reason: string }
-  | { readonly kind: "absent" }
-  | ChangesFailure;
 
 export interface DiffSidesPorts {
   statFiles(root: string, paths: readonly string[]): Promise<readonly FileStatResult[]>;
