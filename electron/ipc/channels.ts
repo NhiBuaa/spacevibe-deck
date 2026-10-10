@@ -187,6 +187,12 @@ export const CHANNELS = {
   // Replaces this sender's one watched checkout; `{ root: null }` releases it.
   // Held only while the list is shown and the window visible. Electron-only.
   gitChangesWatch: "git_changes_watch",
+  // The diff column's HEAD side: one file as the last commit holds it, size-
+  // checked before it is read (plan 2026-10-10-diff-column, D8). Electron-only
+  // like the two above: no `#[tauri::command]` counterpart, and the column is
+  // reachable only from the Changes list that the frozen Tauri host never shows.
+  // Flat `{ root, path }` per R6; `path` is root-relative with `/`.
+  gitHeadFile: "git_head_file",
 } as const;
 
 /** Events: main → renderer, fire and forget. */

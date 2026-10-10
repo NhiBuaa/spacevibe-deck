@@ -8,8 +8,9 @@
  *
  * Read-only by construction (CHG5). Every spawn carries `--no-optional-locks`:
  * a plain `git status` rewrites `.git/index`, which wakes the very watcher that
- * asked for the read and loops. The only verbs here are `rev-parse`, `status`,
- * `diff` and `hash-object` without `-w`.
+ * asked for the read and loops. The only verbs here and in `head-file.ts` are
+ * `rev-parse`, `status`, `diff`, `hash-object` without `-w`, and `cat-file` (`-s`,
+ * `blob`) for the diff column's `HEAD` side.
  */
 import { execFile } from "node:child_process";
 import { open, stat } from "node:fs/promises";
@@ -66,12 +67,18 @@ export interface ChangesFailure {
 
 export type ChangesReply = ChangesSnapshot | ChangesFailure;
 
-export type GitRun =
-  | { readonly ok: true; readonly stdout: string }
+export type GitRun<Out = string> =
+  | { readonly ok: true; readonly stdout: Out }
   | { readonly ok: false; readonly kind: ChangesFailureKind; readonly stderr: string };
 
 /** Injectable so tests reach the timeout, overflow and missing-git paths. */
-export type GitRunner = (args: readonly string[], input?: string) => Promise<GitRun>;
+export type GitRunner<Out = string> = (
+  args: readonly string[],
+  input?: string,
+) => Promise<GitRun<Out>>;
+
+/** The runner in buffer mode: stdout as bytes, for a blob that may not be UTF-8. */
+export type GitBufferRunner = GitRunner<Buffer>;
 
 /** What `git rev-parse --local-env-vars` lists. A caller that inherited one of
  * these (a hook, the pre-push suite) would point every spawn at someone else's
@@ -106,25 +113,31 @@ function cleanEnv(): NodeJS.ProcessEnv {
   return env;
 }
 
-function runnerFor(root: string): GitRunner {
+/** Text mode by default; `"buffer"` keeps stdout as bytes. Same environment,
+ * bounds and failure classification either way. */
+export function runnerFor(root: string): GitRunner;
+export function runnerFor(root: string, mode: "buffer"): GitBufferRunner;
+export function runnerFor(root: string, mode?: "buffer"): GitRunner<string | Buffer> {
   const env = cleanEnv();
+  const encoding = mode === "buffer" ? "buffer" : "utf8";
   return (args, input) =>
     new Promise((resolve) => {
       const child = execFile(
         "git",
         ["--no-optional-locks", "-C", root, ...args],
         {
-          encoding: "utf8",
+          encoding,
           timeout: GIT_TIMEOUT_MS,
           maxBuffer: GIT_MAX_BUFFER,
           windowsHide: true,
           env,
         },
-        (error, stdout, stderr) => {
+        (error, stdout, rawStderr) => {
           if (error === null) {
             resolve({ ok: true, stdout });
             return;
           }
+          const stderr = rawStderr.toString();
           const code = (error as NodeJS.ErrnoException).code;
           if (code === "ENOENT") {
             resolve({ ok: false, kind: "git-missing", stderr: "" });
@@ -152,7 +165,7 @@ const MESSAGES: Readonly<Record<Exclude<ChangesFailureKind, "failed">, string>> 
   overflow: "The change list is too large to read",
 };
 
-function failure(run: Extract<GitRun, { ok: false }>): ChangesFailure {
+export function failure(run: Extract<GitRun, { ok: false }>): ChangesFailure {
   if (run.kind !== "failed") {
     return { kind: run.kind, message: MESSAGES[run.kind] };
   }
