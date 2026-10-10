@@ -1,7 +1,7 @@
 # Install agents from Deck
 
 Date: 2026-10-10
-Status: Active. Every decision was taken on 2026-10-10 (1–4). The plan is
+Status: Active. Every decision was taken on 2026-10-10 (1–5). The plan is
 `docs/plans/2026-10-10-agent-install.md`, which is local and gitignored. The owner authorized
 implementing it on 2026-10-10.
 Owner checkout: `/Users/kyantran/Documents/Development/spacevibe-workspace/spacevibe-deck`
@@ -60,6 +60,9 @@ them. Today:
    the rail like any other opened folder. No launch target without a workspace is added.
    Turned down: disabling `Install` with the tooltip `Open a folder first`, which the agent had
    recommended.
+5. **A finished install is pinned to quick launch (owner, after trying it).** An agent installed
+   from Deck joins quick launch as soon as Deck finds it, so the user does not have to tick it
+   by hand. This decision moved automatic pinning out of [Out of scope](#out-of-scope).
 
 ## Requirements and acceptance criteria
 
@@ -134,6 +137,10 @@ them. Today:
   ends when the agent is found or the window closes.
 - **INST-P2**: Settings → Agents' **Refresh** forces a probe with the same full name list,
   instead of returning a cached answer younger than 30 s.
+- **INST-P3** (decision 5): When the probe finds an agent whose install was started from Deck in
+  this window, that agent is added to the end of the saved quick-agent picks, once. When no picks
+  are saved, quick launch already offers every available agent, so nothing is written. An agent
+  that was already picked, or one found without an install from Deck, is left as it is.
 
 ### Agents without a command
 
@@ -216,7 +223,6 @@ None. Q1 and Q2 were answered on 2026-10-10 as decisions 3 and 4.
 - installing a custom agent;
 - checking prerequisites such as Node, `uv` or Homebrew beyond what the vendor installer itself
   reports;
-- pinning a newly installed agent to quick launch automatically;
 - a telemetry event for install presses, which would change the
   [telemetry contract](../internals/telemetry.md);
 - vendor sign-in after install, which the agent's own first run handles.

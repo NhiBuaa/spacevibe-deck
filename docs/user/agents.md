@@ -93,7 +93,7 @@ in that terminal. Pressing **Install** again while that terminal is open takes y
 
 Deck does not watch the installer finish. It looks again when you return to the Deck window or
 open an agent list, or when you press **Refresh**, and the row then moves to **Installed**
-without a restart. On Windows, an installer that adds a new folder to `PATH` is seen only after
+without a restart. An agent installed this way is also added to your quick agents. On Windows, an installer that adds a new folder to `PATH` is seen only after
 Deck restarts. An agent whose install command Deck has not verified shows **Get** instead, which
 opens its website. Install and Get appear only for enabled built-in agents, never for custom
 ones, and only in the Electron app
@@ -101,9 +101,9 @@ ones, and only in the Electron app
 
 ## Quick agents
 
-Quick agents are the cards on the quick launcher and the rows in the checkout menu. Choose up
-to five, either in Settings → Agents → Quick agents or from the launcher itself: its last card,
-**Add agent**, opens a list with a box per agent. Deselect one to make room for another. Your choices are saved; agents you disable or
+Quick agents are the cards on the quick launcher and the rows in the checkout menu. Choose
+them in Settings → Agents → Quick agents or from the launcher itself: its last card,
+**Add agent**, opens a list with a box per agent. Your choices are saved; agents you disable or
 uninstall stop appearing in the menu without being replaced by another agent
 ([quick agent settings](../../src/ui/settings/quick-agents-section.tsx)).
 
