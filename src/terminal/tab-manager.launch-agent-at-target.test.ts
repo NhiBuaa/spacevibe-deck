@@ -450,6 +450,37 @@ describe("profile launch override (PAGE4)", () => {
     tm.dispose();
   });
 
+  it("types a listed pick instead of the starred default, which a plain launch still types", async () => {
+    const OTHER = "claude --model sonnet";
+    settings.value = {
+      ...DEFAULT_SETTINGS,
+      launchProfiles: [
+        { id: "lp:plan", command: PLAN },
+        { id: "lp:other", command: OTHER },
+      ],
+      defaultLaunchProfiles: { claude: "lp:plan" },
+    };
+    const pty = shellPty(1, 2, 3);
+    const { tm } = wire(pty);
+    await tm.openQuickAgent(null, "/repo");
+    const picked = await tm.launchAgentAtTarget(
+      NEW_SPACE,
+      "claude",
+      () => true,
+      undefined,
+      pick(OTHER),
+    );
+    const plain = await tm.launchAgentAtTarget(NEW_SPACE, "claude", () => true);
+    if (picked.kind !== "spawned" || plain.kind !== "spawned") throw new Error("Expected panes");
+    await vi.advanceTimersByTimeAsync(3000);
+    const typed = (paneId: number) => pty.writes.find((write) => write.id === paneId)?.data;
+    expect(typed(picked.receipt.paneId)).toBe(`${OTHER}\r`);
+    expect(typed(plain.receipt.paneId)).toBe(`${PLAN}\r`);
+    expect(tm.launchCommandFor(picked.receipt.paneId)).toBe(OTHER);
+    expect(countAgentLaunch).toHaveBeenCalledTimes(2);
+    tm.dispose();
+  });
+
   it("refuses a command the agent does not list, before any pane exists", async () => {
     const pty = shellPty(1, 2);
     const { tm } = wire(pty);
