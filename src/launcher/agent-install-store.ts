@@ -15,15 +15,17 @@
  *   past the 30 s freshness window — the two moments the user comes back.
  * - **One pane per agent.** A second press while the earlier pane is still open
  *   focuses it instead of typing the installer twice.
+ * - **A found install is pinned** to quick launch, so the agent the user just
+ *   asked for is one press away.
  *
  * Window-scoped module store (R5): state dies with the window, which is also
  * what ends a pending install.
  */
-import { computed, effect, signal, type ReadonlySignal } from "@preact/signals";
+import { computed, effect, signal, untracked, type ReadonlySignal } from "@preact/signals";
 import { BUILTIN_AGENTS, probeNames } from "../lib/agent-catalog";
 import { installOffer, type InstallOffer } from "../lib/agent-install";
 import { getDesktopEnvironment } from "../lib/platform";
-import { settings } from "../settings/settings-store";
+import { settings, updateSettings } from "../settings/settings-store";
 import {
   agentsProbed,
   detectedAgents,
@@ -114,6 +116,19 @@ function onWindowFocus(): void {
   void probeAgentsNow();
 }
 
+/**
+ * Add a just-installed agent to the saved quick-agent picks. With no saved
+ * picks (`null`) quick launch already offers every available agent, and
+ * writing a list there would freeze today's automatic set, so nothing is saved.
+ */
+function pinInstalledAgent(agentId: string): void {
+  const ids = settings.value.quickAgentIds;
+  if (ids === null || ids.includes(agentId)) {
+    return;
+  }
+  updateSettings({ quickAgentIds: [...ids, agentId] });
+}
+
 function startWatching(): void {
   if (stopWatching !== null) {
     return;
@@ -124,6 +139,8 @@ function startWatching(): void {
     for (const id of [...pending]) {
       if (found.some((agent) => agent.name === id)) {
         pending.delete(id);
+        // Untracked: reading settings here must not re-run this effect on every settings write.
+        untracked(() => pinInstalledAgent(id));
       }
     }
     if (pending.size === 0 && stopWatching !== null) {

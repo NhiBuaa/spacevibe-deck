@@ -264,6 +264,38 @@ describe("agent install store", () => {
       expect(pty.detectAgents).not.toHaveBeenCalled();
     });
 
+    it("pins a found install to the saved quick agents, once", async () => {
+      settings.value = { ...DEFAULT_SETTINGS, quickAgentIds: ["claude"] };
+      await spawnInstall();
+
+      detectedAgents.value = [AMP_FOUND];
+      detectedAgents.value = [AMP_FOUND, { name: "codex", path: "/usr/bin/codex" }];
+
+      expect(settings.value.quickAgentIds).toEqual(["claude", "amp"]);
+    });
+
+    it("leaves automatic quick agents and an existing pin alone", async () => {
+      await spawnInstall();
+      detectedAgents.value = [AMP_FOUND];
+      expect(settings.value.quickAgentIds).toBeNull();
+
+      resetAgentInstallForTests();
+      resetAgentDetectionForTests();
+      settings.value = { ...DEFAULT_SETTINGS, quickAgentIds: ["amp", "claude"] };
+      await spawnInstall();
+      detectedAgents.value = [AMP_FOUND];
+      expect(settings.value.quickAgentIds).toEqual(["amp", "claude"]);
+    });
+
+    it("does not pin an agent found without an install from Deck", () => {
+      settings.value = { ...DEFAULT_SETTINGS, quickAgentIds: ["claude"] };
+      registerAgentInstallHost(fakeHost({ kind: "spawned", receipt: receipt(() => true) }));
+
+      detectedAgents.value = [AMP_FOUND];
+
+      expect(settings.value.quickAgentIds).toEqual(["claude"]);
+    });
+
     it("does not watch the window for an install that never spawned", async () => {
       registerAgentInstallHost(fakeHost({ kind: "failed", message: "no" }));
       await startAgentInstall("amp");
