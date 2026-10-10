@@ -56,6 +56,14 @@
   color: var(--text-faint);
 }
 
+/* A control hung under the key (the agent lists' Install / Get). A flex
+   container of its own so the column's `stretch` does not widen a button. */
+.cfg-row__note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .cfg-row__value {
   margin-left: auto;
   display: flex;

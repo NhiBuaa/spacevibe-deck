@@ -17,18 +17,21 @@ interface ConfigRowProps {
   label: string;
   /** Optional one-line lowercase description under the key. */
   desc?: string;
+  /** A control under the key, where `desc` would sit; the value slot keeps its one control. */
+  note?: ComponentChildren;
   danger?: boolean;
   /** The single interactive value (plus an optional clear button, DL-6.1). */
   children: ComponentChildren;
 }
 
 /** The one control: key (+ desc) left, one interactive value right (DL-5). */
-export function ConfigRow({ label, desc, danger, children }: ConfigRowProps) {
+export function ConfigRow({ label, desc, note, danger, children }: ConfigRowProps) {
   return (
     <div class="cfg-row">
       <div class="cfg-row__key">
         <span class={`cfg-row__label ${danger ? "cfg-row__label--danger" : ""}`}>{label}</span>
         {desc !== undefined && <span class="cfg-row__desc">{desc}</span>}
+        {note != null && <div class="cfg-row__note">{note}</div>}
       </div>
       <div class="cfg-row__value">{children}</div>
     </div>
@@ -38,6 +41,7 @@ export function ConfigRow({ label, desc, danger, children }: ConfigRowProps) {
 interface ToggleRowProps {
   label: string;
   desc?: string;
+  note?: ComponentChildren;
   checked: boolean;
   onToggle: () => void;
   /** Disables the native button (real enforcement, not just styling); default false. */
@@ -45,9 +49,9 @@ interface ToggleRowProps {
 }
 
 /** toggle value kind: `on` (green) / `off` (faint), click flips (DL-6). */
-export function ToggleRow({ label, desc, checked, onToggle, disabled }: ToggleRowProps) {
+export function ToggleRow({ label, desc, note, checked, onToggle, disabled }: ToggleRowProps) {
   return (
-    <ConfigRow label={label} desc={desc}>
+    <ConfigRow label={label} desc={desc} note={note}>
       <button
         type="button"
         role="switch"

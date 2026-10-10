@@ -1,9 +1,14 @@
+import {
+  AgentInstallControl,
+  useNoteAgentListWhileSettingsOpen,
+} from "../../launcher/agent-install-control";
 import { quickAgentChoices, toggleQuickAgent } from "../../settings/quick-agent-choices";
 import { ConfigGroup, ConfigRow, ToggleRow } from "../controls/config-row";
 
 export function QuickAgentsSection() {
   const choices = quickAgentChoices();
   const pinned = choices.filter((choice) => choice.pinned).length;
+  useNoteAgentListWhileSettingsOpen();
 
   return (
     <section aria-label="Quick agents">
@@ -12,16 +17,22 @@ export function QuickAgentsSection() {
         <span class="cfg-row__desc">{pinned}</span>
       </ConfigRow>
       <div data-quick-agent-choices>
-        {choices.map((choice) => (
-          <ToggleRow
-            key={choice.id}
-            label={choice.label}
-            desc={choice.blocked ?? undefined}
-            checked={choice.pinned}
-            disabled={!choice.toggleable}
-            onToggle={() => toggleQuickAgent(choice.id)}
-          />
-        ))}
+        {choices.map((choice) => {
+          const offered = choice.offer !== undefined && choice.offer.kind !== "none";
+          return (
+            <ToggleRow
+              key={choice.id}
+              label={choice.label}
+              desc={offered ? undefined : (choice.blocked ?? undefined)}
+              note={
+                offered ? <AgentInstallControl agentId={choice.id} label={choice.label} /> : null
+              }
+              checked={choice.pinned}
+              disabled={!choice.toggleable}
+              onToggle={() => toggleQuickAgent(choice.id)}
+            />
+          );
+        })}
       </div>
     </section>
   );

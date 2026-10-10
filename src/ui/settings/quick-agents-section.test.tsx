@@ -1,12 +1,40 @@
 // @vitest-environment jsdom
 import { render } from "preact";
 import { act } from "preact/test-utils";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { BUILTIN_AGENTS } from "../../lib/agent-catalog";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { settingsOpen } from "../../chrome/events";
+import {
+  registerAgentInstallHost,
+  resetAgentInstallForTests,
+} from "../../launcher/agent-install-store";
+import { BUILTIN_AGENTS, probeNames } from "../../lib/agent-catalog";
+import { initializeDesktopEnvironment, resetDesktopEnvironmentForTests } from "../../lib/platform";
 import { DEFAULT_SETTINGS } from "../../settings/settings-schema";
 import { settings } from "../../settings/settings-store";
 import { agentsProbed, detectedAgents } from "../../terminal/agent-detection-store";
 import { QuickAgentsSection } from "./quick-agents-section";
+
+// Track B's real commands are not the subject here: `amp` has one, every other agent has none.
+vi.mock("../../lib/agent-catalog", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../lib/agent-catalog")>();
+  const amp = {
+    macos: { command: "amp-installer", source: "https://example.test", checked: "2026-10-10" },
+    windows: null,
+  };
+  return {
+    ...actual,
+    BUILTIN_AGENTS: actual.BUILTIN_AGENTS.map((agent) => ({
+      ...agent,
+      install: agent.id === "amp" ? amp : { macos: null, windows: null },
+    })),
+  };
+});
+
+const probe = vi.hoisted(() => ({ ensureAgentsDetected: vi.fn(async () => []) }));
+vi.mock("../../terminal/agent-detection-store", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../terminal/agent-detection-store")>()),
+  ensureAgentsDetected: probe.ensureAgentsDetected,
+}));
 
 let host: HTMLDivElement;
 beforeEach(() => {
@@ -25,6 +53,10 @@ afterEach(() => {
   settings.value = DEFAULT_SETTINGS;
   detectedAgents.value = [];
   agentsProbed.value = false;
+  settingsOpen.value = false;
+  resetAgentInstallForTests();
+  resetDesktopEnvironmentForTests();
+  probe.ensureAgentsDetected.mockClear();
 });
 
 function mount() {
@@ -96,5 +128,58 @@ describe("QuickAgentsSection", () => {
     mount();
     click("Aider");
     expect(settings.value.quickAgentIds).toEqual(["custom:aider"]);
+  });
+});
+
+describe("QuickAgentsSection install control", () => {
+  const spawned = {
+    kind: "spawned",
+    receipt: { tabKey: 1, paneId: 2, canFocus: () => false },
+  } as const;
+  const open = vi.fn();
+
+  beforeEach(() => {
+    initializeDesktopEnvironment({ platform: "macos", homeDir: "/Users/dev" });
+    open.mockReset();
+    open.mockResolvedValue(spawned);
+    detectedAgents.value = detectedAgents.value.filter((agent) => agent.name !== "amp");
+  });
+
+  const ampRow = () =>
+    [...host.querySelectorAll(".cfg-row")].find((row) => row.textContent?.includes("Amp"))!;
+
+  it("replaces Not installed with Install in the key column and leaves the switch alone", () => {
+    registerAgentInstallHost({ open, focus: vi.fn() });
+    mount();
+    const install = ampRow().querySelector<HTMLButtonElement>(".cfg-row__key button")!;
+    expect(install.textContent).toBe("Install");
+    expect(ampRow().textContent).not.toContain("Not installed");
+    expect(button("Amp").disabled).toBe(true);
+    act(() => install.click());
+    expect(open).toHaveBeenCalledExactlyOnceWith("amp", "amp-installer");
+    expect(button("Amp").getAttribute("aria-checked")).toBe("false");
+    expect(button("Amp").disabled).toBe(true);
+    expect(settings.value.quickAgentIds).toBeNull();
+    expect(ampRow().querySelectorAll(".cfg-row__value button")).toHaveLength(1);
+  });
+
+  it("keeps the Not installed description when the host cannot install", () => {
+    mount();
+    expect(ampRow().textContent).toContain("Not installed");
+    expect(ampRow().querySelector(".cfg-row__note")).toBeNull();
+  });
+
+  it("forces one full-list probe when Settings opens while an install is pending", async () => {
+    registerAgentInstallHost({ open, focus: vi.fn() });
+    mount();
+    await act(async () => ampRow().querySelector<HTMLButtonElement>("button")!.click());
+    expect(probe.ensureAgentsDetected).not.toHaveBeenCalled();
+    act(() => {
+      settingsOpen.value = true;
+    });
+    expect(probe.ensureAgentsDetected).toHaveBeenCalledExactlyOnceWith(
+      probeNames(settings.value.customAgents),
+      { force: true },
+    );
   });
 });

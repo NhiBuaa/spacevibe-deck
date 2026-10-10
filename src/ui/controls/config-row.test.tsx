@@ -63,6 +63,23 @@ describe("ToggleRow — disabled state (additive)", () => {
     expect(onToggle).not.toHaveBeenCalled();
   });
 
+  it("renders a note in the key column and leaves the value slot with its one switch", () => {
+    act(() => {
+      render(
+        <ToggleRow label="wrap" checked={false} onToggle={vi.fn()} note={<a href="#x">Get</a>} />,
+        host,
+      );
+    });
+    expect(host.querySelector(".cfg-row__key .cfg-row__note a")?.textContent).toBe("Get");
+    expect(host.querySelectorAll(".cfg-row__value button")).toHaveLength(1);
+    expect(host.querySelector(".cfg-row__value a")).toBeNull();
+  });
+
+  it("renders no note wrapper when there is none", () => {
+    mount(false, vi.fn());
+    expect(host.querySelector(".cfg-row__note")).toBeNull();
+  });
+
   it("keeps role=switch and aria-checked when disabled", () => {
     mount(true, vi.fn(), true);
     const button = host.querySelector("button") as HTMLButtonElement;
