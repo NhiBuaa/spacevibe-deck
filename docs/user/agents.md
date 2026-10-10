@@ -85,8 +85,8 @@ this rule.
 
 ### Installing a missing agent
 
-A built-in agent that Deck did not find shows **Install** on its row, here and in Settings →
-Quick agents and the launcher's **Add agent** list. Hover it to see the exact command. It opens
+A built-in agent that Deck did not find shows **Install** on its row in Settings → Quick agents
+and as a dimmed tile on the launcher, after the agents you can run. Hover it to see the exact command. It opens
 a terminal named `Install <Agent>` in a new space (in your home folder when no folder is open),
 types the vendor's install command and runs it there, so you see every prompt and answer them
 in that terminal. Pressing **Install** again while that terminal is open takes you back to it.
@@ -101,11 +101,18 @@ ones, and only in the Electron app
 
 ## Quick agents
 
-Quick agents are the cards on the quick launcher and the rows in the checkout menu. Choose
-them in Settings → Agents → Quick agents or from the launcher itself: its last card,
-**Add agent**, opens a list with a box per agent. Your choices are saved; agents you disable or
-uninstall stop appearing in the menu without being replaced by another agent
+Quick agents are the tiles on the quick launcher and the rows in the checkout menu. Choose
+them in Settings → Agents → Quick agents; the launcher has no list of its own to edit. Your
+choices are saved; agents you disable or uninstall stop appearing in the menu without being
+replaced by another agent
 ([quick agent settings](../../src/ui/settings/quick-agents-section.tsx)).
+
+Hover or focus a tile to see the exact command it will type, the folder and where it lands.
+The **Default profile** chip under the tiles lets you pick another of an agent's launch commands
+for that visit; leaving the launcher forgets the pick, and **Edit profiles in Settings…** opens
+where commands are written. If an agent cannot be started, the launcher says why and offers
+**Retry**
+([launcher](../../src/launcher/agent-launch-page.tsx)).
 
 The checkout menu's **Open shell** opens a new terminal tab inside Deck at that checkout.
 Use **New split here** for a pane beside the existing tab

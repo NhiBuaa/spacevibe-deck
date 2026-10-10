@@ -1307,23 +1307,44 @@ The launcher is the compact launch page plus the Open Board's agent cards, shari
   applied to host-only workspace actions and the runtime selector).
 - **DL-32.6** The compact agent launcher is a transient stage page
   ([page](../src/launcher/agent-launch-page.tsx),
-  [context row](../src/launcher/agent-launch-context.tsx)): compact cards with the existing
-  agent logos and no profile or recent badges. The sidebar and strip keep their
+  [context row](../src/launcher/agent-launch-context.tsx)): compact tiles with the existing
+  agent logos and no profile or recent badges, and no eyebrow, heading, `Add agent` card or
+  footer; which agents show is chosen in Settings → Agents. The sidebar and strip keep their
   places and the page owns no strip item. Covered content stays mounted but inert and the native
   browser is hidden. Back and Escape return without creating a process; Settings returns focus
   to the page.
-  A card is a tile on an `auto-fill, minmax(176px, 1fr)` grid: 20px logo, 12px name, `ArrowRight`
-  on one line. Its press takes initial focus and is `Split` (`Run` when the folder has no tab);
-  nothing is remembered and no modifier changes it. While the folder has a tab, a 34px icon-only
-  `PlusCircle` button on the right edge starts a `New space` (`launchAgentAtTarget` with a
-  `new-space` target), with a DL-13.7 hover tip (400ms for
-  a pointer, at once on keyboard focus, no native `title`) and `aria-label`
-  `Run <agent> in a new space`. A missing agent shows `Not installed`, disabled, with no icon.
+  A tile is a fixed 74px `--radius-control` card on an `auto-fill, minmax(176px, 1fr)` grid: a
+  20px logo and 12px name on top, `ArrowRight` bottom-right in `--text-faint`, `--text-primary`
+  on hover or focus (colour only; nothing moves, DL §7). One press covers the tile; it takes
+  initial focus and is `Split` (`Run` when the folder has no tab); nothing is remembered and no
+  modifier changes it. While the folder has a tab, a 24px icon-only `PlusCircle` button at the
+  tile's bottom-left starts a `New space` (`launchAgentAtTarget` with a `new-space` target), with
+  a DL-13.7 hover tip (400ms for a pointer, at once on keyboard focus, no native `title`) and
+  `aria-label` `Run <agent> in a new space`. The `Terminal` tile follows the installed agents. A
+  missing agent follows it as a dimmed tile: `Not installed` bottom-left, a disabled press and
+  the Install / Get control bottom-right at full contrast, with no `New space` button and no
+  arrow.
   The context row has no field labels (DL-32.2): a workspace popover (DL-13.1, `Open folder…`
   first), a checkout popover (the repository's checkouts by branch; absent for a folder git does
   not know) and a placement chip, `Split beside <agent>` when the focused pane belongs to the
-  chosen checkout, else `New space`. The chip is identity, not a control. Changing workspace or
-  checkout re-targets in place and starts nothing; the launch does what the chip says.
+  chosen checkout, else `New space`. The triggers are 28px `--radius-tab` pills on `--input-bg`
+  with a `--hair` border (`--hair-strong` on hover); the chip follows them after a decorative
+  `→` as the same pill without a hover, because it is identity, not a control. Changing
+  workspace or checkout re-targets in place and starts nothing; the launch does what the chip
+  says.
+  Under the tiles a preview line prints the command the hovered or keyboard-focused tile would
+  type, in `--board-font` (DL-4.1's exception), then `in <checkout path>` and where it lands:
+  the chip's words for a press, `New space` for the `PlusCircle` button. The `Terminal` tile
+  reads in plain words and a missing tile says nothing; with nothing shown, the line says how
+  to see the command. It is not a live region: the shown tile's controls name it with
+  `aria-describedby`. At its right end a profile chip (`Default profile`, or `Custom profile`
+  once a pick differs from a default) opens a DL-13.1 popover of each installed agent's launch
+  commands, a check on the active one and `default` on the default, then `Edit profiles in
+  Settings…`; it is omitted when no installed agent is on the page (DL-32.5). A pick changes the
+  preview and the next launch from this visit only: it is page state, and leaving the page
+  forgets it. A launch that fails before its pane exists puts its message in an alert above the
+  tiles with a `Retry` that repeats the same agent, placement and pick; no exit code is shown,
+  because Deck does not watch the process after spawn.
 - **DL-32.7** Agent panes carry one compact identity header. On Electron the
   [pane header](../src/terminal/pane-agent-header.tsx) is logo · the sidebar's latest message
   (one line, ellipsis, full text on hover), with no buttons (DL-32.8). It
@@ -1614,6 +1635,7 @@ section therefore means naming DL, or the gate does not see the citation.
 | Spaces and Mission Control are a shipping surface | `building` | built and unit-verified, native walk and owner eye review owed | §35 landed 2026-09-28 on `feat/mission-control`: `tsc`, `npm test`, `npm run build` and `generate:menu:check` green; no `electron:dev` walk yet. It replaced this row's previous claim, "the Agent Board is a shipping surface", closed the same day when the Board was retired behind `AGENT_BOARD_RETIRED` (§34's retirement note) |
 | Space workflow refinements are a shipping surface | `building` | built, unrun and unwalked; owner eye review owed | 2026-10-03 on `main` (4478840, 664edc5, 0fab403, 0c743a2): launch cards (DL-32.6), auto-named spaces and project capsules and the edge marker (DL-35.3). No `tsc`, `npm test` or `electron:dev` run yet. The walk must cover five agents on one card row, the New space tip by keyboard, a worktree inside its repository's capsule, and a red edge dot with enough spaces to scroll |
 | The launch page's context row is a shipping surface | `building` | built and unit-verified, native walk and owner eye review owed | 2026-10-08 on `feat/launch-page-context` (DL-32.6 amended): the workspace and checkout popovers, the placement chip and `Open folder…`. No gallery specimen exists for the launch page. The walk must cover changing the workspace and the checkout, seeing the chip follow, `Open folder…`, and launching from a re-targeted page |
+| The launch page's tiles, preview and profile popover are a shipping surface | `building` | built and unit-verified, native walk and owner eye review owed | 2026-10-11 on `feat/launch-page-details` (DL-32.6 and DL-4.1 amended): the 74px tiles with the bottom-left `New space` button, dimmed missing tiles carrying Install, the context pills, the monospace command preview, the profile chip and popover, and the failure alert with Retry. No gallery specimen, no `electron:dev` walk, no `electron:smoke`; the static mock (`2026-10-06-navigation-rail-mock`) is the visual target and has not been compared with the running page. The walk must cover a fresh machine's row of dimmed tiles, an Install failure message inside a 74px tile, the preview by hover and by keyboard, a pick changing the preview and the typed command, Escape closing the popover before the page, the popover on a short window (it opens downward and the page scrolls), a refused launch showing Retry, and the pills with the `→` at a narrow width and in light and dark themes |
 | Space names are a shipping surface | `building` | built and unit-verified, native walk and owner eye review owed | 2026-09-29 on `feat/space-names`: the strip (DL-35.3), the shelf (DL-35.1) and the rail row (DL-27.15's amendment) rename and render a name. The walk must cover the floating strip field over a short name and a 40-character one, the shelf field inside a 96px thumbnail, and a named and an unnamed space in one folder |
 | Every needs-you surface of a space wears the rail's two inks | `building` | the strip's marks do; the rest stay single red, owner decision owed | 2026-10-06 on `feat/rail-row-badge`: the marks and the current space's under-dot paint `--status-unread` for a question and `--red` for a failure (DL-35.3). DL-35.3 also says the shelf counts wear the same two colours, but `.mc-space__needs` paints `--red` for both (its `data-tone` is emitted and the stylesheet never reads it); the miniature's cells and the hidden-needs edge dot are single red too. Unwalked in `electron:dev` |
 | The collapsed rail is a shipping surface | `building` | built and unit-verified, native walk and owner eye review owed | 2026-10-07 on `feat/rail-collapsed` (DL-27.29, DL-18.9 amended): the avatar column, its needs-you badge and current mark, the flyout and `toggle-sidebar` (⌘B, Ctrl+Shift+L). No `electron:dev` walk. The walk must cover the traffic lights over a 52px column on macOS, a drag past the floor and back out, an avatar flyout over the browser tab, Esc returning focus to the avatar, and ⌘B from a terminal, a document and the tree |
