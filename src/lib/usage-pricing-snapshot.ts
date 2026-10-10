@@ -25,7 +25,7 @@ export interface ModelPricing {
 }
 
 /** Retrieval date of the table below. Shown beside every dollar figure. */
-export const PRICING_SNAPSHOT_DATE = "2026-08-10";
+export const PRICING_SNAPSHOT_DATE = "2026-10-10";
 
 /** Where the numbers came from, so a reader can check them. */
 export const PRICING_SOURCE_URL =
@@ -33,17 +33,14 @@ export const PRICING_SOURCE_URL =
 
 /** Exact model-id match only — no aliasing, no prefix fallback (spec §Pricing). */
 export const PRICING_SNAPSHOT: Readonly<Record<string, ModelPricing>> = {
-  "claude-3-7-sonnet-20250219": { inputPerToken: 0.000003, outputPerToken: 0.000015, cacheReadPerToken: 3e-7, cacheWritePerToken: 0.00000375 },
-  "claude-3-haiku-20240307": { inputPerToken: 2.5e-7, outputPerToken: 0.00000125, cacheReadPerToken: 3e-8, cacheWritePerToken: 3e-7 },
-  "claude-3-opus-20240229": { inputPerToken: 0.000015, outputPerToken: 0.000075, cacheReadPerToken: 0.0000015, cacheWritePerToken: 0.00001875 },
-  "claude-4-opus-20250514": { inputPerToken: 0.000015, outputPerToken: 0.000075, cacheReadPerToken: 0.0000015, cacheWritePerToken: 0.00001875 },
-  "claude-4-sonnet-20250514": { inputPerToken: 0.000003, outputPerToken: 0.000015, cacheReadPerToken: 3e-7, cacheWritePerToken: 0.00000375 },
   "claude-fable-5": { inputPerToken: 0.00001, outputPerToken: 0.00005, cacheReadPerToken: 0.000001, cacheWritePerToken: 0.0000125 },
+  "claude-fable-5-1": { inputPerToken: 0.00001, outputPerToken: 0.00005, cacheReadPerToken: 2.5e-7, cacheWritePerToken: 0.0000125 },
   "claude-haiku-4-5": { inputPerToken: 0.000001, outputPerToken: 0.000005, cacheReadPerToken: 1e-7, cacheWritePerToken: 0.00000125 },
   "claude-haiku-4-5-20251001": { inputPerToken: 0.000001, outputPerToken: 0.000005, cacheReadPerToken: 1e-7, cacheWritePerToken: 0.00000125 },
-  "claude-opus-4-1": { inputPerToken: 0.000015, outputPerToken: 0.000075, cacheReadPerToken: 0.0000015, cacheWritePerToken: 0.00001875 },
-  "claude-opus-4-1-20250805": { inputPerToken: 0.000015, outputPerToken: 0.000075, cacheReadPerToken: 0.0000015, cacheWritePerToken: 0.00001875 },
-  "claude-opus-4-20250514": { inputPerToken: 0.000015, outputPerToken: 0.000075, cacheReadPerToken: 0.0000015, cacheWritePerToken: 0.00001875 },
+  "claude-haiku-5-5": { inputPerToken: 1e-7, outputPerToken: 5e-7, cacheReadPerToken: 1e-8, cacheWritePerToken: 1.25e-7 },
+  "claude-mythos-5": { inputPerToken: 0.00001, outputPerToken: 0.00005, cacheReadPerToken: 0.000001, cacheWritePerToken: 0.0000125 },
+  "claude-mythos-5-1": { inputPerToken: 0.00001, outputPerToken: 0.00005, cacheReadPerToken: 2.5e-7, cacheWritePerToken: 0.0000125 },
+  "claude-mythos-preview": { inputPerToken: 0.00001, outputPerToken: 0.00005, cacheReadPerToken: 0.000001, cacheWritePerToken: 0.0000125 },
   "claude-opus-4-5": { inputPerToken: 0.000005, outputPerToken: 0.000025, cacheReadPerToken: 5e-7, cacheWritePerToken: 0.00000625 },
   "claude-opus-4-5-20251101": { inputPerToken: 0.000005, outputPerToken: 0.000025, cacheReadPerToken: 5e-7, cacheWritePerToken: 0.00000625 },
   "claude-opus-4-6": { inputPerToken: 0.000005, outputPerToken: 0.000025, cacheReadPerToken: 5e-7, cacheWritePerToken: 0.00000625 },
@@ -52,12 +49,12 @@ export const PRICING_SNAPSHOT: Readonly<Record<string, ModelPricing>> = {
   "claude-opus-4-7-20260416": { inputPerToken: 0.000005, outputPerToken: 0.000025, cacheReadPerToken: 5e-7, cacheWritePerToken: 0.00000625 },
   "claude-opus-4-8": { inputPerToken: 0.000005, outputPerToken: 0.000025, cacheReadPerToken: 5e-7, cacheWritePerToken: 0.00000625 },
   "claude-opus-5": { inputPerToken: 0.000005, outputPerToken: 0.000025, cacheReadPerToken: 5e-7, cacheWritePerToken: 0.00000625 },
-  "claude-sonnet-4-20250514": { inputPerToken: 0.000003, outputPerToken: 0.000015, cacheReadPerToken: 3e-7, cacheWritePerToken: 0.00000375 },
+  "claude-opus-5-5": { inputPerToken: 0.000004, outputPerToken: 0.00002, cacheReadPerToken: 2e-7, cacheWritePerToken: 0.000005 },
   "claude-sonnet-4-5": { inputPerToken: 0.000003, outputPerToken: 0.000015, cacheReadPerToken: 3e-7, cacheWritePerToken: 0.00000375 },
   "claude-sonnet-4-5-20250929": { inputPerToken: 0.000003, outputPerToken: 0.000015, cacheReadPerToken: 3e-7, cacheWritePerToken: 0.00000375 },
   "claude-sonnet-4-6": { inputPerToken: 0.000003, outputPerToken: 0.000015, cacheReadPerToken: 3e-7, cacheWritePerToken: 0.00000375 },
   "claude-sonnet-5": { inputPerToken: 0.000002, outputPerToken: 0.00001, cacheReadPerToken: 2e-7, cacheWritePerToken: 0.0000025 },
-  "codex-mini-latest": { inputPerToken: 0.0000015, outputPerToken: 0.000006, cacheReadPerToken: 3.75e-7, cacheWritePerToken: null },
+  "claude-sonnet-5-5": { inputPerToken: 0.000002, outputPerToken: 0.00001, cacheReadPerToken: 1e-7, cacheWritePerToken: 0.0000025 },
   "gpt-5": { inputPerToken: 0.00000125, outputPerToken: 0.00001, cacheReadPerToken: 1.25e-7, cacheWritePerToken: null },
   "gpt-5-2025-08-07": { inputPerToken: 0.00000125, outputPerToken: 0.00001, cacheReadPerToken: 1.25e-7, cacheWritePerToken: null },
   "gpt-5-chat": { inputPerToken: 0.00000125, outputPerToken: 0.00001, cacheReadPerToken: 1.25e-7, cacheWritePerToken: null },
@@ -91,16 +88,22 @@ export const PRICING_SNAPSHOT: Readonly<Record<string, ModelPricing>> = {
   "gpt-5.4-mini-2026-03-17": { inputPerToken: 7.5e-7, outputPerToken: 0.0000045, cacheReadPerToken: 7.5e-8, cacheWritePerToken: null },
   "gpt-5.4-nano": { inputPerToken: 2e-7, outputPerToken: 0.00000125, cacheReadPerToken: 2e-8, cacheWritePerToken: null },
   "gpt-5.4-nano-2026-03-17": { inputPerToken: 2e-7, outputPerToken: 0.00000125, cacheReadPerToken: 2e-8, cacheWritePerToken: null },
-  "gpt-5.4-pro": { inputPerToken: 0.00003, outputPerToken: 0.00018, cacheReadPerToken: 0.000003, cacheWritePerToken: null },
-  "gpt-5.4-pro-2026-03-05": { inputPerToken: 0.00003, outputPerToken: 0.00018, cacheReadPerToken: 0.000003, cacheWritePerToken: null },
+  "gpt-5.4-pro": { inputPerToken: 0.00003, outputPerToken: 0.00018, cacheReadPerToken: null, cacheWritePerToken: null },
+  "gpt-5.4-pro-2026-03-05": { inputPerToken: 0.00003, outputPerToken: 0.00018, cacheReadPerToken: null, cacheWritePerToken: null },
   "gpt-5.5": { inputPerToken: 0.000005, outputPerToken: 0.00003, cacheReadPerToken: 5e-7, cacheWritePerToken: null },
   "gpt-5.5-2026-04-23": { inputPerToken: 0.000005, outputPerToken: 0.00003, cacheReadPerToken: 5e-7, cacheWritePerToken: null },
-  "gpt-5.5-pro": { inputPerToken: 0.00003, outputPerToken: 0.00018, cacheReadPerToken: 0.000003, cacheWritePerToken: null },
-  "gpt-5.5-pro-2026-04-23": { inputPerToken: 0.00003, outputPerToken: 0.00018, cacheReadPerToken: 0.000003, cacheWritePerToken: null },
-  "gpt-5.6": { inputPerToken: 0.000005, outputPerToken: 0.00003, cacheReadPerToken: 5e-7, cacheWritePerToken: 0.00000625 },
+  "gpt-5.5-cyber": { inputPerToken: 0.0000125, outputPerToken: 0.000075, cacheReadPerToken: 0.00000125, cacheWritePerToken: null },
+  "gpt-5.5-pro": { inputPerToken: 0.00003, outputPerToken: 0.00018, cacheReadPerToken: null, cacheWritePerToken: null },
+  "gpt-5.5-pro-2026-04-23": { inputPerToken: 0.00003, outputPerToken: 0.00018, cacheReadPerToken: null, cacheWritePerToken: null },
+  "gpt-5.6": { inputPerToken: 0.000004, outputPerToken: 0.00002, cacheReadPerToken: 4e-7, cacheWritePerToken: 0.000005 },
+  "gpt-5.6-cyber": { inputPerToken: 0.0000125, outputPerToken: 0.000075, cacheReadPerToken: 0.00000125, cacheWritePerToken: 0.000015625 },
   "gpt-5.6-luna": { inputPerToken: 2e-7, outputPerToken: 0.0000012, cacheReadPerToken: 2e-8, cacheWritePerToken: 2.5e-7 },
-  "gpt-5.6-sol": { inputPerToken: 0.000005, outputPerToken: 0.00003, cacheReadPerToken: 5e-7, cacheWritePerToken: 0.00000625 },
+  "gpt-5.6-sol": { inputPerToken: 0.000004, outputPerToken: 0.00002, cacheReadPerToken: 4e-7, cacheWritePerToken: 0.000005 },
   "gpt-5.6-terra": { inputPerToken: 0.000002, outputPerToken: 0.000012, cacheReadPerToken: 2e-7, cacheWritePerToken: 0.0000025 },
+  "gpt-6-astra": { inputPerToken: 0.00001, outputPerToken: 0.00005, cacheReadPerToken: 0.000001, cacheWritePerToken: 0.0000125 },
+  "gpt-6-luna": { inputPerToken: 1e-7, outputPerToken: 5e-7, cacheReadPerToken: 1e-8, cacheWritePerToken: 1.25e-7 },
+  "gpt-6-sol": { inputPerToken: 0.000002, outputPerToken: 0.00001, cacheReadPerToken: 2e-7, cacheWritePerToken: 0.0000025 },
+  "gpt-6.1-sol": { inputPerToken: 0.000002, outputPerToken: 0.00001, cacheReadPerToken: 1e-7, cacheWritePerToken: 0.0000025 },
   "o1": { inputPerToken: 0.000015, outputPerToken: 0.00006, cacheReadPerToken: 0.0000075, cacheWritePerToken: null },
   "o1-2024-12-17": { inputPerToken: 0.000015, outputPerToken: 0.00006, cacheReadPerToken: 0.0000075, cacheWritePerToken: null },
   "o1-pro": { inputPerToken: 0.00015, outputPerToken: 0.0006, cacheReadPerToken: null, cacheWritePerToken: null },
@@ -108,7 +111,6 @@ export const PRICING_SNAPSHOT: Readonly<Record<string, ModelPricing>> = {
   "o3": { inputPerToken: 0.000002, outputPerToken: 0.000008, cacheReadPerToken: 5e-7, cacheWritePerToken: null },
   "o3-2025-04-16": { inputPerToken: 0.000002, outputPerToken: 0.000008, cacheReadPerToken: 5e-7, cacheWritePerToken: null },
   "o3-deep-research": { inputPerToken: 0.00001, outputPerToken: 0.00004, cacheReadPerToken: 0.0000025, cacheWritePerToken: null },
-  "o3-deep-research-2025-06-26": { inputPerToken: 0.00001, outputPerToken: 0.00004, cacheReadPerToken: 0.0000025, cacheWritePerToken: null },
   "o3-mini": { inputPerToken: 0.0000011, outputPerToken: 0.0000044, cacheReadPerToken: 5.5e-7, cacheWritePerToken: null },
   "o3-mini-2025-01-31": { inputPerToken: 0.0000011, outputPerToken: 0.0000044, cacheReadPerToken: 5.5e-7, cacheWritePerToken: null },
   "o3-pro": { inputPerToken: 0.00002, outputPerToken: 0.00008, cacheReadPerToken: null, cacheWritePerToken: null },
@@ -116,5 +118,4 @@ export const PRICING_SNAPSHOT: Readonly<Record<string, ModelPricing>> = {
   "o4-mini": { inputPerToken: 0.0000011, outputPerToken: 0.0000044, cacheReadPerToken: 2.75e-7, cacheWritePerToken: null },
   "o4-mini-2025-04-16": { inputPerToken: 0.0000011, outputPerToken: 0.0000044, cacheReadPerToken: 2.75e-7, cacheWritePerToken: null },
   "o4-mini-deep-research": { inputPerToken: 0.000002, outputPerToken: 0.000008, cacheReadPerToken: 5e-7, cacheWritePerToken: null },
-  "o4-mini-deep-research-2025-06-26": { inputPerToken: 0.000002, outputPerToken: 0.000008, cacheReadPerToken: 5e-7, cacheWritePerToken: null },
 };

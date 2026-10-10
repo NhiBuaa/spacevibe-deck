@@ -7,7 +7,7 @@ import {
 
 /**
  * Every model id the Claude Code and Codex CLIs on the dev machine had
- * actually written into their transcripts as of 2026-08-10 — with the single
+ * actually written into their transcripts as of 2026-10-10 — with the single
  * exception of `<synthetic>`, which is Claude Code's marker for a locally
  * produced message and is deliberately unpriced (it always carries zero
  * tokens; see `usage-pricing.ts`).
@@ -18,10 +18,14 @@ import {
  */
 const OBSERVED_MODELS = [
   "claude-fable-5",
+  "claude-fable-5-1",
+  "claude-haiku-5-5",
   "claude-opus-4-8",
   "claude-opus-5",
+  "claude-opus-5-5",
   "claude-sonnet-4-6",
   "claude-sonnet-5",
+  "claude-sonnet-5-5",
   "gpt-5.1-codex-mini",
   "gpt-5.3-codex",
   "gpt-5.4",
@@ -29,6 +33,10 @@ const OBSERVED_MODELS = [
   "gpt-5.6-luna",
   "gpt-5.6-sol",
   "gpt-5.6-terra",
+  "gpt-6-astra",
+  "gpt-6-luna",
+  "gpt-6-sol",
+  "gpt-6.1-sol",
 ];
 
 /** A refresh that halves the catalog is a bug, not a price change. */

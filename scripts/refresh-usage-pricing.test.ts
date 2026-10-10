@@ -55,10 +55,14 @@ function openaiEntry(overrides: Record<string, unknown> = {}) {
  */
 const REQUIRED_MODELS = [
   "claude-fable-5",
+  "claude-fable-5-1",
+  "claude-haiku-5-5",
   "claude-opus-4-8",
   "claude-opus-5",
+  "claude-opus-5-5",
   "claude-sonnet-4-6",
   "claude-sonnet-5",
+  "claude-sonnet-5-5",
   "gpt-5.1-codex-mini",
   "gpt-5.3-codex",
   "gpt-5.4",
@@ -66,6 +70,10 @@ const REQUIRED_MODELS = [
   "gpt-5.6-luna",
   "gpt-5.6-sol",
   "gpt-5.6-terra",
+  "gpt-6-astra",
+  "gpt-6-luna",
+  "gpt-6-sol",
+  "gpt-6.1-sol",
 ];
 
 /** A catalog big enough to clear the script's minimum-count floor. */
@@ -122,12 +130,16 @@ describe("selectModels", () => {
       "claude-opus-5": anthropicEntry(),
       "o3-mini": openaiEntry(),
       "codex-mini-latest": openaiEntry(),
+      "gpt-6-astra": openaiEntry(),
+      "gpt-6.1-sol": openaiEntry(),
     });
 
     expect(models.map(([id]: [string, unknown]) => id)).toEqual([
       "claude-opus-5",
       "codex-mini-latest",
       "gpt-5.6-sol",
+      "gpt-6-astra",
+      "gpt-6.1-sol",
       "o3-mini",
     ]);
   });

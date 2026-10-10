@@ -26,29 +26,35 @@ const OUTPUT_URL = new URL("../src/lib/usage-pricing-snapshot.ts", import.meta.u
 /**
  * Which catalog entries are worth shipping. Anthropic's whole `claude-*` line
  * is 24 entries, so it is kept whole; OpenAI publishes 219, of which only the
- * GPT-5, o-series and codex families are reachable from the Codex CLI.
- * Matching is by family prefix rather than by the exact ids seen on one
+ * GPT-5-and-later, o-series and codex families are reachable from the Codex
+ * CLI. Matching is by family prefix rather than by the exact ids seen on one
  * machine, because pricing lookup is exact-match only — a model missing from
  * the snapshot shows no dollars at all, and the next CLI release picks a new
- * default model without asking.
+ * default model without asking. The GPT prefix is a digit range, not `gpt-5`:
+ * a literal `gpt-5` left every `gpt-6*` id Codex moved to in September 2026
+ * unpriced.
  */
 const MODEL_SELECTORS = [
   { provider: "anthropic", pattern: /^claude-/u },
-  { provider: "openai", pattern: /^(?:gpt-5|o[134](?:-|$)|codex-)/u },
+  { provider: "openai", pattern: /^(?:gpt-[5-9]|o[134](?:-|$)|codex-)/u },
 ];
 
 /**
  * Every model id Claude Code and Codex had actually written into their
- * transcripts on this machine as of 2026-08-10. These must survive the
+ * transcripts on this machine as of 2026-10-10. These must survive the
  * filter; if one stops doing so, the catalog changed shape and a human has to
  * look before anything is written.
  */
 const REQUIRED_MODELS = [
   "claude-fable-5",
+  "claude-fable-5-1",
+  "claude-haiku-5-5",
   "claude-opus-4-8",
   "claude-opus-5",
+  "claude-opus-5-5",
   "claude-sonnet-4-6",
   "claude-sonnet-5",
+  "claude-sonnet-5-5",
   "gpt-5.1-codex-mini",
   "gpt-5.3-codex",
   "gpt-5.4",
@@ -56,9 +62,13 @@ const REQUIRED_MODELS = [
   "gpt-5.6-luna",
   "gpt-5.6-sol",
   "gpt-5.6-terra",
+  "gpt-6-astra",
+  "gpt-6-luna",
+  "gpt-6-sol",
+  "gpt-6.1-sol",
 ];
 
-/** 84 models survived on 2026-08-10. Half that means the filter broke. */
+/** 85 models survived on 2026-10-10. Half that means the filter broke. */
 const MIN_SELECTED_MODELS = 40;
 
 /** LiteLLM's own schema placeholder, not a model. */

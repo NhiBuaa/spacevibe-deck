@@ -90,8 +90,8 @@ describe("agentTotals", () => {
 
     // 2000 output on claude-opus-5 at 2.5e-5 + 1000 on claude-sonnet-5 at 1e-5
     expect(totals[0].costUsd).toBeCloseTo(0.06, 10);
-    // 1000 uncached input on gpt-5.6-sol at 5e-6
-    expect(totals[1].costUsd).toBeCloseTo(0.005, 10);
+    // 1000 uncached input on gpt-5.6-sol at 4e-6
+    expect(totals[1].costUsd).toBeCloseTo(0.004, 10);
   });
 
   it("drops buckets that start before sinceMs", () => {
@@ -130,7 +130,7 @@ describe("agentTotals", () => {
     expect(totals[0].unpricedModels).toEqual(["claude-from-the-future"]);
     expect(totals[0].unpricedTokens).toBe(5);
     // Codex is untouched — nothing spreads across agents.
-    expect(totals[1].costUsd).toBeCloseTo(0.005, 10);
+    expect(totals[1].costUsd).toBeCloseTo(0.004, 10);
     expect(totals[1].unpricedTokens).toBe(0);
   });
 
