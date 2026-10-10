@@ -263,6 +263,21 @@
   padding: 4px;
   list-style: none;
 }
+/* The Install / Get control is the label's sibling, never inside it, so a press
+   cannot toggle the checkbox; the dimming of a disabled row below only reaches
+   the label's own children. */
+.agent-launch-page__editor li {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.agent-launch-page__editor li > label {
+  flex: 1;
+  min-width: 0;
+}
+.agent-launch-page__editor li > .agent-install {
+  margin-right: 8px;
+}
 .agent-launch-page__editor label {
   display: flex;
   gap: 8px;

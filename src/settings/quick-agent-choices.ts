@@ -1,4 +1,6 @@
 import { agentOptions, BUILTIN_AGENTS } from "../lib/agent-catalog";
+import type { InstallOffer } from "../lib/agent-install";
+import { installOfferFor } from "../launcher/agent-install-store";
 import { agentsProbed, detectedAgents } from "../terminal/agent-detection-store";
 import { quickAgentOptions } from "./quick-agents";
 import { settings, updateSettings } from "./settings-store";
@@ -12,6 +14,8 @@ export interface QuickAgentChoice {
   readonly blocked: string | null;
   /** An unpinned agent needs `blocked === null`; a pinned one can always be dropped. */
   readonly toggleable: boolean;
+  /** Install or Get for a missing built-in; absent reads as `none`. */
+  readonly offer?: InstallOffer;
 }
 
 /**
@@ -45,6 +49,7 @@ export function quickAgentChoices(): readonly QuickAgentChoice[] {
       pinned,
       blocked,
       toggleable: probed && (pinned || blocked === null),
+      offer: installOfferFor(agent.id),
     };
   });
 }
