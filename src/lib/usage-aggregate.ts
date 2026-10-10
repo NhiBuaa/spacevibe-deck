@@ -39,7 +39,7 @@ import {
 export interface AgentTotal {
   readonly agent: UsageAgent;
   readonly counters: UsageCounters;
-  /** Sum over priced models; null only when NO model here has a price. */
+  /** Sum over priced models; null only when NO token here has a price. */
   readonly costUsd: number | null;
   readonly unpricedModels: readonly string[];
   /** Tokens belonging to `unpricedModels` — the part `costUsd` excludes. */
@@ -106,20 +106,22 @@ interface CostRollup {
  * Sum the per-model costs of one group, keeping the priced and unpriced halves
  * apart (see the `AgentTotal` comment for why this changed on 2026-08-10).
  *
- * `costUsd` covers every model that has a price and goes null only when not
- * one of them does — one unrecognised id can no longer erase a figure the
- * other models fully support. `unpricedTokens` carries what was left out so
- * the caller can say so; a caller that renders the money and drops the
- * disclosure has reintroduced the original bug from the other side.
+ * `costUsd` covers every model that has a price and goes null only when no
+ * token in the group has one — one unrecognised id can no longer erase a
+ * figure the other models fully support. `unpricedTokens` carries what was
+ * left out so the caller can say so; a caller that renders the money and drops
+ * the disclosure has reintroduced the original bug from the other side.
  *
  * A model contributing zero tokens is never "unpriced" — `estimateCostUsd`
  * answers 0 for it, which is arithmetic and not a price lookup, and it is what
- * keeps Claude's `<synthetic>` marker out of this list.
+ * keeps Claude's `<synthetic>` marker out of this list. For the same reason it
+ * is not a price either: counting it as one turned a day spent entirely on
+ * unpriced models into a confident $0.00 (2026-10-10).
  */
 function rollupCost(byModel: ReadonlyMap<string, UsageCounters>): CostRollup {
   const unpriced: string[] = [];
   let priced = 0;
-  let pricedModels = 0;
+  let pricedTokens = 0;
   let unpricedTokens = 0;
   for (const [model, counters] of byModel) {
     const cost = estimateCostUsd(model, counters);
@@ -129,10 +131,10 @@ function rollupCost(byModel: ReadonlyMap<string, UsageCounters>): CostRollup {
       continue;
     }
     priced += cost;
-    pricedModels += 1;
+    pricedTokens += totalTokens(counters);
   }
   return {
-    costUsd: pricedModels === 0 ? null : priced,
+    costUsd: unpricedTokens > 0 && pricedTokens === 0 ? null : priced,
     unpricedModels: [...new Set(unpriced)].sort(compareStrings),
     unpricedTokens,
   };

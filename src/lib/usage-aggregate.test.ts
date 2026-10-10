@@ -195,4 +195,27 @@ describe("agentTotals", () => {
     expect(totals[0].unpricedModels).toEqual([]);
     expect(totals[0].costUsd).toBeCloseTo(0.025, 10);
   });
+
+  it("does not let an all-zero model pass an unpriced agent off as $0", () => {
+    // 2026-10-10: every real token Claude spent that day was on an unpriced
+    // id, and the `<synthetic>` row's arithmetic zero made the hero read $0.00.
+    const totals = agentTotals(
+      [
+        bucket("2026-08-10T12:00:00Z", "claude", "claude-from-the-future", {
+          output: 1000,
+        }),
+        bucket("2026-08-10T12:15:00Z", "claude", "<synthetic>"),
+      ],
+      null,
+    );
+
+    expect(totals[0].costUsd).toBeNull();
+    expect(totals[0].unpricedTokens).toBe(1000);
+  });
+
+  it("still reports a genuine zero when nothing here carried a token", () => {
+    const totals = agentTotals([bucket("2026-08-10T12:15:00Z", "claude", "<synthetic>")], null);
+
+    expect(totals[0].costUsd).toBe(0);
+  });
 });
