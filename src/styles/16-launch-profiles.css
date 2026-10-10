@@ -292,6 +292,29 @@
   min-width: 0;
 }
 
+/* The Install / Get control on a missing agent's row, shared by the three
+   agent lists (agent-install-control.tsx). It shrinks and wraps so a failure
+   message never widens a 220px editor cell or the 480px Settings row. */
+.agent-install {
+  display: inline-flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.agent-install__get {
+  text-decoration: none;
+}
+
+.agent-install__error {
+  min-width: 0;
+  font-size: var(--type-micro);
+  color: var(--red);
+  overflow-wrap: anywhere;
+}
+
 .lp-install-help {
   margin: 8px 14px;
   color: var(--text-muted);
