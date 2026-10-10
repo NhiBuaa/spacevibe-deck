@@ -1,11 +1,12 @@
 /**
- * Fake data for the diff column specimens (plan 2026-10-10-diff-column, Task 0).
+ * Fake data for the diff column's gallery frames (plan 2026-10-10-diff-column,
+ * Task 4).
  *
  * One checkout of five entries and the file text each frame diffs. The text is
- * real TypeScript, CSS-free and a few lines of Markdown, so the eye review can
- * judge syntax colour on top of the wash. Counts are computed from the text, not
- * typed, so a header never claims a number its own diff contradicts. Never
- * imported by shipping code (R7).
+ * real TypeScript and a few lines of Markdown, so the eye can judge syntax colour
+ * on top of the wash. Counts are computed from the text, not typed, so a header
+ * never claims a number its own diff contradicts. Never imported by shipping
+ * code (R7).
  */
 import type { ChangeEntry, ChangesSnapshot } from "../../host/git-changes-host";
 

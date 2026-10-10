@@ -430,7 +430,7 @@
 }
 
 .stage--dock .mc {
-  right: var(--dock-w);
+  right: var(--stage-inset);
 }
 
 /* The root takes focus only as a resting place (a press on a label or a gap). */

@@ -1,6 +1,6 @@
 /**
  * The diff column: the selected change's diff in a column left of the dock
- * (plan 2026-10-10-diff-column, DIFF1–DIFF5).
+ * (plan 2026-10-10-diff-column, DIFF1–DIFF5; DL-19.11).
  *
  * `DiffColumn` is mounted once by `App` beside `DockPanel` and renders nothing
  * while no file is selected. Open, it owns four things and nothing else:
@@ -23,7 +23,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/ho
 import type { FileSurfaceController } from "../file-surface-controller";
 import { defaultFileClient } from "../file-client";
 import { readHeadFile } from "../../host/git-changes-host";
-import { changesController, type CountingChangesController } from "../changes/changes-controller";
+import { changesController, type ChangesController } from "../changes/changes-controller";
 import { absolutePath } from "../changes/changes-model";
 import { closeDiffColumn, diffFocusRequest } from "../changes/diff-column-focus";
 import {
@@ -56,7 +56,7 @@ export interface DiffColumnProps {
   readonly dockWidth: number;
   /** Test and gallery seams; the window's own otherwise. */
   readonly selection?: DiffSelectionStore;
-  readonly changes?: CountingChangesController;
+  readonly changes?: ChangesController;
   readonly ports?: DiffSidesPorts;
   /** Where the stage's extra right inset goes; the window's own signal otherwise. */
   readonly onInset?: (inset: number) => void;
@@ -94,7 +94,7 @@ function noteFor(view: DiffView | null, sides: DiffSidesView | null): string | n
 function OpenColumn(
   props: DiffColumnProps & {
     readonly store: DiffSelectionStore;
-    readonly changes: CountingChangesController;
+    readonly changes: ChangesController;
     readonly open: DiffSelection;
   },
 ) {

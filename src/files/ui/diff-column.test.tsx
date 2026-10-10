@@ -17,7 +17,7 @@ import {
   type FileSurfaceController,
 } from "../file-surface-controller";
 import type { FileClient } from "../file-client";
-import type { ChangesState, CountingChangesController } from "../changes/changes-controller";
+import type { ChangesState, ChangesController } from "../changes/changes-controller";
 import { requestDiffFocus } from "../changes/diff-column-focus";
 import { createDiffSelection, type DiffSelectionStore } from "../changes/diff-selection";
 import type { DiffSidesPorts } from "../changes/diff-sides";
@@ -61,7 +61,7 @@ interface Rig {
   readonly state: Signal<ChangesState>;
   readonly readCount: Signal<number>;
   readonly store: DiffSelectionStore;
-  readonly changes: CountingChangesController;
+  readonly changes: ChangesController;
   readonly ports: {
     readonly statFiles: ReturnType<typeof vi.fn>;
     readonly readFile: ReturnType<typeof vi.fn>;
@@ -87,7 +87,7 @@ function makeRig(entries: readonly ChangeEntry[] = ENTRIES): Rig {
     reading: false,
   });
   const readCount = signal(1);
-  const changes: CountingChangesController = {
+  const changes: ChangesController = {
     state,
     readCount,
     setShown: vi.fn(),

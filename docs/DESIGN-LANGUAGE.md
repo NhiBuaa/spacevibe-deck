@@ -108,9 +108,12 @@ through `color-mix`.
 - **DL-3.2** `--green` means on / enabled / success. `--red` means danger / destructive /
   error. `--yellow` means needs your eyes: a question, a permission wait, or a finished run
   nobody has checked — one step below `--red`'s failure. None of them is decoration.
-  A diff's line counts are the one place green and red mean added and removed: `+N` in
-  `--green`, `−M` in `--red`, a zero side in the count's neutral ink
-  ([`DiffCounts`](../src/files/ui/changes-list.tsx)).
+  A diff is the one place green and red mean added and removed. Its counts print `+N` in
+  `--green` and `−M` in `--red`, a zero side in the count's neutral ink
+  ([`DiffCounts`](../src/files/ui/changes-list.tsx)); in the diff column an added line or word
+  sits on a low `--green` wash and a removed one on a low `--red` wash, taken from the live
+  theme ([`monacoThemeFor`](../src/files/editor-host.ts)), so syntax colour stays legible on
+  top.
   Why: the owner wants the two counts apart at a glance (2026-10-10), as every diff tool shows
   them.
 - **DL-3.3** Structure comes from hairlines and background steps, not from color or
@@ -774,6 +777,8 @@ covering it; the file explorer is the resident instance.
   Changes chip the folder cannot serve is disabled with its reason, because a hidden entry
   cannot say why (DL-21.4); on a host that cannot serve the read the switch is omitted
   (DL-19.7).
+  The row whose diff is open carries DL-21.1's wash at `--radius-tab` and is `aria-selected`;
+  a deleted row is pressable, since its diff is the old side.
   Why: the wash is DL-21.1's selection signifier, and a filter is not a selection.
 - **DL-19.10** Opening a document splits the Explorer's existing width into a narrower list
   and a document panel on its left, so the list stays against the window edge; it creates no top-strip chip. The panel's Open files
@@ -785,6 +790,19 @@ covering it; the file explorer is the resident instance.
   needs, never moving keyboard focus or the roving tab stop and never opening the dock. A
   document outside the root, under an excluded name, or a dot-path while hidden files are off
   marks nothing and changes no filter. The mark remains while the terminal has keyboard focus.
+- **DL-19.11** The diff column is the Changes list's transient second docked column. It
+  stands directly left of the Explorer and follows DL-19.1 and DL-19.2: the grid's right inset
+  is the dock plus the column, with one `--hair` seam on its inner edge. Its header is
+  `--frame-h` tall like DL-19.3 and names the file, its status mark and its counts, then
+  `2/5`, ‹ ›, Open file and ×, icon-only with DL-23.10 tooltips; the directory and the status
+  word live in tooltips. DL-19.5's status line sits under it. Its width is half the space
+  left of the Explorer, at most 960px; when that half is under 400px the column lies over the
+  Explorer below the dock's tab row and the grid keeps its width. It appears and leaves
+  without motion, keeps its width while moving between files, and closes from ×, from Esc
+  inside it, and whenever the Changes list stops being shown. The body is a read-only Monaco
+  diff in the editor's theme and font ([`DiffColumn`](../src/files/ui/diff-column.tsx)).
+  Why: every width change resizes each pane's terminal, so the column changes width only when
+  the window or the dock does.
 
 ## 23. Action tooltips and the `More` menu
 

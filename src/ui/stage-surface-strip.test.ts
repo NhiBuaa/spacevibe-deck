@@ -1,4 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// The strip asks the DOM whether focus is in the diff column; this file runs
+// without one, so the answer is a stub the cases below set.
+vi.mock("../files/changes/diff-column-focus", () => ({
+  focusInDiffColumn: vi.fn(() => false),
+  closeDiffColumn: vi.fn(),
+}));
+
+import { closeDiffColumn, focusInDiffColumn } from "../files/changes/diff-column-focus";
 import type { SurfaceStrip } from "../terminal/tab-manager";
 import type { BrowserClient, BrowserState } from "../browser/browser-client";
 import {
@@ -63,6 +72,8 @@ function fakeFiles(overrides: Partial<SurfaceStrip> = {}): SurfaceStrip {
 }
 
 beforeEach(() => {
+  vi.mocked(focusInDiffColumn).mockReturnValue(false);
+  vi.mocked(closeDiffColumn).mockClear();
   resetBrowserStore();
   missionControlOpen.value = false;
   // Both surface stores are window-scoped singletons, so a board left open by
@@ -101,6 +112,43 @@ describe("composeSurfaceStrip with the browser tab closed", () => {
     expect(files.applySettings).toHaveBeenCalledWith(DEFAULT_SETTINGS);
     // No browser transition happened, so TabManager was never poked.
     expect(onChanged).not.toHaveBeenCalled();
+  });
+});
+
+describe("composeSurfaceStrip with focus in the diff column (D13)", () => {
+  it("claims focus, so ⌘W never reaches closePane() and offers to close the agent", () => {
+    vi.mocked(focusInDiffColumn).mockReturnValue(true);
+    const strip = composeSurfaceStrip({
+      files: fakeFiles({ activeIndex: vi.fn(() => -1) }),
+      client: fakeClient(),
+      onChanged: vi.fn(),
+    });
+    expect(strip.hasFocus?.()).toBe(true);
+  });
+
+  it("closes the column and nothing else, whatever else holds the stage", async () => {
+    vi.mocked(focusInDiffColumn).mockReturnValue(true);
+    browserOpen.value = true;
+    browserSurfaceActive.value = true;
+    const files = fakeFiles({ activeIndex: vi.fn(() => 1) });
+    const onChanged = vi.fn();
+    const strip = composeSurfaceStrip({ files, client: fakeClient(), onChanged });
+
+    await strip.close();
+    expect(closeDiffColumn).toHaveBeenCalledTimes(1);
+    expect(files.close).not.toHaveBeenCalled();
+    expect(browserOpen.value).toBe(true);
+    expect(browserSurfaceActive.value).toBe(true);
+    expect(onChanged).not.toHaveBeenCalled();
+  });
+
+  it("changes nothing for focus anywhere else", async () => {
+    const files = fakeFiles({ activeIndex: vi.fn(() => -1) });
+    const strip = composeSurfaceStrip({ files, client: fakeClient(), onChanged: vi.fn() });
+    expect(strip.hasFocus?.()).toBe(false);
+    await strip.close();
+    expect(closeDiffColumn).not.toHaveBeenCalled();
+    expect(files.close).toHaveBeenCalledTimes(1);
   });
 });
 

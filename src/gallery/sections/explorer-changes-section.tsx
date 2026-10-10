@@ -19,6 +19,7 @@ import type { DirEntry } from "../../files/file-tree";
 import { explorerView } from "../../files/changes/explorer-view";
 import type { ChangesController, ChangesState } from "../../files/changes/changes-controller";
 import type { ChangeEntry, ChangesSnapshot } from "../../host/git-changes-host";
+import { DiffColumnFrames } from "./explorer-changes-diff-frames";
 import "./explorer-changes-section.css";
 
 const HOME = "/Users/deck";
@@ -99,6 +100,7 @@ function snapshot(entries: readonly ChangeEntry[], over: Partial<ChangesSnapshot
 function fakeController(initial: ChangesState): ChangesController {
   return {
     state: signal(initial),
+    readCount: signal(1),
     setShown: () => {},
     setWindowVisible: () => {},
     trigger: () => {},
@@ -216,6 +218,15 @@ export function ExplorerChangesSection() {
           </figure>
         ))}
       </div>
+      <h2>diff column</h2>
+      <p class="gx-note">
+        The shipping diff column beside the dock: docked at the dock&rsquo;s 360px floor and at
+        520px, folded over the Explorer when half the room is under 400px, then DIFF4&rsquo;s
+        representations (binary, too large, deleted, added, renamed, a failed read) and
+        DIFF5&rsquo;s &ldquo;No longer changed&rdquo; at the folded 360px width. The open row
+        carries the selection wash.
+      </p>
+      <DiffColumnFrames controller={controller} />
     </section>
   );
 }

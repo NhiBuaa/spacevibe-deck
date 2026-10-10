@@ -1,11 +1,12 @@
-/* ── Diff column: the selected change's diff, left of the dock ──
+/* ── Diff column: the selected change's diff, left of the dock (DL-19.11) ──
    `DiffColumn` mounts beside `DockPanel` and renders only while a Changes row
    is selected (src/files/ui/diff-column.tsx). Docked, it stands on the dock's
-   inner edge and the stage's inset grows by its width (`--diff-w`, below the
-   dock's own rules in 14-dock.css), so panes resize around it as around the dock
-   (DL-19.1). Folded, it covers the Explorer under the dock's tab row and the grid
-   keeps its width. It appears and leaves without motion, and its width never
-   transitions: every change in width resizes each pane's terminal (DL-1.2). */
+   inner edge and the stage's inset grows by its width (`--diff-w`, which
+   `--stage-inset` in 14-dock.css adds to the dock's), so panes resize around it
+   as around the dock (DL-19.1). Folded, it covers the Explorer under the dock's
+   tab row and the grid keeps its width. It appears and leaves without motion,
+   and its width never transitions: every change in width resizes each pane's
+   terminal (DL-1.2). */
 
 .diff-column {
   display: flex;

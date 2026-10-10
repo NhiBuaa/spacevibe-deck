@@ -36,6 +36,15 @@ const EMPTY: ChangesState = { root: null, snapshot: null, failure: null, reading
 
 export interface ChangesController {
   readonly state: ReadonlySignal<ChangesState>;
+  /**
+   * Rises after every completed read of the shown root — a failure reply too —
+   * even when the reply is unchanged and `state` stays put (plan
+   * 2026-10-10-diff-column, D7). A consumer that must look again when git says
+   * nothing new (the open diff, whose file can change without its counts
+   * changing) follows this, not `state`. Never raised by `setShown`, a hidden
+   * list or a reply for a root that was left.
+   */
+  readonly readCount: ReadonlySignal<number>;
   /** The root whose list is on screen, or null. */
   setShown(root: string | null): void;
   setWindowVisible(visible: boolean): void;
@@ -43,22 +52,6 @@ export interface ChangesController {
   /** A pane of `workspacePath` stopped working. */
   turnEnded(workspacePath: string): void;
   dispose(): void;
-}
-
-/**
- * A controller that also counts its reads (plan 2026-10-10-diff-column, D7).
- * Kept apart from `ChangesController` so the Explorer's injected fakes stay valid
- * until the column's wiring folds the two together.
- */
-export interface CountingChangesController extends ChangesController {
-  /**
-   * Rises after every completed read of the shown root — a failure reply too —
-   * even when the reply is unchanged and `state` stays put. A consumer that must
-   * look again when git says nothing new (the open diff, whose file can change
-   * without its counts changing) follows this, not `state`. Never raised by
-   * `setShown`, a hidden list or a reply for a root that was left.
-   */
-  readonly readCount: ReadonlySignal<number>;
 }
 
 export interface ChangesControllerDeps {
@@ -74,7 +67,7 @@ function sameFailure(a: ChangesFailure | null, b: ChangesFailure | null): boolea
   return a === b || (a !== null && b !== null && a.kind === b.kind && a.message === b.message);
 }
 
-export function createChangesController(deps: ChangesControllerDeps): CountingChangesController {
+export function createChangesController(deps: ChangesControllerDeps): ChangesController {
   const { host } = deps;
   const state = signal<ChangesState>(EMPTY);
   const readCount = signal(0);
@@ -205,10 +198,10 @@ export function createChangesController(deps: ChangesControllerDeps): CountingCh
   };
 }
 
-let shared: CountingChangesController | null = null;
+let shared: ChangesController | null = null;
 
 /** The window's one controller, over the real host. Window-scoped (R5). */
-export function changesController(): CountingChangesController {
+export function changesController(): ChangesController {
   shared ??= createChangesController({ host: hostFacade });
   return shared;
 }

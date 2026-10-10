@@ -8,7 +8,9 @@ import { ChangesList } from "./changes-list";
 import { ExplorerSwitch } from "./explorer-switch";
 import { changesController, type ChangesController } from "../changes/changes-controller";
 import { explorerView } from "../changes/explorer-view";
-import { absolutePath, failureLine } from "../changes/changes-model";
+import { failureLine } from "../changes/changes-model";
+import { requestDiffFocus } from "../changes/diff-column-focus";
+import { diffSelection, type DiffSelectionStore } from "../changes/diff-selection";
 import { ensureRepositoriesScanned, repositoryScans } from "../../repositories/repositories-store";
 
 export interface ExplorerTabProps {
@@ -25,6 +27,8 @@ export interface ExplorerTabProps {
   readonly changesAvailable?: boolean;
   /** Test seam; the window's own controller otherwise. */
   readonly changes?: ChangesController;
+  /** Test seam; the window's own selection otherwise. It must read `changes`. */
+  readonly diff?: DiffSelectionStore;
 }
 
 const NOT_A_REPOSITORY = "Not a git repository";
@@ -33,6 +37,7 @@ export function ExplorerTab(props: ExplorerTabProps) {
   const { workspacePath } = props;
   const changesAvailable = props.changesAvailable === true;
   const changes = props.changes ?? (changesAvailable ? changesController() : null);
+  const diff = props.diff ?? diffSelection();
 
   // DL-19.5: the panel's ONE place for transient text, directly under the
   // header. It is the only place a failed create is ever reported — the naming
@@ -64,6 +69,11 @@ export function ExplorerTab(props: ExplorerTabProps) {
   }, [changes, showChanges, workspacePath]);
   // Unmounting (another dock tab, a closed dock) hides the list for good.
   useEffect(() => () => changes?.setShown(null), [changes]);
+  // The diff column lives only while the list that opened it is shown: leaving
+  // Changes, re-rooting on another tab's workspace and unmounting all end it,
+  // because `setShown(null)` empties the state and nothing would refresh a
+  // diff after (plan 2026-10-10-diff-column, D4).
+  useEffect(() => () => void diff.close(), [diff, showChanges, workspacePath]);
 
   if (workspacePath === null) {
     return (
@@ -74,6 +84,8 @@ export function ExplorerTab(props: ExplorerTabProps) {
   }
   const changesState = changes?.state.value ?? null;
   const live = changesState !== null && changesState.root === workspacePath ? changesState : null;
+  const open = diff.selection.value;
+  const selectedPath = open !== null && open.root === workspacePath ? open.path : null;
   const status = explorerStatus.value;
   const createLine = status !== null && status.workspacePath === workspacePath ? status : null;
   // One message at a time: a transient create failure wins while it is up, then
@@ -117,13 +129,11 @@ export function ExplorerTab(props: ExplorerTabProps) {
         {showChanges && changes !== null && live !== null ? (
           <ChangesList
             state={live}
+            selectedPath={selectedPath}
             onRefresh={() => changes.trigger("refresh")}
             onOpen={(entry) => {
-              void props.controller.openFile(
-                workspacePath,
-                absolutePath(workspacePath, entry.path),
-                false,
-              );
+              diff.open(workspacePath, entry.path);
+              requestDiffFocus();
             }}
           />
         ) : (

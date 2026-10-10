@@ -4,9 +4,10 @@
  *
  * A row is status, name, directory and counts. Counts are tabular (DL-4.2) and
  * wear the diff's colours (DL-3.2, plan C9). A binary file says so
- * instead of counting. Pressing a row opens the working-tree file in the preview
- * tab, as a tree click does (plan C8); a deleted file has nothing to open, so its
- * row is shown, not pressable. Slice 2 replaces the press with the diff column.
+ * instead of counting. Pressing a row opens that file's diff in the diff column
+ * (plan 2026-10-10-diff-column, D4); a deleted file is pressable too, since its
+ * diff is the old side. The row whose diff is open carries the selection wash and
+ * `aria-selected`. Opening the working file is the column's own Open file.
  *
  * Keyboard reach is the tree's roving tabindex: one row is a tab stop, arrows
  * move it, Enter and Space press it.
@@ -34,7 +35,9 @@ import {
 
 export interface ChangesListProps {
   readonly state: ChangesState;
-  /** Opens one entry's working-tree file in the preview tab. */
+  /** The path whose diff is open, or null. */
+  readonly selectedPath?: string | null;
+  /** Opens one entry's diff in the diff column. */
   onOpen(entry: ChangeEntry): void;
   onRefresh(): void;
 }
@@ -84,28 +87,23 @@ function RefreshButton({ onPress }: { onPress(): void }) {
 function ChangeRow(props: {
   readonly entry: ChangeEntry;
   readonly focused: boolean;
+  readonly selected: boolean;
   onOpen(entry: ChangeEntry): void;
   onFocus(path: string): void;
 }) {
   const { entry } = props;
   const counts = countsFor(entry);
-  const pressable = entry.status !== "deleted";
   const directory = dirName(entry.path);
   return (
     <div
-      class={`changes-row${pressable ? "" : " is-deleted"}`}
+      class={`changes-row${entry.status === "deleted" ? " is-deleted" : ""}${props.selected ? " is-selected" : ""}`}
       role="option"
-      aria-selected={false}
-      aria-disabled={!pressable}
+      aria-selected={props.selected}
       data-path={entry.path}
       tabIndex={props.focused ? 0 : -1}
       title={entryTitle(entry)}
       onFocus={() => props.onFocus(entry.path)}
-      onClick={() => {
-        if (pressable) {
-          props.onOpen(entry);
-        }
-      }}
+      onClick={() => props.onOpen(entry)}
     >
       <span class="changes-row__mark" aria-hidden="true">
         {STATUS_MARK[entry.status]}
@@ -162,7 +160,7 @@ export function ChangesList(props: ChangesListProps) {
       // The row the key was pressed on, which is the focused one in the app.
       const path = (event.target as HTMLElement).closest<HTMLElement>(".changes-row")?.dataset.path;
       const entry = entries.find((candidate) => candidate.path === path);
-      if (entry !== undefined && entry.status !== "deleted") {
+      if (entry !== undefined) {
         event.preventDefault();
         props.onOpen(entry);
       }
@@ -209,6 +207,7 @@ export function ChangesList(props: ChangesListProps) {
               key={entry.path}
               entry={entry}
               focused={index === focusedIndex}
+              selected={entry.path === props.selectedPath}
               onOpen={props.onOpen}
               onFocus={setFocusedPath}
             />

@@ -199,6 +199,8 @@ import {
   type FileSurfaceController,
 } from "../files/file-surface-controller";
 import { ExplorerTab } from "../files/ui/explorer-tab";
+import { DiffColumn } from "../files/ui/diff-column";
+import { diffColumnInset } from "../files/changes/diff-layout";
 import { CreateEntryDialog } from "../files/ui/create-entry-dialog";
 import { available as fileCreateAvailable } from "../host/file-create-host";
 import { available as gitChangesAvailable } from "../host/git-changes-host";
@@ -2433,6 +2435,9 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
           // catching up when the pointer is released.
           style={{
             "--dock-w": `${dockWidth()}px`,
+            // The open diff column's width, docked left of the dock; 0 while it
+            // is closed or folded over the Explorer (DL-19.11).
+            "--diff-w": `${diffColumnInset.value}px`,
           }}
         >
           {/* DL-18.6: sidebar mode's half of the frame row. The stage spans
@@ -2567,6 +2572,13 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
           {/* DL-35.1: Mission Control covers the stage above a document or the
               browser (the latter hidden through `overlayCoversPane`). */}
           {missionControl.view}
+          {/* Left of the dock, while a Changes row is selected and only while the
+              dock is at rest open, so it never floats where a sliding dock used
+              to be. Before the panel in the DOM, so the dock's resize grip, which
+              overhangs its inner edge, stays on top of the column's seam. */}
+          {dockPresence.entered ? (
+            <DiffColumn controller={fileController} dockWidth={dockWidth()} />
+          ) : null}
           {/* Gated on the `dockOpen` setting. The column hosts three
               surfaces since 2026-08-16, so `App` picks the body — that is
               what keeps `DockPanel` from importing every feature it can

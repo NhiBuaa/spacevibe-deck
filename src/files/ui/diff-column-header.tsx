@@ -1,7 +1,7 @@
 /**
  * The diff column's header (plan 2026-10-10-diff-column, DIFF3, D4, D5): the
  * file's status mark, name and counts, its place in the list, and four
- * icon-only controls with DL-23.10 tooltips. The directory and the status word
+ * icon-only controls with DL-23.10 tooltips (DL-19.11). The directory and the status word
  * live in tooltips, and the name is the one item that shrinks.
  */
 import { useRef } from "preact/hooks";

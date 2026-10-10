@@ -24,3 +24,36 @@
   overflow: hidden;
   border: 1px solid var(--border, rgba(127, 127, 127, 0.25));
 }
+
+/* The diff column's frames: a stage-like box that gives the column its stage to
+   measure, a stand-in for the terminal grid, and the real dock. */
+.gx-diff-stage {
+  position: relative;
+  box-sizing: border-box;
+  height: 460px;
+  overflow: hidden;
+  background: var(--bg);
+  border: 1px solid var(--border, rgba(127, 127, 127, 0.25));
+}
+
+.gx-diff-grid {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+}
+
+.gx-diff-grid i {
+  display: block;
+  height: 7px;
+  width: 160px;
+  border-radius: var(--radius-flat);
+  background: var(--text-faint);
+  opacity: 0.3;
+}
+
+.gx-diff-frames {
+  margin-top: 12px;
+}

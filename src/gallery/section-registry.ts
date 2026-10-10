@@ -48,9 +48,6 @@ const ExplorerChangesSection = lazy(() =>
 const LaunchProfilesSection = lazy(() =>
   import("./sections/launch-profiles-section").then((m) => m.LaunchProfilesSection),
 );
-const DiffColumnSpecimensSection = lazy(() =>
-  import("./sections/diff-column-specimens-section").then((m) => m.DiffColumnSpecimensSection),
-);
 
 export interface GallerySection {
   readonly id: string;
@@ -101,9 +98,4 @@ export const GALLERY_SECTIONS: readonly GallerySection[] = [
     Section: LaunchProfilesSection,
   },
   { id: "explorer-changes", label: "explorer changes", Section: ExplorerChangesSection },
-  {
-    id: "diff-column-specimens",
-    label: "diff column specimens",
-    Section: DiffColumnSpecimensSection,
-  },
 ];

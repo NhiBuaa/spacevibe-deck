@@ -20,7 +20,7 @@
   top: calc(var(--frame-h) + var(--stage-gutter));
 }
 .stage--dock > .agent-launch-page {
-  right: calc(var(--dock-w) + var(--stage-gutter));
+  right: calc(var(--stage-inset) + var(--stage-gutter));
 }
 .agent-launch-page:focus {
   outline: none;
