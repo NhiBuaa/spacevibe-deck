@@ -161,7 +161,8 @@ seams and needs its own cross-boundary verification.
 ## Open decisions
 
 Answered 2026-10-10: the refresh trigger (decision 7), running `git status` (decision 6), the
-list's form (decision 8, variant A) and watching the checkout (open decision 2).
+list's form (decision 8, variant A), watching the checkout (open decision 2), the diff's
+colours (3) and the second docked column (4).
 
 1. **The list's form (decision 8).** Closed 2026-10-10: A, a Files / Changes switch in the Explorer's head.
 2. **Watching the checkout recursively (CHG3).** Closed 2026-10-10: yes, with one addition. The
@@ -171,17 +172,21 @@ list's form (decision 8, variant A) and watching the checkout (open decision 2).
    built-in `fs.watch` and no watcher library. A linked worktree keeps its index and HEAD
    outside its root, so a second, non-recursive watch on the git directory covers them, and is
    the only watch on Linux. See [file-surface.md](../internals/file-surface.md#changes-list).
-3. **Diff colours.** DL-3.2 reserved `--green` for success and `--red` for danger. Counts closed
-   2026-10-10: the owner chose coloured counts over plan C9's neutral ones, which did not read
-   apart at a glance, so DL-3.2 now lets a diff count use them, a zero side neutral. Open for
-   slice 2: added and removed lines in the diff itself. Recommended: the same colours, since
-   every tool surveyed colours a diff and a diff without colour is slow to read.
-4. **A second docked column.** DL §19 describes one docked column holding tabs. The diff column
-   is a second, transient one with its own seam, header and width, and it shrinks the grid
-   exactly as the dock does. Since 2026-10-10 §19 is a DL _pattern_, rewritten with the code
-   after the owner's eye review rather than a fork. It stays a fork under
-   [AGENTS.md](../../AGENTS.md) only if slice 2 has to change pane layout modules; slice 2's
-   plan settles which.
+3. **Diff colours.** Closed 2026-10-10. DL-3.2 reserved `--green` for success and `--red` for
+   danger. The owner chose coloured counts over plan C9's neutral ones, which did not read
+   apart at a glance, so DL-3.2 lets a diff count use them, a zero side neutral. For slice 2
+   the owner picked the same colours in the diff itself (plan D1 (a)): an added line or word on
+   a low `--green` wash and a removed one on a low `--red` wash, taken from the live theme.
+   Turned down: one neutral wash told apart by Monaco's `+` / `−` marks, and Monaco's stock
+   fixed hex, which ignores the theme. DL-3.2's sentence changes with the column's code.
+4. **A second docked column.** Closed 2026-10-10. DL §19 describes one docked column holding
+   tabs; the diff column is a second, transient one with its own seam, header and width, and it
+   shrinks the grid as the dock does. Since 2026-10-10 §19 is a DL _pattern_, so this was not
+   a fork, and slice 2's plan settled that no pane layout module changes: the stage's inset is
+   one CSS variable and each pane already refits through its own `ResizeObserver`. The owner
+   picked (plan D11 (a)) the column directly left of the whole dock, so with a document open
+   the order is grid, diff, document, list. Turned down: the diff in the dock's document slot,
+   which leaves 216–432px of a 360–720px dock. DIFF1, DIFF2 and decision 4 stand as written.
 5. **Ignored entries (EXP6): hide or dim.** Recommended: hide them, and let EXP1's control
    reveal them as well. Seven of the top-level folders in the owner's 2026-10-09 screenshot
    (`dist-electron`, `dist-electron-app`, `dist-gate-m`, …) are ignored build output.
@@ -192,11 +197,12 @@ list's form (decision 8, variant A) and watching the checkout (open decision 2).
 
 ## Forks and constraints
 
-- Layout: the diff column narrows the terminal grid and resizes PTYs (open decision 4).
+- Layout: the diff column narrows the terminal grid and resizes PTYs; closed as a pattern
+  (open decision 4).
 - Watching: CHG3's recursive watch reverses the watcher's non-recursive design for one root
   (open decision 2). A watcher library stays a fork, and none is proposed.
-- Design language (two tiers since 2026-10-10): DL-3.2 is an invariant, so open decision 3 is
-  a fork. §19 is a pattern (open decision 4). EXP2's selection mark falls under §21's
+- Design language (two tiers since 2026-10-10): DL-3.2 is an invariant, so open decision 3 was
+  a fork, answered by the owner. §19 is a pattern (open decision 4). EXP2's selection mark falls under §21's
   invariants: matching the tree row's corner may conflict with DL-21.1 and DL-20.1, and slice
   3's plan poses that choice.
 - No new dependency. A fuzzy-matching or ignore-matching library would be a fork; none is
