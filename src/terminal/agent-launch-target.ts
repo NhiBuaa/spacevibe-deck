@@ -42,6 +42,18 @@ export type AgentLaunchResult =
   | { readonly kind: "cancelled" }
   | { readonly kind: "failed"; readonly message: string };
 
+/**
+ * A command typed in place of the agent's own launch command. ONE parameter on
+ * `launchAgentAtTarget`, shared with launch-actions PAGE4: package C adds its own
+ * variant to this union, never a second parameter.
+ */
+export type LaunchCommandOverride = {
+  /** An agent's vendor installer (agent install spec). Typed verbatim once the shell is
+   *  ready; never recorded in the journal, never counted; the agent need not be installed. */
+  readonly kind: "install";
+  readonly command: string;
+};
+
 /** Comparison keys only: never pass these normalized strings to the host. */
 function comparisonKey(path: string, platform: DesktopPlatform): string {
   const value =

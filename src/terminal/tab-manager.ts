@@ -5,6 +5,7 @@ import {
   type AgentLaunchTarget,
   type AgentLaunchResult,
   type AgentLaunchReceipt,
+  type LaunchCommandOverride,
 } from "./agent-launch-target";
 import { detectedAgents } from "./agent-detection-store";
 import { getCurrentWindow } from "../host/window-host";
@@ -1516,18 +1517,25 @@ export function createTabManager(
     agentId: string,
     canCommit: () => boolean,
     checkoutRoots: () => readonly string[] = () => [],
+    override?: LaunchCommandOverride,
   ): Promise<AgentLaunchResult> {
     if (!canCommit() || disposed) return { kind: "cancelled" };
+    // An install press is not an agent launch: the agent is missing, the command is the
+    // vendor's, and neither the journal (it would replay an installer) nor telemetry
+    // (no install key in the contract) may see it. The shell would run a newline early.
+    const install = override?.kind === "install";
+    if (install && (override.command.trim() === "" || /[\r\n]/.test(override.command)))
+      return { kind: "failed", message: "This install command cannot be run." };
     // The Terminal card runs no command: the pane stays a bare shell.
     const shell = agentId === TERMINAL_LAUNCH_ID;
-    const command = shell ? null : pageAgentCommand(agentId);
+    const command = install ? override.command : shell ? null : pageAgentCommand(agentId);
     if (!shell && command === null)
       return {
         kind: "failed",
         message: "This agent is no longer available. Choose another agent.",
       };
     const valid = () =>
-      !disposed && canCommit() && (shell || pageAgentCommand(agentId) === command);
+      !disposed && canCommit() && (shell || install || pageAgentCommand(agentId) === command);
     const finishStartupSpawn = beginWindowsStartupSpawn();
     try {
       const created = await createPageLaunchPane(target, valid, checkoutRoots);
@@ -1546,13 +1554,24 @@ export function createTabManager(
       // startup readiness; only a split into a live tab still has to.
       const pollDeferred = target.kind !== "split" || deferWindowsStartupPoll([paneId]);
       if (command !== null) {
-        launchCommandByPane.set(paneId, command);
+        if (!install) launchCommandByPane.set(paneId, command);
         pageLaunchOwners.set(paneId, owner);
-        void armLaunch([{ id: paneId, command }], owned)
+        // An install goes through the bare readiness gate: `armLaunch` would augment a
+        // codex/opencode command with signal flags, and the installer is typed verbatim.
+        const arming = install
+          ? (async () => {
+              if (!owned()) return false;
+              launcher.arm([{ id: paneId, command }]);
+              return true;
+            })()
+          : armLaunch([{ id: paneId, command }], owned);
+        void arming
           .then((armed) => {
             if (!armed && !disposed) {
               pageLaunchOwners.delete(paneId);
-              reportChromeMessage("The agent did not start because its pane moved or closed.");
+              reportChromeMessage(
+                `The ${install ? "install" : "agent"} did not start because its pane moved or closed.`,
+              );
             }
           })
           .catch((error) => {
@@ -1561,7 +1580,7 @@ export function createTabManager(
             if (!disposed)
               reportChromeMessage("Could not start the agent. Its terminal pane is still open.");
           });
-        countAgentLaunch(agentId);
+        if (!install) countAgentLaunch(agentId);
       }
       if (!pollDeferred) void poller.poll();
       syncViews();

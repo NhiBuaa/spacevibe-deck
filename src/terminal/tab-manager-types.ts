@@ -2,6 +2,7 @@ import type {
   AgentLaunchTarget,
   AgentLaunchResult,
   AgentLaunchReceipt,
+  LaunchCommandOverride,
 } from "./agent-launch-target";
 import type { Direction, Edge, SerializedNode } from "../lib/split-tree";
 import type { PaneRect } from "../lib/pane-geometry";
@@ -163,6 +164,7 @@ export interface TabManager {
     agentId: string,
     canCommit: () => boolean,
     checkoutRoots?: () => readonly string[],
+    override?: LaunchCommandOverride,
   ): Promise<AgentLaunchResult>;
   focusAgentLaunch(receipt: AgentLaunchReceipt): void;
   /** Install listeners + start polling. The app always opens on the board. */
