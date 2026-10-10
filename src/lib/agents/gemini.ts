@@ -15,6 +15,20 @@ export const GEMINI: AgentDefinition = {
   label: "Gemini CLI",
   defaultCommand: "gemini --yolo",
   url: "https://github.com/google-gemini/gemini-cli",
+  // No installer script. The README's global npm install covers every OS; Homebrew and
+  // MacPorts were the alternatives.
+  install: {
+    macos: {
+      command: "npm install -g @google/gemini-cli",
+      source: "https://github.com/google-gemini/gemini-cli/blob/main/README.md",
+      checked: "2026-10-10",
+    },
+    windows: {
+      command: "npm install -g @google/gemini-cli",
+      source: "https://github.com/google-gemini/gemini-cli/blob/main/README.md",
+      checked: "2026-10-10",
+    },
+  },
   dotColor: "var(--cyan)",
   // No id-precise resume form: `resolveResume` never produces a `{ kind: "id" }`
   // ref for gemini, but the id form still answers (with the latest form) so

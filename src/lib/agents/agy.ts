@@ -11,6 +11,20 @@ export const AGY: AgentDefinition = {
   label: "Antigravity",
   defaultCommand: "agy --dangerously-skip-permissions",
   url: "https://antigravity.google",
+  // The page is client-rendered: read through a rendering fetch twice, both reads agreeing.
+  // Windows lists a PowerShell and a CMD form; PowerShell is the one a Deck pane runs.
+  install: {
+    macos: {
+      command: "curl -fsSL https://antigravity.google/cli/install.sh | bash",
+      source: "https://antigravity.google/docs/getting-started?tab=cli",
+      checked: "2026-10-10",
+    },
+    windows: {
+      command: "irm https://antigravity.google/cli/install.ps1 | iex",
+      source: "https://antigravity.google/docs/getting-started?tab=cli",
+      checked: "2026-10-10",
+    },
+  },
   // Shares Gemini's cyan on purpose. The theme hands chrome eight colors;
   // four are taken, `--red` is error-only (DL-3.2) and `--accent` is the
   // theme's blue, reserved for interactive (DL-3.1) — so a fifth distinct

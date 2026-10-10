@@ -8,4 +8,14 @@ export const AMP = unreadAgent({
   id: "amp",
   label: "Amp",
   url: "https://ampcode.com",
+  install: {
+    macos: {
+      command: "curl -fsSL https://ampcode.com/install.sh | bash",
+      source: "https://ampcode.com/docs/cli",
+      checked: "2026-10-10",
+    },
+    // null: the page says the CLI runs on Windows through WSL, and its Windows tab is not
+    // in the served page, so no native command could be read.
+    windows: null,
+  },
 });

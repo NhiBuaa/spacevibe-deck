@@ -27,6 +27,20 @@ export const CODEX: AgentDefinition = {
   label: "Codex",
   defaultCommand: `codex --dangerously-bypass-approvals-and-sandbox ${NO_ANIMATIONS}`,
   url: "https://developers.openai.com/codex/cli",
+  // The README's standalone installers; npm and Homebrew were the alternatives.
+  install: {
+    macos: {
+      command: "curl -fsSL https://chatgpt.com/codex/install.sh | sh",
+      source: "https://github.com/openai/codex/blob/main/README.md",
+      checked: "2026-10-10",
+    },
+    windows: {
+      command:
+        'powershell -ExecutionPolicy ByPass -c "irm https://chatgpt.com/codex/install.ps1 | iex"',
+      source: "https://github.com/openai/codex/blob/main/README.md",
+      checked: "2026-10-10",
+    },
+  },
   dotColor: "var(--green)",
   resume: {
     id: (id) => `codex resume ${id} ${NO_ANIMATIONS}`,

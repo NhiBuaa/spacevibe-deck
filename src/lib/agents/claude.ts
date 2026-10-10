@@ -13,6 +13,19 @@ export const CLAUDE: AgentDefinition = {
   label: "Claude Code",
   defaultCommand: "claude --dangerously-skip-permissions",
   url: "https://claude.com/claude-code",
+  // The page's "Native Install (Recommended)" tab; Homebrew and WinGet were the alternatives.
+  install: {
+    macos: {
+      command: "curl -fsSL https://claude.ai/install.sh | bash",
+      source: "https://code.claude.com/docs/en/setup.md",
+      checked: "2026-10-10",
+    },
+    windows: {
+      command: "irm https://claude.ai/install.ps1 | iex",
+      source: "https://code.claude.com/docs/en/setup.md",
+      checked: "2026-10-10",
+    },
+  },
   dotColor: "var(--magenta)",
   resume: {
     id: (id) => `claude --resume ${id}`,

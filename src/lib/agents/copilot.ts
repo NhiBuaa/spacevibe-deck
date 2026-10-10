@@ -9,4 +9,18 @@ export const COPILOT = unreadAgent({
   id: "copilot",
   label: "GitHub Copilot",
   url: "https://docs.github.com/copilot/concepts/agents/about-copilot-cli",
+  // macOS: the install script. Windows has no script; npm is first in Deck's order, WinGet
+  // (`winget install GitHub.Copilot`) is the documented alternative.
+  install: {
+    macos: {
+      command: "curl -fsSL https://gh.io/copilot-install | bash",
+      source: "https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli",
+      checked: "2026-10-10",
+    },
+    windows: {
+      command: "npm install -g @github/copilot",
+      source: "https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli",
+      checked: "2026-10-10",
+    },
+  },
 });

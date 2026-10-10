@@ -13,6 +13,20 @@ export const OPENCODE: AgentDefinition = {
   id: "opencode",
   label: "OpenCode",
   url: "https://opencode.ai",
+  // macOS: the page's install script. Windows: the page recommends WSL and lists Chocolatey,
+  // Scoop and npm for native; npm is the first of Deck's order (script, npm, other manager).
+  install: {
+    macos: {
+      command: "curl -fsSL https://opencode.ai/install | bash",
+      source: "https://opencode.ai/docs",
+      checked: "2026-10-10",
+    },
+    windows: {
+      command: "npm install -g opencode-ai",
+      source: "https://opencode.ai/docs",
+      checked: "2026-10-10",
+    },
+  },
   dotColor: "var(--yellow)",
   resume: {
     id: (id) => `opencode -s ${id}`,
