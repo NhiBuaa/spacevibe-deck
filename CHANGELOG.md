@@ -7,6 +7,11 @@ the release PR, and frozen at the tag — never an auto-generated commit list.
 
 ## Unreleased
 
+## 2.10.0
+
+This update stops undo from emptying a file you just opened, lets you install a
+missing agent from Deck, and opens files beside the Explorer.
+
 - **Undo no longer empties a file you just opened.** With a file already showing, opening
   another and pressing ⌘Z cleared it, and saving then wrote an empty file. A freshly opened
   file now has nothing to undo.
