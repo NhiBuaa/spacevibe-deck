@@ -1,14 +1,10 @@
-import {
-  AgentInstallControl,
-  useNoteAgentListWhileSettingsOpen,
-} from "../../launcher/agent-install-control";
+import { AgentInstallControl } from "../../launcher/agent-install-control";
 import { quickAgentChoices, toggleQuickAgent } from "../../settings/quick-agent-choices";
 import { ConfigGroup, ConfigRow, ToggleRow } from "../controls/config-row";
 
 export function QuickAgentsSection() {
   const choices = quickAgentChoices();
   const pinned = choices.filter((choice) => choice.pinned).length;
-  useNoteAgentListWhileSettingsOpen();
 
   return (
     <section aria-label="Quick agents">

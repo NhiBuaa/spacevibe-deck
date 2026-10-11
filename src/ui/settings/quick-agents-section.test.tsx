@@ -2,12 +2,11 @@
 import { render } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { settingsOpen } from "../../chrome/events";
 import {
   registerAgentInstallHost,
   resetAgentInstallForTests,
 } from "../../launcher/agent-install-store";
-import { BUILTIN_AGENTS, probeNames } from "../../lib/agent-catalog";
+import { BUILTIN_AGENTS } from "../../lib/agent-catalog";
 import { initializeDesktopEnvironment, resetDesktopEnvironmentForTests } from "../../lib/platform";
 import { DEFAULT_SETTINGS } from "../../settings/settings-schema";
 import { settings } from "../../settings/settings-store";
@@ -30,12 +29,6 @@ vi.mock("../../lib/agent-catalog", async (importOriginal) => {
   };
 });
 
-const probe = vi.hoisted(() => ({ ensureAgentsDetected: vi.fn(async () => []) }));
-vi.mock("../../terminal/agent-detection-store", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../terminal/agent-detection-store")>()),
-  ensureAgentsDetected: probe.ensureAgentsDetected,
-}));
-
 let host: HTMLDivElement;
 beforeEach(() => {
   settings.value = DEFAULT_SETTINGS;
@@ -53,10 +46,8 @@ afterEach(() => {
   settings.value = DEFAULT_SETTINGS;
   detectedAgents.value = [];
   agentsProbed.value = false;
-  settingsOpen.value = false;
   resetAgentInstallForTests();
   resetDesktopEnvironmentForTests();
-  probe.ensureAgentsDetected.mockClear();
 });
 
 function mount() {
@@ -167,19 +158,5 @@ describe("QuickAgentsSection install control", () => {
     mount();
     expect(ampRow().textContent).toContain("Not installed");
     expect(ampRow().querySelector(".cfg-row__note")).toBeNull();
-  });
-
-  it("forces one full-list probe when Settings opens while an install is pending", async () => {
-    registerAgentInstallHost({ open, focus: vi.fn() });
-    mount();
-    await act(async () => ampRow().querySelector<HTMLButtonElement>("button")!.click());
-    expect(probe.ensureAgentsDetected).not.toHaveBeenCalled();
-    act(() => {
-      settingsOpen.value = true;
-    });
-    expect(probe.ensureAgentsDetected).toHaveBeenCalledExactlyOnceWith(
-      probeNames(settings.value.customAgents),
-      { force: true },
-    );
   });
 });

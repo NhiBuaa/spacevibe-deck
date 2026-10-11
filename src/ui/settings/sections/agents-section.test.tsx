@@ -19,12 +19,27 @@ vi.mock("../../../open-board/workspaces-store", () => ({
   forgetWorkspaceAgent: vi.fn(),
 }));
 
+const probe = vi.hoisted(() => ({ ensureAgentsDetected: vi.fn(async () => []) }));
+vi.mock("../../../terminal/agent-detection-store", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../terminal/agent-detection-store")>()),
+  ensureAgentsDetected: probe.ensureAgentsDetected,
+}));
+
 import { AgentsSection } from "./agents-section";
 import { forgetWorkspaceAgent } from "../../../open-board/workspaces-store";
 import { settings, updateSettings } from "../../../settings/settings-store";
 import { DEFAULT_SETTINGS } from "../../../settings/settings-schema";
-import { BUILTIN_AGENTS } from "../../../lib/agent-catalog";
+import { BUILTIN_AGENTS, probeNames } from "../../../lib/agent-catalog";
 import { settingsOpen } from "../../../chrome/events";
+import {
+  registerAgentInstallHost,
+  resetAgentInstallForTests,
+} from "../../../launcher/agent-install-store";
+import {
+  initializeDesktopEnvironment,
+  resetDesktopEnvironmentForTests,
+} from "../../../lib/platform";
+import { agentsProbed, detectedAgents } from "../../../terminal/agent-detection-store";
 
 describe("AgentsSection", () => {
   let host: HTMLDivElement;
@@ -375,5 +390,58 @@ describe("AgentsSection — refusals and cleanup", () => {
 
     expect(settings.value.customAgents).toEqual([]);
     expect(forgetWorkspaceAgent).toHaveBeenCalledWith("custom:aider");
+  });
+});
+
+describe("AgentsSection — a pending install", () => {
+  let host: HTMLDivElement;
+
+  beforeEach(() => {
+    initializeDesktopEnvironment({ platform: "macos", homeDir: "/Users/dev" });
+    settings.value = DEFAULT_SETTINGS;
+    detectedAgents.value = [{ name: "claude", path: "/bin/claude" }];
+    agentsProbed.value = true;
+    host = document.createElement("div");
+    document.body.appendChild(host);
+  });
+
+  afterEach(() => {
+    act(() => {
+      render(null, host);
+    });
+    host.remove();
+    settings.value = DEFAULT_SETTINGS;
+    settingsOpen.value = false;
+    detectedAgents.value = [];
+    agentsProbed.value = false;
+    resetAgentInstallForTests();
+    resetDesktopEnvironmentForTests();
+    probe.ensureAgentsDetected.mockClear();
+  });
+
+  it("forces one probe when Settings opens over both agent lists", async () => {
+    const open = vi.fn(async () => ({
+      kind: "spawned" as const,
+      receipt: { tabKey: 1, paneId: 2, canFocus: () => true },
+    }));
+    registerAgentInstallHost({ open, focus: vi.fn() });
+    act(() => {
+      render(<AgentsSection />, host);
+    });
+    const installs = host.querySelectorAll<HTMLButtonElement>(".agent-install button");
+    // Amp offers Install in the launch profiles and in quick agents alike.
+    expect([...installs].filter((button) => button.title === installs[0].title)).toHaveLength(2);
+    await act(async () => installs[0].click());
+    expect(open).toHaveBeenCalledOnce();
+    expect(probe.ensureAgentsDetected).not.toHaveBeenCalled();
+
+    act(() => {
+      settingsOpen.value = true;
+    });
+
+    expect(probe.ensureAgentsDetected).toHaveBeenCalledExactlyOnceWith(
+      probeNames(settings.value.customAgents),
+      { force: true },
+    );
   });
 });

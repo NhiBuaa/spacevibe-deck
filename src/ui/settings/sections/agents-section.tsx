@@ -17,6 +17,7 @@ import { forgetWorkspaceAgent } from "../../../open-board/workspaces-store";
 import { SettingsGroup } from "../settings-group";
 import { ConfigRow } from "../../controls/config-row";
 import { CommitInput } from "../../controls/commit-input";
+import { useNoteAgentListWhileSettingsOpen } from "../../../launcher/agent-install-control";
 import { LaunchProfileEditor } from "../launch-profile-editor";
 import { QuickAgentsSection } from "../quick-agents-section";
 
@@ -83,6 +84,9 @@ export function AgentsSection() {
   const draftLabel = useSignal("");
   const draftCommand = useSignal("");
   const draftError = useSignal<string | null>(null);
+  // Once here, not in each list: both lists below show at the same moment, and
+  // each call would force its own login-shell probe.
+  useNoteAgentListWhileSettingsOpen();
 
   const replace = (next: readonly CustomAgent[]): void => {
     updateSettings({ customAgents: next });

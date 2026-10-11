@@ -15,10 +15,7 @@ import { BUILTIN_AGENTS, type BuiltinAgent } from "../../lib/agent-catalog";
 import { AGENT_LOGOS } from "../../lib/agent-logos";
 import { letterAvatar } from "../../lib/letter-avatar";
 import { detectedAgents } from "../../terminal/agent-detection-store";
-import {
-  AgentInstallControl,
-  useNoteAgentListWhileSettingsOpen,
-} from "../../launcher/agent-install-control";
+import { AgentInstallControl } from "../../launcher/agent-install-control";
 import { installOfferFor, probeAgentsNow } from "../../launcher/agent-install-store";
 import {
   commandAgentId,
@@ -415,7 +412,6 @@ export function LaunchProfileEditor() {
   useEffect(() => {
     void ensureAgentHooksSupportLoaded();
   }, []);
-  useNoteAgentListWhileSettingsOpen();
 
   const installedIds = new Set(detectedAgents.value.map((agent) => agent.name));
   const installed = BUILTIN_AGENTS.filter((agent) => installedIds.has(agent.id));

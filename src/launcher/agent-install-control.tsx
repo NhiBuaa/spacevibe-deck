@@ -73,9 +73,10 @@ export function AgentInstallControl({ agentId, label }: { agentId: string; label
 }
 
 /**
- * Settings stays mounted while closed, so a Settings agent list is "shown"
- * when Settings opens over it (or when the list mounts while it is open), not
- * on mount alone. Forces a fresh probe while an install is pending.
+ * Settings stays mounted while closed, so its agent lists are "shown" when
+ * Settings opens over them (or when they mount while it is open), not on mount
+ * alone. Forces a fresh probe while an install is pending. Call it once per
+ * Settings page, not once per list: every call forces its own probe.
  */
 export function useNoteAgentListWhileSettingsOpen(): void {
   const open = settingsOpen.value;
