@@ -18,11 +18,15 @@ export function focusInDiffColumn(): boolean {
   return active !== null && active.closest(`[${DIFF_COLUMN_ATTR}]`) !== null;
 }
 
-/** Rises when a press asks the column to take focus; the mounted column answers. */
-export const diffFocusRequest = signal(0);
+/**
+ * Set when a press asks the column to take focus; the column clears it once it
+ * has answered. Answered once, so a remount nobody pressed for (the dock
+ * coming back) does not take focus from a pane.
+ */
+export const diffFocusRequested = signal(false);
 
 export function requestDiffFocus(): void {
-  diffFocusRequest.value += 1;
+  diffFocusRequested.value = true;
 }
 
 /** The Changes row for a path. Compared by `dataset`, not by a selector, so a

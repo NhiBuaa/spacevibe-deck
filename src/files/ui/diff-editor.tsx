@@ -211,8 +211,6 @@ function controlsFor(mounted: Mounted): DiffEditorControls {
 export function DiffEditor(props: DiffEditorProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<EditorHandle | null>(null);
-  /** Focus was inside the editor when it was unmounted for the other mode. */
-  const refocus = useRef(false);
   /**
    * Bumped once Monaco has landed: Monaco arrives through a dynamic import, so
    * the sides effect below runs FIRST with a null handle and returns. Without a
@@ -240,17 +238,9 @@ export function DiffEditor(props: DiffEditorProps) {
         applyMonacoTheme(monaco, settings.value);
         const mounted = mode === "diff" ? mountDiff(monaco, host) : mountWhole(monaco, host);
         handleRef.current = { monaco, mounted, models: [], fileKey: null };
-        const controls = controlsFor(mounted);
         if (props.controls !== undefined) {
-          props.controls.current = controls;
+          props.controls.current = controlsFor(mounted);
         }
-        // Focus follows the user across a swap, and a fresh open lands here:
-        // the column parks focus on its own root until Monaco is ready.
-        const column = host.closest(`[${DIFF_COLUMN_ATTR}]`);
-        if (refocus.current || (column !== null && document.activeElement === column)) {
-          controls.focus();
-        }
-        refocus.current = false;
         ready.value += 1;
       })
       .catch((error: unknown) => {
@@ -265,7 +255,11 @@ export function DiffEditor(props: DiffEditorProps) {
       const handle = handleRef.current;
       handleRef.current = null;
       if (handle !== null) {
-        refocus.current = host.contains(document.activeElement);
+        // Focus inside the editor would fall to `<body>` with it: parked on the
+        // column's root, the next editor takes it back (a swap of mode or file).
+        if (host.contains(document.activeElement)) {
+          host.closest<HTMLElement>(`[${DIFF_COLUMN_ATTR}]`)?.focus();
+        }
         // The editor first: Monaco throws on a model still attached to a widget.
         handle.mounted.editor.dispose();
         for (const model of handle.models) {
@@ -278,10 +272,18 @@ export function DiffEditor(props: DiffEditorProps) {
   // The text on screen: swapped only when a side's text or language changed
   // (the sides module already drops an identical re-read), around a saved view
   // state so a refresh keeps scroll and cursor.
+  //
+  // Focus parked on the column's root (a fresh open, a swap) moves in here,
+  // only now: Monaco's `focus()` does nothing on an editor with no model.
   useEffect(() => {
     const handle = handleRef.current;
-    if (handle !== null) {
-      showSides(handle, props.sides, props.fileKey);
+    if (handle === null) {
+      return;
+    }
+    showSides(handle, props.sides, props.fileKey);
+    const column = hostRef.current?.closest(`[${DIFF_COLUMN_ATTR}]`) ?? null;
+    if (column !== null && document.activeElement === column) {
+      controlsFor(handle.mounted).focus();
     }
   }, [props.sides, props.fileKey, ready.value]);
 

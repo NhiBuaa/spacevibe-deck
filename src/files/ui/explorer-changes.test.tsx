@@ -20,7 +20,7 @@ vi.mock("../editor-host", async () => {
 import { ExplorerTab } from "./explorer-tab";
 import { DiffColumn } from "./diff-column";
 import { resetStub } from "./monaco-diff-stub";
-import { diffFocusRequest } from "../changes/diff-column-focus";
+import { diffFocusRequested } from "../changes/diff-column-focus";
 import { createDiffSelection, type DiffSelectionStore } from "../changes/diff-selection";
 import type { DiffSidesPorts } from "../changes/diff-sides";
 import {
@@ -359,9 +359,9 @@ describe("pressing a row opens its diff (plan 2026-10-10-diff-column, D4)", () =
     const { controller } = fakeChanges();
     mount(controller);
     showChanges();
-    const before = diffFocusRequest.value;
+    diffFocusRequested.value = false;
     act(() => rows()[0].click());
-    expect(diffFocusRequest.value).toBe(before + 1);
+    expect(diffFocusRequested.value).toBe(true);
   });
 
   it("presses a deleted row too: its diff is the old side", () => {

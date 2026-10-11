@@ -18,7 +18,7 @@ import {
 } from "../file-surface-controller";
 import type { FileClient } from "../file-client";
 import type { ChangesState, ChangesController } from "../changes/changes-controller";
-import { requestDiffFocus } from "../changes/diff-column-focus";
+import { diffFocusRequested, requestDiffFocus } from "../changes/diff-column-focus";
 import { createDiffSelection, type DiffSelectionStore } from "../changes/diff-selection";
 import type { DiffSidesPorts } from "../changes/diff-sides";
 import type { ChangeEntry, ChangesSnapshot, HeadFileReply } from "../../host/git-changes-host";
@@ -616,6 +616,95 @@ describe("focus", () => {
     await settle();
     expect(stub.focused).toEqual([]);
     input.remove();
+  });
+
+  it("answers a press once: a remount nobody pressed for leaves focus alone", async () => {
+    const rig = makeRig();
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    act(() => rig.store.open(ROOT, "src/a.ts"));
+    act(() => requestDiffFocus());
+    await mount(rig);
+    expect(diffFocusRequested.value).toBe(false);
+    input.focus();
+    // The dock leaving and coming back with the selection still alive.
+    act(() => render(null, host));
+    await mount(rig);
+    expect(document.activeElement).toBe(input);
+    expect(stub.focused).toEqual(["modified"]);
+    input.remove();
+  });
+
+  it("keeps focus in the column while the editor is swapped for another file", async () => {
+    const rig = makeRig();
+    act(() => rig.store.open(ROOT, "src/a.ts"));
+    act(() => requestDiffFocus());
+    await mount(rig);
+    // Stands in for Monaco's focused text node inside the editor's host.
+    const focusInside = () => {
+      const inner = document.createElement("textarea");
+      host.querySelector(".diff-editor")!.appendChild(inner);
+      inner.focus();
+    };
+    focusInside();
+    act(() => rig.store.open(ROOT, "src/b.ts"));
+    await settle();
+    expect(column()!.contains(document.activeElement)).toBe(true);
+    expect(stub.focused.at(-1)).toBe("modified");
+
+    // A row press: the open and its request land in the same turn.
+    focusInside();
+    stub.focused = [];
+    act(() => {
+      rig.store.open(ROOT, "src/a.ts");
+      requestDiffFocus();
+    });
+    await settle();
+    expect(column()!.contains(document.activeElement)).toBe(true);
+    expect(stub.focused.at(-1)).toBe("modified");
+  });
+
+  it("hands focus to the stage when it unmounts holding it, not when Esc returns it", async () => {
+    const rig = makeRig();
+    const released = vi.fn();
+    const draw = () =>
+      act(() =>
+        render(
+          <DiffColumn
+            controller={surface}
+            dockWidth={420}
+            selection={rig.store}
+            changes={rig.changes}
+            ports={rig.ports}
+            onInset={() => {}}
+            onFocusReleased={released}
+          />,
+          host,
+        ),
+      );
+    const row = document.createElement("div");
+    row.className = "changes-row";
+    row.dataset.path = "src/a.ts";
+    row.tabIndex = 0;
+    document.body.appendChild(row);
+    act(() => rig.store.open(ROOT, "src/a.ts"));
+    draw();
+    await settle();
+    column()!.focus();
+    press("Escape");
+    await settle();
+    expect(document.activeElement).toBe(row);
+    expect(released).not.toHaveBeenCalled();
+    row.remove();
+
+    act(() => rig.store.open(ROOT, "src/a.ts"));
+    draw();
+    await settle();
+    column()!.focus();
+    // The dock closing under it.
+    act(() => render(null, host));
+    await settle();
+    expect(released).toHaveBeenCalledTimes(1);
   });
 });
 

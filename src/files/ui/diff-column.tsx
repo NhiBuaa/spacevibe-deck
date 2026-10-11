@@ -25,7 +25,7 @@ import { defaultFileClient } from "../file-client";
 import { readHeadFile } from "../../host/git-changes-host";
 import { changesController, type ChangesController } from "../changes/changes-controller";
 import { absolutePath } from "../changes/changes-model";
-import { closeDiffColumn, diffFocusRequest } from "../changes/diff-column-focus";
+import { closeDiffColumn, diffFocusRequested } from "../changes/diff-column-focus";
 import {
   diffColumnInsetFor,
   diffColumnLayout,
@@ -60,6 +60,9 @@ export interface DiffColumnProps {
   readonly ports?: DiffSidesPorts;
   /** Where the stage's extra right inset goes; the window's own signal otherwise. */
   readonly onInset?: (inset: number) => void;
+  /** Takes focus when the column unmounts while holding it, so it does not fall
+   * to `<body>`. Esc and the close button return it to the row instead. */
+  readonly onFocusReleased?: () => void;
 }
 
 const BYTES_PER_MB = 1024 * 1024;
@@ -141,14 +144,39 @@ function OpenColumn(
   }, [sides, open.root, entryView, reads, gone]);
   useEffect(() => () => sides.clear(), [sides]);
 
-  // A press asks for focus: the root first (Monaco is a dynamic import), and
-  // straight into the editor when it is already up.
-  const focusRequest = diffFocusRequest.value;
+  // A press asks for focus, answered once the column is placed: until then it
+  // is `visibility: hidden`, where `focus()` does nothing and the key the user
+  // types next (⌘W among them) goes to whatever kept focus. The root takes it
+  // first; the editor takes it from the root as soon as it shows a text.
+  const focusRequested = diffFocusRequested.value;
+  const placed = layout !== null;
   useEffect(() => {
-    if (focusRequest > 0) {
-      (controls.current?.focus ?? (() => rootRef.current?.focus()))();
+    if (focusRequested && placed) {
+      diffFocusRequested.value = false;
+      rootRef.current?.focus();
+      controls.current?.focus();
     }
-  }, [focusRequest]);
+  }, [focusRequested, placed]);
+  useEffect(
+    () => () => {
+      diffFocusRequested.value = false;
+    },
+    [],
+  );
+
+  // Unmounted while holding focus (the dock closed under it), the column hands
+  // focus to the stage; after the removal, because until then focus still reads
+  // as inside the column and the stage would give it straight back.
+  const release = useRef(props.onFocusReleased);
+  release.current = props.onFocusReleased;
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    return () => {
+      if (root?.contains(document.activeElement) === true) {
+        queueMicrotask(() => release.current?.());
+      }
+    };
+  }, []);
 
   function step(direction: "next" | "previous"): void {
     // Focus stays in the column while the editor is swapped: parked on the root,

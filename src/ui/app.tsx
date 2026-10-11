@@ -2602,7 +2602,11 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
               to be. Before the panel in the DOM, so the dock's resize grip, which
               overhangs its inner edge, stays on top of the column's seam. */}
           {dockPresence.entered ? (
-            <DiffColumn controller={fileController} dockWidth={dockWidth()} />
+            <DiffColumn
+              controller={fileController}
+              dockWidth={dockWidth()}
+              onFocusReleased={() => tabsRef.current?.focusActive()}
+            />
           ) : null}
           {/* Gated on the `dockOpen` setting. The column hosts three
               surfaces since 2026-08-16, so `App` picks the body — that is
