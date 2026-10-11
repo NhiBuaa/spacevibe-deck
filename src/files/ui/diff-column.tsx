@@ -27,6 +27,7 @@ import { changesController, type ChangesController } from "../changes/changes-co
 import { absolutePath } from "../changes/changes-model";
 import { closeDiffColumn, diffFocusRequested } from "../changes/diff-column-focus";
 import {
+  diffColumnFolded,
   diffColumnInsetFor,
   diffColumnLayout,
   publishDiffColumnInset,
@@ -129,6 +130,16 @@ function OpenColumn(
   useLayoutEffect(() => publish.current(inset), [inset]);
   // Closing hands the room back at once.
   useLayoutEffect(() => () => publish.current(0), []);
+  const folded = layout?.kind === "folded";
+  useLayoutEffect(() => {
+    diffColumnFolded.value = folded;
+  }, [folded]);
+  useLayoutEffect(
+    () => () => {
+      diffColumnFolded.value = false;
+    },
+    [],
+  );
 
   // The sides: one read per selection, and one more after every completed list
   // read. `entryView` changes with the snapshot the counter rose with, in the

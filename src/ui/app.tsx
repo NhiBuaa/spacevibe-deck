@@ -203,7 +203,8 @@ import {
 } from "../files/file-surface-controller";
 import { ExplorerTab } from "../files/ui/explorer-tab";
 import { DiffColumn } from "../files/ui/diff-column";
-import { diffColumnInset } from "../files/changes/diff-layout";
+import { diffColumnFolded, diffColumnInset } from "../files/changes/diff-layout";
+import { closeDiffColumn } from "../files/changes/diff-column-focus";
 import { CreateEntryDialog } from "../files/ui/create-entry-dialog";
 import { available as fileCreateAvailable } from "../host/file-create-host";
 import { available as gitChangesAvailable } from "../host/git-changes-host";
@@ -294,6 +295,9 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
       // the strip's status without either module knowing about the other.
       beforeActivate: () => {
         agentLaunchPage.close();
+        // A folded diff column lies over the document panel, so the document
+        // about to take the keyboard would be one the user cannot see.
+        if (diffColumnFolded.value) closeDiffColumn();
         if (!settings.value.dockOpen || settings.value.dockTab !== "explorer") {
           updateSettings({ dockOpen: true, dockTab: "explorer" });
         }

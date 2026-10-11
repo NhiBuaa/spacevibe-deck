@@ -19,6 +19,7 @@ import {
 import type { FileClient } from "../file-client";
 import type { ChangesState, ChangesController } from "../changes/changes-controller";
 import { diffFocusRequested, requestDiffFocus } from "../changes/diff-column-focus";
+import { diffColumnFolded } from "../changes/diff-layout";
 import { createDiffSelection, type DiffSelectionStore } from "../changes/diff-selection";
 import type { DiffSidesPorts } from "../changes/diff-sides";
 import type { ChangeEntry, ChangesSnapshot, HeadFileReply } from "../../host/git-changes-host";
@@ -265,6 +266,21 @@ describe("placement (D2)", () => {
     expect(column()!.classList.contains("diff-column--folded")).toBe(true);
     expect(column()!.style.width).toBe("");
     expect(rig.insets.at(-1)).toBe(0);
+  });
+
+  it("publishes whether it lies folded, for a document about to open under it", async () => {
+    stageWidth = 825;
+    const rig = makeRig();
+    await open(rig, "src/a.ts", 420);
+    expect(diffColumnFolded.value).toBe(true);
+    stageWidth = 1453;
+    act(() => StubResizeObserver.instances.at(-1)!.callback());
+    expect(diffColumnFolded.value).toBe(false);
+    stageWidth = 825;
+    act(() => StubResizeObserver.instances.at(-1)!.callback());
+    act(() => void rig.store.close());
+    await settle();
+    expect(diffColumnFolded.value).toBe(false);
   });
 
   it("follows the stage when the window resizes, and never closes", async () => {

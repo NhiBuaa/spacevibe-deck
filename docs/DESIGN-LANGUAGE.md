@@ -801,7 +801,9 @@ covering it; the file explorer is the resident instance.
   left of the Explorer, at most 960px; when that half is under 400px the column lies over the
   Explorer below the dock's tab row and the grid keeps its width. It appears and leaves
   without motion, keeps its width while moving between files, and closes from ×, from Esc
-  inside it, and whenever the Changes list stops being shown. The body is a read-only Monaco
+  inside it, whenever the Changes list stops being shown, and, while it lies over the
+  Explorer, whenever a document opens there, so the document taking the keys is the one on
+  screen. The body is a read-only Monaco
   diff in the editor's theme and font ([`DiffColumn`](../src/files/ui/diff-column.tsx)).
   Why: every width change resizes each pane's terminal, so the column changes width only when
   the window or the dock does.

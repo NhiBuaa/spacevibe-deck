@@ -49,3 +49,11 @@ export const diffColumnInset = signal(0);
 export function publishDiffColumnInset(inset: number): void {
   diffColumnInset.value = inset;
 }
+
+/**
+ * Whether the open column lies folded over the Explorer, and so over the
+ * document panel. `App` closes it before a document takes the keyboard there,
+ * so nobody types into a file they cannot see. The open column is its only
+ * writer.
+ */
+export const diffColumnFolded = signal(false);
