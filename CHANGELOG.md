@@ -7,6 +7,10 @@ the release PR, and frozen at the tag — never an auto-generated commit list.
 
 ## Unreleased
 
+- **Undo no longer empties a file you just opened.** With a file already showing, opening
+  another and pressing ⌘Z cleared it, and saving then wrote an empty file. A freshly opened
+  file now has nothing to undo.
+
 - **Usage prices the newest models.** Claude Opus, Sonnet and Haiku 5.5, Fable 5.1 and
   the GPT-6 models Codex now runs had no price, so their tokens were left out of the
   estimate: Today showed dashes, and September and October read far below their real

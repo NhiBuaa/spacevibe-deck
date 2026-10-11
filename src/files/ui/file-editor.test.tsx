@@ -16,6 +16,7 @@ interface StubModel {
   getValue(): string;
   getFullModelRange(): string;
   pushEditOperations(before: unknown, edits: { range: string; text: string }[]): null;
+  setValue(value: string): void;
   dispose(): void;
 }
 
@@ -27,6 +28,8 @@ const stub = {
   cursorHandler: null as
     ((event: { position: { lineNumber: number; column: number } }) => void) | null,
   focused: 0,
+  /** Undoable writes: `pushEditOperations` calls. `setValue` leaves no undo step. */
+  pushes: 0,
   /** Stands in for "document.activeElement is inside the editor". */
   hasTextFocus: false,
   selections: [] as string[],
@@ -46,8 +49,13 @@ function makeModel(value: string, language: string | undefined): StubModel {
     getFullModelRange: () => "full",
     pushEditOperations(_before, edits) {
       model.value = edits[0].text;
+      stub.pushes += 1;
       stub.contentHandler?.();
       return null;
+    },
+    setValue(next) {
+      model.value = next;
+      stub.contentHandler?.();
     },
     dispose() {},
   };
@@ -129,6 +137,7 @@ import {
 import { initializeDesktopEnvironment, resetDesktopEnvironmentForTests } from "../../lib/platform";
 import { settings } from "../../settings/settings-store";
 import {
+  closeFileSurface,
   openFileTab,
   pendingReveal,
   requestReveal,
@@ -182,6 +191,7 @@ beforeEach(() => {
   stub.contentHandler = null;
   stub.cursorHandler = null;
   stub.focused = 0;
+  stub.pushes = 0;
   stub.hasTextFocus = false;
   stub.selections = [];
   stub.triggered = [];
@@ -321,6 +331,53 @@ describe("FileEditor", () => {
     stub.currentModel!.value = "typed\n";
     stub.contentHandler?.();
     expect(setText).toHaveBeenCalledWith(PATH, "typed\n");
+  });
+
+  describe("a document's first read leaves nothing to undo", () => {
+    const OTHER = "/r/src/other.ts";
+
+    function show(path: string): void {
+      act(() => {
+        render(<FileEditor path={path} controller={controller} />, host);
+      });
+    }
+
+    it("fills a file opened while the editor is up without an undo step", async () => {
+      // The editor is already mounted, so the second file's model is made
+      // while its read is in flight; ⌘Z used to return it to "".
+      await mountWithDocument();
+      act(() => void openFileTab("/r", OTHER, { keep: false }));
+      show(OTHER);
+      await act(async () => {});
+      act(() => updateDocument(OTHER, { file: textFile(), text: "other\n" }));
+      show(OTHER);
+
+      expect(stub.currentModel?.getValue()).toBe("other\n");
+      expect(stub.pushes).toBe(0);
+
+      // A reload after the first read keeps the undo stack and the caret.
+      act(() => updateDocument(OTHER, { text: "reloaded\n" }));
+      show(OTHER);
+      expect(stub.currentModel?.getValue()).toBe("reloaded\n");
+      expect(stub.pushes).toBe(1);
+    });
+
+    it("refills a reopened file's kept model without an undo step", async () => {
+      await mountWithDocument();
+      act(() => void openFileTab("/r", OTHER, { keep: true }));
+      act(() => updateDocument(OTHER, { file: textFile(), text: "other\n" }));
+      show(OTHER);
+      const kept = stub.models.find((model) => model.value === "const a = 1;\n");
+      act(() => closeFileSurface("/r", PATH));
+      act(() => void openFileTab("/r", PATH, { keep: true }));
+      show(PATH);
+      expect(kept?.getValue()).toBe("");
+
+      act(() => updateDocument(PATH, { file: textFile(), text: "reread\n" }));
+      show(PATH);
+      expect(kept?.getValue()).toBe("reread\n");
+      expect(stub.pushes).toBe(0);
+    });
   });
 
   it("forwards the caret position for the status bar", async () => {

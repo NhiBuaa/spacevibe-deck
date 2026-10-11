@@ -46,6 +46,9 @@ interface EditorHandle {
   /** True while the component is writing the model, so the change listener
    * does not report Deck's own reload as a user edit. */
   applying: boolean;
+  /** Paths whose document has not been read yet: their next fill is the first
+   * real content, so it must not leave anything on the undo stack. */
+  readonly unread: Set<string>;
 }
 
 export function FileEditor(props: FileEditorProps) {
@@ -123,6 +126,7 @@ export function FileEditor(props: FileEditorProps) {
           viewStates: new Map(),
           current: null,
           applying: false,
+          unread: new Set(),
         };
         handleRef.current = handle;
         editor.onDidChangeModelContent(() => {
@@ -220,9 +224,21 @@ export function FileEditor(props: FileEditorProps) {
       model = monaco.editor.createModel(document.text, languageForPath(props.path) ?? undefined);
       handle.models.set(props.path, model);
     }
+    // Nothing a model holds before its document's first read is the user's: the
+    // empty text of a read still in flight, or a closed document's last text in
+    // a model kept since. Writing over it with an undoable edit put "" on the
+    // undo stack, so ⌘Z emptied a freshly opened file and ⌘S wrote 0 bytes.
+    const firstFill = document.file === null || handle.unread.has(props.path);
+    if (document.file === null) {
+      handle.unread.add(props.path);
+    } else {
+      handle.unread.delete(props.path);
+    }
     handle.applying = true;
     try {
-      if (model.getValue() !== document.text) {
+      if (model.getValue() !== document.text && firstFill) {
+        model.setValue(document.text);
+      } else if (model.getValue() !== document.text) {
         // `pushEditOperations` over the whole range rather than `setValue`:
         // setValue resets the undo stack AND the cursor, and holding both is
         // the point of the clean+changed row (spec §5).
