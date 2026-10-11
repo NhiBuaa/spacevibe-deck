@@ -12,10 +12,9 @@
    Motion is gated on `:is(.panel, .a-appwin__stage).is-revealed` — ONE
    class, two writers. On a `.panel` the panels' own IntersectionObserver
    adds it: a scene that typed itself out while three viewports above the
-   fold would be finished before anyone saw it. On a hero `.a-appwin__stage`
-   the scene cycle adds it — a region coming out of `hidden` re-enters
-   layout, which restarts its animations, and the class is what lets them
-   fire there at all. EVERY
+   fold would be finished before anyone saw it. The hero's
+   `.a-appwin__stage` is rendered with it already set, since that stage
+   holds a completed frame and has nothing to reveal. EVERY
    animation declared under that gate is repeated in the reduced-motion block
    at the foot of this file — a reveal missing from that list animates under
    `prefers-reduced-motion: reduce` with no error anywhere to catch it. */
@@ -1193,7 +1192,7 @@
    off whatever prose happens to be around it. Each pair below is the base
    class's own `max(box, floor)` taken at ~55%, which is where the app's own
    letter avatars sit (`.a-appwin__leaflogo--mono` is 0.9 of a 1.4cqw box;
-   `.agent-strip__mark--mono` is 9px in an 18.4px one). */
+   `.hero-agents__mark--mono` is 10px in an 18px one). */
 .scene-restore__mark--mono,
 .scene-picker__mark--mono,
 .scene-usage__logo--mono {

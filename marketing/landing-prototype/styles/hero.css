@@ -1,0 +1,173 @@
+/* ---- The hero (2026-10-10) ----
+   The copy column on the dark ground, then the desk: a band of painting with
+   the whole window standing on it, at one scale. The selectors that override
+   `.a-appwin` carry it too (`.a-appwin.hero-…`), so they do not depend on this
+   sheet loading after appwin.css. */
+
+/* Centred over the centred window (owner, 2026-10-11). The install unit is
+   centred as one block; inside it the command still reads from the left. */
+.hero-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: clamp(2.5rem, 6vh, 4.25rem) var(--a-cell-pad) clamp(2.25rem, 5vh, 3.25rem);
+  text-align: center;
+}
+
+.hero-copy .hero-install {
+  text-align: left;
+}
+
+.hero-copy .hero-agents,
+.hero-copy .hero-agents__marks {
+  justify-content: center;
+}
+
+.hero-copy .hero-pill {
+  margin-bottom: clamp(1.4rem, 3vh, 2rem);
+}
+
+.hero-copy .hero-title {
+  font-size: clamp(2.7rem, 4.5vw, 4.25rem);
+}
+
+.hero-copy .hero-install {
+  margin-top: clamp(1.75rem, 4vh, 2.4rem);
+}
+
+.hero-copy .hero-agents {
+  margin-top: clamp(1.4rem, 3vh, 1.9rem);
+}
+
+/* ---- The desk ----
+   A public-domain oil painting standing in for the desktop wallpaper the
+   window sits on. It gives the window a plane to cast a shadow onto, and its
+   lit centre is what separates a near-black window from a near-black page. */
+
+.hero-stage {
+  position: relative;
+  /* The bottom pad keeps the painting from ending flush on the frame's rule,
+     where it read as sliced by the line rather than sitting above it. */
+  padding: 0 var(--a-cell-pad) clamp(2rem, 4.5vh, 3.5rem);
+}
+
+.hero-desk {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
+  /* Deeper at the top: the rim above the window is the one place the painting
+     gets to be a picture rather than a border, and it is where Pause sits.
+     The bottom rim is what the window's shadow falls onto. */
+  padding: clamp(3.25rem, 7.2vw, 7rem) clamp(1.5rem, 3.6vw, 3.4rem) clamp(1.4rem, 3.2vw, 2.8rem);
+  border: 1px solid rgb(255 255 255 / 16%);
+  border-bottom: none;
+  border-radius: 18px 18px 0 0;
+  background: var(--a-surface-1);
+  isolation: isolate;
+}
+
+/* The hero plate (`--plate-image`, tokens.css), barely graded: the one lit
+   plane above the fold. */
+.hero-desk__art {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: var(--plate-image) 50% 50% / cover no-repeat;
+  filter: saturate(0.88) brightness(0.98) contrast(1.02);
+}
+
+/* Fall-off at the rim, so a flat rectangle of photograph does not read as a
+   screenshot pasted onto the page. */
+.hero-desk::after {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: radial-gradient(
+    128% 116% at 50% 34%,
+    transparent 0 58%,
+    rgb(10 12 11 / 16%) 88%,
+    rgb(10 12 11 / 30%) 100%
+  );
+  content: "";
+  pointer-events: none;
+}
+
+/* A near-black window on a lit plate needs a real cast shadow and a dark
+   hairline, or it reads as a hole cut in the painting. */
+.a-appwin.hero-window {
+  border-color: rgb(0 0 0 / 42%);
+  border-radius: 11px;
+  box-shadow:
+    0 3rem 5.5rem -1.2rem rgb(0 0 0 / 62%),
+    0 0.9rem 1.8rem -0.7rem rgb(0 0 0 / 45%);
+}
+
+.hero-desk .hero-pause {
+  top: 1rem;
+  right: 1rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero-window {
+    animation: hero-lift 760ms var(--hero-enter) 260ms both;
+  }
+}
+
+/* Below this width the desk's side padding eats the window's own width
+   instead, so it drops to a rim. */
+@media (max-width: 60rem) {
+  .hero-desk {
+    padding-inline: 1.1rem;
+  }
+}
+
+@media (max-width: 47.5rem) {
+  .hero-copy {
+    padding: 2.15rem var(--a-cell-pad) 1.9rem;
+  }
+
+  /* The OS tabs are hidden here, so the facts are the row's only child. */
+  .hero-copy .hero-install__meta,
+  .hero-copy .hero-install__facts {
+    justify-content: center;
+  }
+
+  /* Still a rim of painting on every side for the shadow to fall on; the top
+     one stays deep enough to hold Pause clear of the window. */
+  .hero-desk {
+    padding: 3rem 0.85rem 0.85rem;
+    border-radius: 12px 12px 0 0;
+  }
+
+  .a-appwin.hero-window {
+    border-radius: 7px;
+  }
+
+  .hero-desk .hero-pause {
+    top: 0.5rem;
+    right: 0.6rem;
+  }
+
+  /* appwin.css floors the rail's type at 7-8px on a phone; the beat plays in
+     the rail, so its rows have to stay readable. */
+  .hero-window :is(
+      .a-appwin__cardlabel,
+      .a-appwin__clustername,
+      .a-appwin__cardname,
+      .a-appwin__new
+    ) {
+    font-size: max(1.1cqw, 10px);
+  }
+
+  .hero-window :is(
+      .a-appwin__cardmeta,
+      .a-appwin__cardbadge,
+      .a-appwin__barebadge,
+      .a-appwin__cardcount,
+      .a-appwin__barename
+    ) {
+    font-size: max(0.9cqw, 9px);
+  }
+}

@@ -11,7 +11,7 @@
  * The cover is the REAL hero off the built bundle, not a drawing of it, for
  * the same reason the stage capture shoots `dist`: a hand-made card drifts the
  * first time the product does. Motion is pinned with `prefers-reduced-motion`,
- * which holds the hero's scene cycle on the agents frame (HERO_SCENES).
+ * which holds the hero's rail on its asking frame (STILL_BEAT, src/hero.js).
  *
  * Usage:
  *   npm run build:landing

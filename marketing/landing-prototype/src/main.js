@@ -2,18 +2,16 @@ import "../styles/tokens.css";
 import "../styles/appwin.css";
 import "../styles/frame.css";
 import "../styles/direction-a.css";
-import "../styles/install-command.css";
 import "../styles/tour.css";
 import "../styles/demo-loop.css";
 import "../styles/scenes.css";
-import "../styles/hero-cursor.css";
-import "../styles/hero-recolor.css";
 import "../styles/release-modal.css";
-import "../styles/hero-feedback.css";
+import "../styles/hero-copy-column.css";
+import "../styles/hero.css";
 
 import { messages } from "./copy.js";
-import { renderDirectionA } from "./directions/a.js";
 import { upgradeReleaseLinks } from "./download-links.js";
+import { renderHero } from "./hero.js";
 import { mountQuickInstall } from "./install-command.js";
 import { announceRelease, isReleaseModalForced } from "./release-modal.js";
 import { safeLocalStorage } from "./safe-storage.js";
@@ -30,7 +28,7 @@ let disposePage = () => {};
 function render() {
   disposePage();
 
-  const page = renderDirectionA(messages.en);
+  const page = renderHero(messages.en);
   const tour = renderTour(messages.en);
   specimenRoot.innerHTML = page.markup + tour.markup;
   const disposeRenderer = page.mount(specimenRoot);

@@ -13,7 +13,6 @@
 import { BRAND } from "../../../stage/brand.js";
 import { BRAND_ICON_SRC } from "../appwin.js";
 import { mountDemoLoop, renderDemoLoop } from "../demo-loop.js";
-import { FEATURES_ID } from "../directions/a.js";
 import { PROOF_TERM_STEPS } from "./stage-states.js";
 import { RELEASES_URL, REPO_URL, WINDOWS_FALLBACK_URL } from "../download-links.js";
 import { FEEDBACK_URL } from "../site-urls.js";
@@ -21,6 +20,9 @@ import { SCENES } from "./panel-scenes.js";
 import { renderAppleIcon, renderWindowsIcon } from "../os-icons.js";
 
 const PROMPT = "❯ ";
+
+/** Anchor on the feature panel stack; the footer links to it. */
+const FEATURES_ID = "features";
 
 /** Staggered reveal for the closing band's blocks. */
 function mountFinaleReveal(section) {
@@ -50,10 +52,7 @@ function mountFinaleReveal(section) {
 function mountProofTerm(section, reduceMotion) {
   const body = section.querySelector("[data-proof-term]");
   const chips = new Map(
-    [...section.querySelectorAll("[data-proof]")].map((el) => [
-      el.dataset.proof,
-      el,
-    ]),
+    [...section.querySelectorAll("[data-proof]")].map((el) => [el.dataset.proof, el]),
   );
 
   if (!body) {
@@ -385,9 +384,7 @@ export function renderTour(copy) {
         throw new Error("Tour root is missing.");
       }
 
-      const reduceMotion = window.matchMedia(
-        "(prefers-reduced-motion: reduce)",
-      );
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
       const disposeReveal = mountFinaleReveal(section);
       const disposeProofTerm = mountProofTerm(section, reduceMotion);

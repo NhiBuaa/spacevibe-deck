@@ -1,10 +1,12 @@
 /**
- * The band under the hero that names what Deck actually runs.
+ * The marks that name what Deck actually runs: the hero's agent row and the
+ * panel scenes draw them from here.
  *
  * Until 2026-08-19 the page never printed the word "claude" or "codex"
  * anywhere: a visitor could read the whole landing and still not know which
- * CLIs it launches, which is the first question the product raises. This is
- * that answer, in the shape a SaaS logo wall usually takes.
+ * CLIs it launches, which is the first question the product raises. Since
+ * 2026-10-10 that answer sits in the hero's first screen as one row of marks
+ * rather than a labelled logo wall a screen and a half down.
  *
  * The list is the app's OWN data, imported rather than copied: `ACTIVE_AGENTS`
  * (every built-in agent not withdrawn, in the registry's order) and
@@ -21,7 +23,7 @@ import { ACTIVE_AGENTS } from "../../../src/lib/agents/agent-registry.ts";
 /**
  * Exported because the panel scenes draw the same marks — the catalog scene
  * lists every agent, the ⌘T menu scene leads each agent row with one. Two
- * copies of this table would let the strip and the scenes disagree about what
+ * copies of this table would let the hero and the scenes disagree about what
  * `codex` looks like.
  *
  * `mark` is `null` for an active agent the logo map has no file for, which the
@@ -47,7 +49,7 @@ function monogramLetter(id) {
 /**
  * One mark for every call site, brand file or not.
  *
- * Three renderers wrote `<img src="${agent.mark}">` by hand — this strip, the
+ * Three renderers wrote `<img src="${agent.mark}">` by hand — the old strip, the
  * tour's `agentMark`, and the retired quick-picker scene's row map — and every one
  * of them prints the literal string `src="null"` for an agent with no file.
  * This is the single branch they collapse onto. Every active agent has a file
@@ -63,7 +65,7 @@ function monogramLetter(id) {
  * knowing simplification, not an oversight.
  *
  * `className` is the caller's own base class and the monogram appends
- * `--mono` to it, so one helper serves the 20px strip, the 18px scenes and the
+ * `--mono` to it, so one helper serves the 18px hero row and scenes and the
  * 15px catalog rows without owning a line of any of their CSS.
  *
  * @param {{ id: string, label: string, mark: string | null }} agent
@@ -77,31 +79,4 @@ export function renderAgentMark(agent, className, size) {
   }
 
   return `<img class="${className}" src="${agent.mark}" alt="" width="${size}" height="${size}" loading="lazy" />`;
-}
-
-/**
- * Two centred rows of chips, the note on its own line under them. The rows are
- * separate lists so the split is the same at every width; each wraps by itself
- * where the viewport is too narrow for six chips.
- */
-export function renderAgentStrip(copy) {
-  const chips = AGENT_MARKS.map(
-    (agent) => `
-      <li class="agent-strip__chip">
-        ${renderAgentMark(agent, "agent-strip__mark", 20)}
-        <span>${agent.label}</span>
-      </li>
-    `,
-  );
-  const split = Math.ceil(chips.length / 2);
-  const rows = [chips.slice(0, split), chips.slice(split)]
-    .map((row) => `<ul class="agent-strip__row">${row.join("")}</ul>`)
-    .join("");
-
-  return `
-    <div class="agent-strip">
-      ${rows}
-      <p class="agent-strip__any" data-copy="agentStripTail">${copy.agentStripTail}</p>
-    </div>
-  `;
 }

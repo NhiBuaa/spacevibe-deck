@@ -82,6 +82,17 @@ export async function upgradeReleaseLinks(root) {
 
   retargetAnchors(root, ["downloadMac", "installMac"], urls.mac);
   retargetAnchors(root, ["downloadWin", "installWin"], urls.win);
+
+  // The top bar's one Download follows the visitor's platform, decided at
+  // mount, so it is keyed by OS rather than by copy.
+  for (const anchor of root.querySelectorAll("[data-download-os]")) {
+    const url = urls[anchor.dataset.downloadOs];
+
+    if (url) {
+      anchor.href = url;
+      anchor.removeAttribute("target");
+    }
+  }
   setDownloadProofState(root, "ready", totalInstallerDownloads(releases));
 
   const stableTag = latestStableTag(releases);

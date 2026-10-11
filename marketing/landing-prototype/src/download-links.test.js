@@ -71,6 +71,8 @@ function renderFixture() {
     </a>
     <a class="footer-win" href="${WINDOWS_FALLBACK_URL}" target="_blank" rel="noreferrer"
       data-copy="downloadWin">Download for Windows</a>
+    <a class="nav-download" href="${WINDOWS_FALLBACK_URL}" target="_blank" rel="noreferrer"
+      data-download-os="win"><span data-copy="navDownload">Download</span></a>
     <a class="releases" href="${RELEASES_URL}" target="_blank"
       data-copy="footerReleases">Releases</a>
     <a class="release-version" href="/landing-prototype/changelog/"
@@ -101,7 +103,7 @@ describe("upgradeReleaseLinks", () => {
 
     await upgradeReleaseLinks(root);
 
-    for (const cls of ["hero-win", "footer-win"]) {
+    for (const cls of ["hero-win", "footer-win", "nav-download"]) {
       const anchor = root.querySelector(`a.${cls}`);
       expect(anchor.href).toBe(EXE_URL);
       expect(anchor.hasAttribute("target")).toBe(false);

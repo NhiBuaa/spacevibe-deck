@@ -33,24 +33,13 @@
   min-height: 100svh;
   overflow: clip;
   color: var(--a-ink);
-  /* Neutral grey-white ground. The painting on the desk below carries every
+  /* Neutral grey-white ground. The painting beside the copy carries every
      bit of colour temperature above the fold, so the field it stands in stays
      achromatic — the warmth has to read as coming from the picture. */
   background:
     radial-gradient(120% 74% at 50% 0%, rgb(255 255 255 / 5%), transparent 62%),
     linear-gradient(180deg, #0b0d0c 0%, #090b0a 100%);
   isolation: isolate;
-}
-
-.direction-a::before {
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 56 56'%3E%3Cpath d='M0 4h8M4 0v8' fill='none' stroke='%23ffffff' stroke-opacity='.1' stroke-width='.65'/%3E%3C/svg%3E");
-  background-position: 0 0;
-  content: "";
-  mask-image: radial-gradient(circle at 72% 44%, #000 0%, transparent 74%);
-  pointer-events: none;
 }
 
 .direction-a a {
@@ -116,11 +105,11 @@
   border-bottom: 1px solid var(--frame-line);
 }
 
+/* Brand left, links right: the brand's auto margin is the whole spacer. */
 .a-topbar {
   z-index: 4;
-  display: grid;
+  display: flex;
   width: 100%;
-  grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
   align-items: center;
   gap: clamp(1.25rem, 2.4vw, 2.5rem);
   padding: 1.15rem var(--a-cell-pad);
@@ -135,6 +124,7 @@
   align-items: center;
   gap: 0.7rem;
   color: var(--a-ink);
+  margin-inline-end: auto;
   letter-spacing: normal;
 }
 
@@ -155,12 +145,6 @@
 .a-topbar__brand strong {
   font-size: 0.64rem;
   font-weight: 680;
-}
-
-.a-topbar__descriptor {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .a-topbar__discord {
@@ -242,30 +226,52 @@
   transform: scaleX(1);
 }
 
-.a-topbar a:focus-visible,
-.a-secondary-cta:focus-visible {
+/* The feedback board's three dots: its column colours, on the nav link that
+   replaced the second hero pill (2026-10-10). */
+.a-topbar__feedback {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.a-topbar__dots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.a-topbar__dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f5c56b;
+}
+
+.a-topbar__dots i:nth-child(2) {
+  background: #8aaeff;
+}
+
+.a-topbar__dots i:nth-child(3) {
+  background: #74d6a0;
+}
+
+.a-topbar a:focus-visible {
   outline: 2px solid var(--a-accent);
   outline-offset: 5px;
 }
 
-/* ---- Hero: one centred column. ----
-   The title used to run 6.5rem across a left rail because a beams field ran
-   behind it and the type had to be big enough to read the ripple across the
-   letterforms. The field is gone and the picture below is the focal object
-   now, so the type steps back: lighter weight, smaller size, centred over a
-   measure that holds two lines at every width. */
+/* The bar's one filled control, at its right edge: the hero's install button
+   in miniature, hover sweep included (.a-primary-cta below). */
+.a-topbar .a-topbar__download {
+  min-height: 2rem;
+  gap: 0.5rem;
+  padding: 0.45rem 0.85rem 0.45rem 0.95rem;
+  box-shadow: none;
+  font: 600 0.62rem/1 var(--a-font-display);
+}
 
-.a-hero {
-  position: relative;
-  z-index: 3;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  /* Tight on purpose. Everything above the picture is a budget: at 900px of
-     viewport the window only clears the fold by the height this block gives
-     back, and a hero that shows no product is the failure mode. */
-  padding: clamp(1.6rem, 3.6vh, 2.6rem) var(--a-cell-pad) clamp(1.4rem, 3vh, 2rem);
-  text-align: center;
+.a-topbar__download .a-install-icon {
+  width: 0.85rem;
+  height: 0.85rem;
 }
 
 /* The release pill is the launch signal above the headline. Its colour is
@@ -318,7 +324,6 @@
 }
 
 .a-hero__pill-text {
-  animation: a-release-gradient-flow 3.6s linear infinite;
   background: linear-gradient(
     90deg,
     var(--a-release-violet) 0%,
@@ -328,6 +333,7 @@
     var(--a-release-violet) 100%
   );
   background-clip: text;
+  background-position: 0% 50%;
   background-size: 200% 100%;
   color: transparent;
   filter: drop-shadow(0 0 0.45rem rgb(var(--a-release-cyan-rgb) / 18%));
@@ -339,16 +345,6 @@
   -webkit-text-fill-color: transparent;
 }
 
-@keyframes a-release-gradient-flow {
-  from {
-    background-position: 0% 50%;
-  }
-
-  to {
-    background-position: -200% 50%;
-  }
-}
-
 .a-hero__pill-arrow {
   color: var(--a-ink);
   font-size: 0.9rem;
@@ -358,202 +354,6 @@
 .a-hero__pill:hover .a-hero__pill-arrow,
 .a-hero__pill:focus-visible .a-hero__pill-arrow {
   transform: translateX(0.125rem);
-}
-
-.a-hero__copy {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-/* 500, not 600, and -0.032em rather than -0.048em: at this size the heavier
-   face closed its own counters and the tighter tracking read as one long word
-   across a centred measure. */
-.a-hero h1 {
-  max-width: 20ch;
-  margin: 0;
-  font: 500 clamp(2.5rem, 5.1vw, 4.2rem) / 1.03 var(--a-font-display);
-  letter-spacing: -0.032em;
-}
-
-/* Two tones rather than one: the lead sits back, the payoff sits forward.
-   Nothing moves — the picture below is the thing to look at, and a moving
-   highlight on the type would pull the eye back up. */
-/* No max-width holding the break: at this size a character-count cap lands
-   differently in each locale and orphans the last word ("…agent in / sight.").
-   `balance` lets the browser pick even lines instead — EN fits both spans on
-   one line each at desktop width, VI wraps its longer tail into two even ones. */
-/* VI runs 33 characters where EN runs 26, so at the EN measure the payoff line
-   broke into two and pushed the picture off the fold. One rung down in size and
-   a wider cap gives the locale the same two-line shape. */
-html[lang="vi"] .a-hero h1 {
-  max-width: 34ch;
-  font-size: clamp(2.2rem, 4.5vw, 3.6rem);
-}
-
-.a-hero h1 span {
-  display: block;
-  color: rgb(255 255 255 / 62%);
-  text-wrap: balance;
-}
-
-.a-hero h1 span:last-child {
-  color: rgb(255 255 255 / 96%);
-}
-
-.a-subhead {
-  max-width: 60ch;
-  margin: clamp(1rem, 2vh, 1.3rem) 0 0;
-  color: var(--a-ink-soft);
-  font: 400 clamp(0.95rem, 1.06vw, 1.05rem) / 1.62 var(--a-font-display);
-  letter-spacing: -0.009em;
-  text-wrap: pretty;
-}
-
-/* ---- The desk. ----
-   A public-domain oil painting standing in for the desktop wallpaper the
-   window sits on (the cursor.com move, run dark). Two jobs: it gives the
-   window a plane to cast a shadow onto, and its warm lit centre is what
-   separates a near-black window from a near-black page — warmth, not
-   luminance. Nothing here animates. */
-
-.a-stage {
-  position: relative;
-  z-index: 2;
-  /* The bottom pad is not optional: the desk used to end flush against the
-     agent strip's hairline, so the painting looked sliced by the rule rather
-     than sitting above it. */
-  padding: 0 var(--a-cell-pad) clamp(2rem, 4.5vh, 3.5rem);
-}
-
-.a-desk {
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  overflow: hidden;
-  /* Deeper at the top than at the sides: the rim above the window is the only
-     place the painting gets to be a picture rather than a border. The bottom
-     rim is what the window's shadow falls onto — at zero the shadow had no
-     surface under it and the mock read as a card butted against an edge. */
-  padding: clamp(2.6rem, 7.2vw, 7rem) clamp(1.5rem, 3.6vw, 3.4rem) clamp(1.4rem, 3.2vw, 2.8rem);
-  border: 1px solid rgb(255 255 255 / 16%);
-  border-bottom: none;
-  border-radius: 18px 18px 0 0;
-  background: var(--a-surface-1);
-  isolation: isolate;
-}
-
-/* The painting itself, graded down to a plane: desaturated toward the page's
-   achromatic language but not all the way — the ochre is the point — then
-   dimmed so the window's own chrome stays the brightest thing in the frame.
-   `--plate-image` is declared in tokens.css. */
-.a-desk__art {
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  background-image: var(--plate-image);
-  /* The asset is already cropped to the band worth showing — sky, ridge, hut,
-     plain — at 2.6:1, which is wider than the desk, so `cover` fills the
-     height and crops the sides. That leaves no vertical slack for this to pan
-     against, and none is wanted: the band's own top edge is the rim. */
-  background-position: 50% 50%;
-  background-size: cover;
-  /* Barely graded. A light painting needs the opposite treatment to the dark
-     one this replaced: saturation pulled back a little so it sits inside the
-     page's achromatic language, brightness left alone — it is meant to be the
-     one lit plane above the fold. */
-  filter: saturate(0.88) brightness(0.98) contrast(1.02);
-}
-
-/* A light plate needs the opposite of the dark one's vignette: no melting into
-   the page — the plane is supposed to have edges — just enough fall-off at the
-   rim that a flat rectangle of photograph doesn't read as a screenshot pasted
-   onto the hero. */
-.a-desk::after {
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  background: radial-gradient(
-    128% 116% at 50% 34%,
-    transparent 0 58%,
-    rgb(10 12 11 / 16%) 88%,
-    rgb(10 12 11 / 30%) 100%
-  );
-  content: "";
-  pointer-events: none;
-}
-
-/* Stacked, not side by side: the column they live in is a quarter of the frame
-   wide, so a row would either wrap raggedly or force the frame open. */
-/* Stacked, not side by side: the column they live in is a quarter of the frame
-   wide, so a row would either wrap raggedly or force the frame open. Everything
-   stretches to the column — a content-width button in a rail this narrow wraps
-   its own label before the rail ever runs out.
-
-   Exactly one white face in the stack, and it is the Windows download — the
-   platform that actually has a build to hand out. The macOS twin and the demo
-   are the same box unfilled, so the column reads top-down as: get it, it is
-   coming, or look first. */
-/* Platform controls are one compact cluster. The feature link moves to the
-   supporting row below, so two decisions do not stretch across the frame. */
-.a-actions {
-  position: relative;
-  z-index: 4;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 0.625rem;
-  margin: clamp(1.65rem, 3.2vh, 1.95rem) 0 0;
-}
-
-.a-hero__support {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  margin-top: 0.875rem;
-}
-
-.a-hero__support-sep {
-  width: 1px;
-  height: 0.9rem;
-  background: var(--a-line-strong);
-}
-
-/* One quiet proof line below the actions. The count leads; its label stays at
-   metadata scale so this remains evidence rather than a second focal object. */
-.a-download-proof {
-  display: flex;
-  min-width: 0;
-  align-items: baseline;
-  gap: 0.4rem;
-  color: var(--a-ink-faint);
-  font-family: var(--a-font-mono);
-  white-space: nowrap;
-}
-
-.a-download-proof strong {
-  color: var(--a-ink-soft);
-  font: 560 1.05rem/1 var(--a-font-display);
-  font-feature-settings:
-    "tnum" 1,
-    "zero" 1;
-  letter-spacing: -0.01em;
-}
-
-.a-download-proof__unit {
-  color: var(--a-ink-soft);
-  font-size: 0.52rem;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.a-download-proof[data-download-state="unavailable"] {
-  opacity: 0.48;
 }
 
 /* Icon + label, kept together so the trailing slot — the arrow, or the
@@ -602,38 +402,6 @@ html[lang="vi"] .a-hero h1 {
     border-color 240ms var(--a-ease-lock);
 }
 
-/* This link shares a support row with the live installer download count. */
-.a-ghost-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.25rem 0.1rem;
-  color: var(--a-ink-soft);
-  font: 500 0.78rem/1 var(--a-font-display);
-  letter-spacing: -0.006em;
-  transition: color 240ms var(--a-ease-lock);
-}
-
-.a-ghost-cta:hover,
-.a-ghost-cta:focus-visible {
-  color: var(--a-ink);
-}
-
-.a-ghost-cta i {
-  font-size: 0.95rem;
-  font-style: normal;
-  transition: transform 280ms var(--a-ease-lock);
-}
-
-.a-ghost-cta:hover i {
-  transform: translateY(0.2rem);
-}
-
-.a-ghost-cta:focus-visible {
-  outline: 2px solid var(--a-accent);
-  outline-offset: 4px;
-}
-
 .a-quiet-cta:hover:not(:disabled),
 .a-quiet-cta:focus-visible:not(:disabled) {
   background: rgb(255 255 255 / 6%);
@@ -653,22 +421,6 @@ html[lang="vi"] .a-hero h1 {
 .a-quiet-cta:focus-visible {
   outline: 2px solid var(--a-accent);
   outline-offset: 4px;
-}
-
-/* macOS is announced, not offered, until the Electron macOS build ships. Left
-   visible and legible — hiding it says nothing, and greying it to unreadable
-   says the wrong thing — but not pressable, so nobody clicks expecting a file. */
-.a-quiet-cta:disabled {
-  /* Wrapping is what protects the label. When the column is too narrow for
-     "Download for macOS" AND the tag on one line, flex moves the whole tag
-     to a second line and gives the label the full width back — without this
-     the label is the thing that shrinks, to two and then three lines. No-op
-     at widths where both fit. */
-  flex-wrap: wrap;
-  row-gap: 0.5rem;
-  border-color: var(--a-line);
-  color: var(--a-ink-faint);
-  cursor: default;
 }
 
 /* The SmartScreen warning. The block it describes is full-screen and its
@@ -696,15 +448,6 @@ html[lang="vi"] .a-hero h1 {
   font: 500 0.53rem/1 var(--a-font-mono);
   letter-spacing: 0.06em;
   text-transform: uppercase;
-}
-
-/* The tag rides the white face now that Windows is the filled button, and its
-   own tokens are light-on-dark — they vanish there. currentColor follows the
-   hover invert for free, same trick as `.a-os-icon`. */
-.a-primary-cta .a-cta-tag {
-  border-color: currentColor;
-  color: inherit;
-  opacity: 0.66;
 }
 
 /* The badge that dates this build. It used to be an outline chip pulsing above
@@ -795,54 +538,10 @@ html[lang="vi"] .a-hero h1 {
   outline-offset: 4px;
 }
 
-/* The repo link in the footnote row. The version anchor that used to sit
-   beside it is gone — the release pill above the headline carries the version
-   now, and two links to the same ledger in one hero is one too many. */
-.a-secondary-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--a-ink-soft);
-  font: 500 0.78rem/1.2 var(--a-font-display);
-  letter-spacing: -0.004em;
-  transition: color 240ms var(--a-ease-lock);
-}
-
-.a-secondary-cta:hover,
-.a-secondary-cta:focus-visible {
-  color: var(--a-ink);
-}
-
-.a-secondary-cta:focus-visible {
-  outline: 2px solid var(--a-accent);
-  outline-offset: 4px;
-}
-
-@media (max-width: 70rem) {
-  .a-hero h1 {
-    font-size: clamp(2.5rem, 6.4vw, 3.8rem);
-  }
-}
-
-/* The desk's inner padding is what makes the window read as standing ON the
-   painting rather than filling it; below this width that padding is eating
-   the mock's own width instead, so it drops to a rim. */
-@media (max-width: 60rem) {
-  .a-desk {
-    padding-inline: 1.1rem;
-  }
-}
-
 @media (max-width: 47.5rem) {
   .direction-a {
     display: block;
     min-height: 100svh;
-  }
-
-  .direction-a::before {
-    background-position: 0 0;
-    background-size: 48px 48px;
-    mask-image: linear-gradient(180deg, #000, transparent 72%);
   }
 
   .a-brand-icon {
@@ -864,57 +563,20 @@ html[lang="vi"] .a-hero h1 {
     padding: 0;
   }
 
-  /* Rail removed — the topbar keeps the brand, changelog link and language
-     toggle in one compact row. */
+  /* One compact row: the brand, the board's link and Discord. The changelog
+     link gives way because the release pill above the headline goes there. */
   .a-topbar {
-    display: flex;
-    align-items: center;
     justify-content: space-between;
     gap: 1rem;
     padding-block: 0.95rem;
   }
 
-  .a-topbar__descriptor,
-  .a-topbar__feedback,
-  .a-topbar__github {
+  /* Download gives way too: a phone cannot run the app, and the hero's own
+     install buttons are a thumb's reach below. */
+  .a-topbar__changelog:not(.a-topbar__feedback),
+  .a-topbar__github,
+  .a-topbar__download {
     display: none;
-  }
-
-  .a-hero {
-    padding-block: 2.15rem 1.9rem;
-  }
-
-  .a-hero h1 {
-    max-width: none;
-    font-size: clamp(2.35rem, 10.6vw, 2.9rem);
-    line-height: 1;
-    letter-spacing: -0.03em;
-  }
-
-  html[lang="vi"] .a-hero h1 {
-    font-size: clamp(2.05rem, 9.4vw, 2.55rem);
-  }
-
-  .a-subhead {
-    font-size: 0.9rem;
-    line-height: 1.55;
-  }
-
-  /* The desk keeps a rim of painting at this width — any less and the mock's
-     shadow has nothing to fall on, and the picture stops being a picture. The
-     top rim stays the deep one for the same reason it does at desktop. */
-  .a-desk {
-    padding: 1.75rem 0.85rem 0.85rem;
-    border-radius: 12px 12px 0 0;
-  }
-
-  /* Still one platform per row: full-width controls protect the labels. */
-  .a-actions {
-    align-self: stretch;
-    flex-direction: column;
-    gap: 0.6rem;
-    min-width: 0;
-    margin-top: 1.8rem;
   }
 
   .a-primary-cta,
@@ -924,16 +586,6 @@ html[lang="vi"] .a-hero h1 {
     gap: 0.65rem;
     padding: 0.7rem 1rem;
     font-size: 0.78rem;
-  }
-
-  .a-hero__support {
-    gap: 0.65rem;
-    margin-top: 0.8rem;
-  }
-
-  .a-ghost-cta {
-    justify-content: center;
-    font-size: 0.75rem;
   }
 
   .a-cta-tag {
@@ -946,11 +598,6 @@ html[lang="vi"] .a-hero h1 {
     padding: 0.22rem 0.44rem;
     font-size: 0.58rem;
   }
-
-  .a-secondary-cta {
-    font-size: 0.7rem;
-  }
-
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -959,8 +606,6 @@ html[lang="vi"] .a-hero h1 {
   .a-install-icon,
   .a-quiet-cta,
   .a-quiet-cta i,
-  .a-ghost-cta,
-  .a-ghost-cta i,
   .a-hero__pill,
   .a-hero__pill-arrow,
   .a-topbar__changelog,
@@ -968,137 +613,5 @@ html[lang="vi"] .a-hero h1 {
   .a-topbar__discord,
   .a-topbar__github::after {
     transition: none;
-  }
-
-  .a-hero__pill-text {
-    animation: none;
-    background-position: 50% 50%;
-  }
-}
-
-/* ---- The agent strip. ----
-   A logo wall for CLIs rather than customers: the page never named a single
-   agent before this, which left "runs your agent CLIs" as a claim with no
-   evidence. Sits inside the hero's frame column, below the desk, closed off by
-   the same hairline every other band uses. */
-
-.agent-strip {
-  position: relative;
-  z-index: 2;
-  padding: clamp(1.75rem, 3.4vh, 2.6rem) var(--a-cell-pad) clamp(1.6rem, 3vh, 2.2rem);
-  border-top: 1px solid var(--a-line);
-}
-
-/* Two centred rows, static: the list is split in half by the markup, and each
-   row wraps on its own where six chips do not fit the width. */
-.agent-strip__row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem clamp(0.5rem, 1.4vw, 1rem);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.agent-strip__row + .agent-strip__row {
-  margin-top: 0.6rem;
-}
-
-/* Chip, not bare text: a row of marks with nothing around them reads as a
-   sentence of icons. The wash is the same 5% the release pill wears. */
-.agent-strip__chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  padding: 0.5rem 0.9rem;
-  border: 1px solid var(--a-line);
-  border-radius: 999px;
-  background: rgb(255 255 255 / 4%);
-  color: var(--a-ink-soft);
-  font: 500 0.82rem/1 var(--a-font-display);
-  letter-spacing: -0.006em;
-  white-space: nowrap;
-}
-
-.agent-strip__mark {
-  width: 1.15rem;
-  height: 1.15rem;
-  flex-shrink: 0;
-  object-fit: contain;
-}
-
-/* An agent with no brand file wears a monogram — the app's own fallback
-   (`letterAvatar`), not a logo the vendor never drew. `renderAgentMark` emits a
-   <span> here instead of an <img>; every active agent has a file today, so this
-   only shows for an id the logo map does not know yet.
-
-   It deliberately declares NO BOX. The rule above already sizes it: the chip
-   is an inline-flex container, so the span is a flex item and is blockified,
-   which is what makes `width`/`height` apply to it at all. Sharing that one
-   declaration keeps it on the other chips' rhythm at every width — including
-   the narrow override below, which it inherits for free.
-
-   Neutral on purpose, and this is the whole reason the treatment is written
-   down. The app tints this disc with a per-agent colour hashed from the id;
-   nothing under `marketing/` carries that table, and picking a colour for a
-   vendor here would be a brand claim of exactly the kind the missing logo is
-   avoiding. So the disc is the window's own chrome plane and the letter its
-   dim ink: no tint variable is read here at all, unlike the two nearest idioms
-   — `.a-appwin__wslogo--mono` in appwin.css and `.tour__agentchip` in
-   tour.css, which both key their disc off a per-agent colour. The 9px/600
-   letter is geometry inside a box rather than a type role, matching the app's
-   own `.asr-chip__logo--letter` (src/styles/04b-agent-rail-rows.css). */
-.agent-strip__mark--mono {
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--sg-chrome-2);
-  color: var(--sg-fg-dim);
-  font-size: 9px;
-  font-weight: 600;
-  line-height: 1;
-  user-select: none;
-}
-
-/* The note is a sentence, not a chip: a custom agent is any binary at all, so
-   there is no one mark — not even a letter — that could stand for it, and
-   inventing a logo would be the only fake one on the page. It sits on its own
-   line under the two rows. */
-.agent-strip__any {
-  margin: 0.9rem 0 0;
-  color: var(--a-ink-faint);
-  font: 400 0.78rem/1.4 var(--a-font-mono);
-  letter-spacing: 0.01em;
-  text-align: center;
-}
-
-/* Tablet: six chips are just too wide for one line, which leaves a lone chip
-   on a second line. Capping the row splits it 4 + 2 instead, still centred. */
-@media (max-width: 62rem) {
-  .agent-strip__row {
-    max-width: 36rem;
-    margin-inline: auto;
-  }
-}
-
-@media (max-width: 47.5rem) {
-  .agent-strip {
-    padding-block: 1.5rem 1.35rem;
-  }
-
-  .agent-strip__chip {
-    padding: 0.42rem 0.7rem;
-    font-size: 0.74rem;
-  }
-
-  .agent-strip__mark {
-    width: 1rem;
-    height: 1rem;
-  }
-
-  .agent-strip__any {
-    font-size: 0.7rem;
   }
 }

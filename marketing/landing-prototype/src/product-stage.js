@@ -248,13 +248,18 @@ function runPane(pane, ctx) {
  *
  * @param {HTMLElement} gridRoot element containing one `[data-stream]`
  *   transcript region per pane (each with `[data-lines]` + `[data-spinner]`)
- * @param {{ chromeRoot?: ParentNode }} [options] `chromeRoot` is the wider
- *   root the rail and tab-strip hooks are looked up under — those nodes stand
- *   outside the grid, so the hero passes its whole `.a-appwin` figure. It
- *   defaults to `gridRoot`, which is what a tour panel with no chrome wants.
+ * @param {{ chromeRoot?: ParentNode, live?: string[] }} [options] `chromeRoot`
+ *   is the wider root the rail and tab-strip hooks are looked up under — those
+ *   nodes stand outside the grid, so the hero passes its whole `.a-appwin`
+ *   figure. It defaults to `gridRoot`, which is what a tour panel with no
+ *   chrome wants. `live` names the panes that keep streaming after the
+ *   completed frame; the rest hold still on it. It defaults to every pane.
  * @returns {() => void} dispose — cancels every pending timer
  */
-export function mountStageStream(gridRoot, { chromeRoot = gridRoot } = {}) {
+export function mountStageStream(
+  gridRoot,
+  { chromeRoot = gridRoot, live = stagePanes.map((pane) => pane.id) } = {},
+) {
   if (!gridRoot) {
     throw new Error("Stage grid root is missing.");
   }
@@ -285,7 +290,7 @@ export function mountStageStream(gridRoot, { chromeRoot = gridRoot } = {}) {
     // with motion enabled the stream keeps appending on top of it.
     renderStaticFrame(pane, ctx);
 
-    if (!reduceMotion.matches) {
+    if (!reduceMotion.matches && live.includes(pane.id)) {
       disposers.push(runPane(pane, ctx));
     }
   }

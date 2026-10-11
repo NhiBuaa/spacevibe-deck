@@ -20,3 +20,14 @@ export function renderWindowsIcon() {
     </svg>
   `;
 }
+
+/** The download glyph the hero install buttons trail with. */
+export function renderInstallIcon() {
+  return `
+    <svg class="a-install-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 3v11" />
+      <path d="m8 10 4 4 4-4" />
+      <path d="M5 18v2h14v-2" />
+    </svg>
+  `;
+}

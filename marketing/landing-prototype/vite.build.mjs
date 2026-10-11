@@ -75,7 +75,7 @@ function copyRuntimeAssets() {
 // Two details make it safe:
 //   · The SSR server runs in production mode, so `site-urls.js` resolves the
 //     same canonical `/` and `/changelog` the shipped bundle uses.
-//   · `renderDirectionA` reads its agent marks and brand icon through Vite
+//   · `renderHero` reads its agent marks and brand icon through Vite
 //     asset imports, which resolve to dev URLs under SSR. Every one is
 //     rewritten to the hashed file Rollup actually emitted; an unmapped asset
 //     URL fails the build rather than shipping a 404 into the markup.
@@ -160,13 +160,13 @@ function prerenderShell() {
       let markup;
 
       try {
-        const [{ messages }, { renderDirectionA }, { renderTour }] = await Promise.all([
+        const [{ messages }, { renderHero }, { renderTour }] = await Promise.all([
           server.ssrLoadModule("/landing-prototype/src/copy.js"),
-          server.ssrLoadModule("/landing-prototype/src/directions/a.js"),
+          server.ssrLoadModule("/landing-prototype/src/hero.js"),
           server.ssrLoadModule("/landing-prototype/src/tour/index.js"),
         ]);
 
-        markup = renderDirectionA(messages.en).markup + renderTour(messages.en).markup;
+        markup = renderHero(messages.en).markup + renderTour(messages.en).markup;
       } finally {
         await server.close();
       }
@@ -181,9 +181,7 @@ function prerenderShell() {
       }
 
       const resolved = rewriteAssetUrls(markup, emitted);
-      const unresolved = [
-        ...resolved.matchAll(/(?:src|href)="((?:file:|\/@fs|\.\.?\/)[^"]*)"/g),
-      ];
+      const unresolved = [...resolved.matchAll(/(?:src|href)="((?:file:|\/@fs|\.\.?\/)[^"]*)"/g)];
 
       if (unresolved.length > 0) {
         throw new Error(
