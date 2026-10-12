@@ -18,8 +18,7 @@ SpaceVibe Deck 1.0 shipped on 2026-08-20 for macOS on Apple Silicon (signed and 
 and for Windows x64 (unsigned, and not yet verified on real Windows hardware). Since then
 the surfaces around the Agent Rail, session restore and the sidebar have been reshaped and
 are being finished for the next release. Most of that work has suite and build evidence but
-no pass in a running app yet. The Tauri host under `src-tauri/` is feature-frozen; new
-features land on Electron only.
+no pass in a running app yet.
 
 ## What is most likely to be accepted
 

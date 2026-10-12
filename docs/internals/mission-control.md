@@ -84,9 +84,8 @@ answer — whether another overlay covers the stage.
 ## Host scope
 
 Everything is renderer-only: no channel was added, and `electron-ipc-contract.test.ts` has
-nothing new to guard. It compiles into the frozen Tauri host too, but Tauri ships only by
-hand from an already-shipped tag, so no Tauri user receives it. The hover card's branch
-comes from the repository scan, which only Electron answers; without it the card omits it.
+nothing new to guard. The hover card's branch comes from the repository scan; without it the
+card omits it.
 
 ## The retired Board
 

@@ -43,8 +43,7 @@ constants that currently switch behaviour off and are meant to be flipped back.
   maximize and close sit over the web contents at the row's right end, as the traffic lights
   do on the left on macOS (DL-18.4). `DesktopChrome` sets `window--caption-overlay` only for
   Windows plus the Electron host, and only under that class does `--frame-controls-w` leave
-  `0px` ([`22-caption-overlay.css`](../../src/styles/22-caption-overlay.css)); Tauri's
-  Windows build keeps a native title bar above the row and reserves nothing. A new occupant
+  `0px` ([`22-caption-overlay.css`](../../src/styles/22-caption-overlay.css)). A new occupant
   of the row's right end must pad itself by that token or the buttons cover it, and a new
   surface under the corner needs an entry in
   [`title-bar-overlay-colors.ts`](../../src/lib/title-bar-overlay-colors.ts) so the buttons
@@ -70,8 +69,6 @@ constants that currently switch behaviour off and are meant to be flipped back.
   [renderer adapter](../../src/updater/electron-updater-adapter.ts) preserves that
   distinction. Keep it when changing failure copy or the About action.
 
-- **Two hosts means two answers.** A renderer change that passes under Electron says nothing
-  about Tauri. Name the host a change runs on rather than implying both.
 - **Green unit and build checks are not native evidence.** They say nothing about PTYs, menu
   accelerators, window close, the updater or packaging on real hardware, and nothing about
   Windows, where no owner has run a real-hardware pass.
@@ -159,7 +156,6 @@ pass cannot delete the half they exist to keep.
 | Constant                   | Where                                                             | Currently | Effect                                                                                  |
 | -------------------------- | ----------------------------------------------------------------- | --------- | --------------------------------------------------------------------------------------- |
 | `GRAB_PASTE_DISABLED`      | [`src/browser/browser-store.ts`](../../src/browser/browser-store.ts) | `true`  | A browser grab stops at the clipboard and is never pasted into a pane                   |
-| `MIGRATION_NOTICE_ENABLED` | [`src/updater/migration-notice.ts`](../../src/updater/migration-notice.ts) | `true` | Tauri builds show the "this build no longer updates itself" row                       |
 | `USAGE_CONSENT_ASKED`      | [`src/telemetry/usage-notice.ts`](../../src/telemetry/usage-notice.ts) | `false` | No consent question is asked; analytics is on by default and the modal mounts nowhere |
 | `PANE_TREE_HIDDEN`         | [`src/ui/agent-rail.tsx`](../../src/ui/agent-rail.tsx)             | `true`    | A multi-agent tab renders flat framed rows instead of a parent row with elbow guides    |
 | `AGENT_BOARD_RETIRED`      | [`src/ui/agent-board-store.ts`](../../src/ui/agent-board-store.ts) | `true`    | A journaled Agent Board is not restored; Mission Control owns the Board's entry points  |

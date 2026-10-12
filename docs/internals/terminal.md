@@ -222,7 +222,7 @@ and session restore. `TabManager.materialize` owns the implementation.
   separate privacy change (without one the agent counts as `custom`). `withdrawn: true` turns
   an agent off everywhere while keeping its data, so its journaled panes restore as plain
   shells; `cursor-agent` is withdrawn. Per-agent adapters (hooks, resume scanners, usage)
-  stay code, and Tauri's frozen `info.rs` keeps its own copy.
+  stay code.
   Discovery probes `sh -ilc "command -v <name>"` on macOS (interactive and login, because
   CLIs register `PATH` in rc files) and walks `PATH` with `.cmd`/`.exe` suffixes on Windows.
   Probe names are restricted to `[A-Za-z0-9._~+/-]`, enforced again in main.
@@ -318,7 +318,7 @@ opencode reporting port, its server cannot provide a contract session identity f
   comes from `SessionStart` or the registry, not a Deck-minted ID. Codex notification flags
   and opencode's reserved port are still composed at arm time; the journal retains the
   user's original command. Sessions outside Deck are not mapped to panes or controlled.
-- Signals are Electron only: on Tauri no adapter exists and every mark stays inferred. Windows ships no hook script.
+- Windows ships no hook script.
 
 ## Actions, keymaps and the menu
 
@@ -346,8 +346,7 @@ opencode reporting port, its server cannot provide a contract session identity f
   wherever it lands, as before. On Windows it needs a surface (document, browser tab or
   Board) on the stage, because bare Ctrl+S is terminal flow control and must still reach
   the PTY.
-- **The menu is generated on Tauri and derived at runtime on Electron.**
-  `scripts/generate-menu.ts` writes `src-tauri/src/menu_registry.rs`; `electron/menu.ts`
+- **The menu is derived from the registry at runtime.** `electron/menu.ts`
   imports the registry directly and builds the native menu on macOS only, installing
   `null` elsewhere so Electron's default accelerators cannot reload or close the window.
   Accelerators are suspended app-wide while any window records a shortcut, keyed by sender

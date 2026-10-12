@@ -107,7 +107,7 @@ without limits cannot hide another session's reading. No window is inferred when
 the CLI omits it. Both providers expire at reset or after five minutes without a
 new observation (a status-line receipt for Claude). The
 [sidebar](../../src/ui/usage/agent-usage-summary.tsx) expires values even without an
-IPC reply. Multiple login profiles are not aggregated. Tauri has no collector;
+IPC reply. Multiple login profiles are not aggregated.
 Claude collection on Windows and Codex `.cmd` shims currently return unavailable.
 
 [Recent activity](../../src/ui/sessions/recent-session-activity.tsx) remains a
@@ -140,9 +140,9 @@ view still uses its explicit Resume action.
 The rail's sentence is the newest assistant text in the agent's own session log, read by
 [`electron/resume/session-tail.ts`](../../electron/resume/session-tail.ts) over the
 `session_tail` channel and requested by
-[`session-tail-store.ts`](../../src/terminal/session-tail-store.ts). Electron only: on Tauri
-and in the browser preview the channel does not exist, `installSessionTailSync` returns a
-no-op, and the rail falls back to agent names.
+[`session-tail-store.ts`](../../src/terminal/session-tail-store.ts). In the browser preview
+the channel does not exist, `installSessionTailSync` returns a no-op, and the rail falls back
+to agent names.
 
 - **Only Claude Code, Codex and OpenCode produce a tail.** Gemini has no candidate scan,
   Antigravity's store is an undocumented protobuf, and custom agents are unknown. Those rows
@@ -158,7 +158,7 @@ no-op, and the rail falls back to agent names.
   require exactly one matching rollout with an explicit interactive string `source`;
   object-valued subagent sources and `exec` are excluded. Missing tools, unreadable metadata
   or ambiguity yield no identity. This is an undocumented Codex internal; Windows supplies
-  no lock identity and Tauri has no implementation. The
+  no lock identity. The
   [pty-info reader](../../electron/pty/info.ts) binds background results to the observed
   process generation; the [client's availability gate](../../src/terminal/pty-client.ts)
   and existing tracker carry the fact to the pane without inferring activity.
@@ -269,9 +269,8 @@ A project cluster goes where the user drags it and stays there
 
 ## The checkout tree
 
-On Electron a cluster's checkouts are label lines with their session rows beneath
-([`worktree-card.tsx`](../../src/ui/worktree-card.tsx), DL-27.28); Tauri stays on
-[`RepositoryRail`](../../src/ui/repository-rail.tsx), whose git and session sources it lacks.
+A cluster's checkouts are label lines with their session rows beneath
+([`worktree-card.tsx`](../../src/ui/worktree-card.tsx), DL-27.28).
 The checkout card, its disclosure and its folded strip retired on 2026-10-07; the project
 header's caret is the only fold.
 
@@ -304,14 +303,15 @@ header's caret is the only fold.
 
 ## The collapsed column
 
-On Electron the sidebar's collapse is a column of project avatars, not an empty edge
-(DL-27.29, amending DL-18.9); Tauri still hides it. There is one stored fact,
+The sidebar's collapse is a column of project avatars, not an empty edge
+(DL-27.29, amending DL-18.9). There is one stored fact,
 `settings.sidebarCollapsed`, written by the stage-strip toggle, the frame row's toggle, a drag
 past the floor and the `toggle-sidebar` chord alike, so the four routes cannot disagree.
 
 - **The shell attribute is `column`, not `true`.** [`applySidebarShell`](../../src/ui/sidebar-shell.ts)
-  writes `data-sidebar-collapsed="column"` on Electron; every rule that hides the rail keys on
-  `"true"` and still applies to Tauri. Reusing `"true"` would hide the column along with the
+  writes `data-sidebar-collapsed="column"` while a live rail exists; every rule that hides the
+  rail keys on `"true"`, which a collapsed window with no live rail still writes. Reusing
+  `"true"` would hide the column along with the
   tree. The width is [`SIDEBAR_COLUMN_WIDTH`](../../src/ui/panel-resize.ts) through
   [`sidebarPaintWidth`](../../src/ui/app-policy.ts), and an armed drag paints it too, so the
   column snaps under a pointer that has passed the floor.
@@ -338,10 +338,10 @@ past the floor and the `toggle-sidebar` chord alike, so the four routes cannot d
 
 The rail's foot is an icon row above the usage summary (DL-28). What a maintainer would get wrong:
 
-- **The row is Electron's, and `More` is its fallback.** [`App`](../../src/ui/app.tsx) mounts the
-  [row](../../src/ui/sidebar-actions.tsx) only for `sidebar && railAvailable && !isTauriHost()`
+- **`More` is the row's fallback.** [`App`](../../src/ui/app.tsx) mounts the
+  [row](../../src/ui/sidebar-actions.tsx) only for `sidebar && railAvailable`
   and tells [`DeckToolbar`](../../src/ui/toolbar/deck-toolbar.tsx) the same fact. Where it is
-  false (top-tab mode, Tauri, a window with no tab) `More` keeps the global group, which is also
+  false (top-tab mode, a window with no tab) `More` keeps the global group, which is also
   the Prompt Board popover's only anchor there. Drop the `railAvailable` term and an empty
   Electron window loses its only pointer route to Settings.
 - **The popover has exactly one anchor.** Expanded: the row's slot. Collapsed: the `Tools`
@@ -387,8 +387,7 @@ uses defaults, an explicit empty selection stays empty, and unavailable choices 
 without replacement.
 
 Cmd/Ctrl+T opens or dismisses the page for the active workspace; without a workspace it
-opens the Open board. The Tauri rail keeps its pinned `New Workspace` and menu fallback
-([entry routing](../../src/ui/app.tsx)). The project header carries no create button.
+opens the Open board. The project header carries no create button.
 
 The native browser is obscured while the page or a rail menu covers its stage.
 [App](../../src/ui/app.tsx) retains the underlying terminal DOM and makes covered stage
@@ -396,8 +395,8 @@ content inert, so opening the launcher neither resizes nor stops a terminal.
 
 ## Other surfaces in the column
 
-- [`repository-rail.tsx`](../../src/ui/repository-rail.tsx) is the rail the tree replaced on
-  Electron. It is still what `AgentRail` mounts on Tauri.
+- [`repository-rail.tsx`](../../src/ui/repository-rail.tsx) is the rail the tree replaced. Only
+  the gallery's fixtures mount it now.
 - Repository scans come from `git_repository` (Electron only) through
   [`repositories-store.ts`](../../src/repositories/repositories-store.ts): derived git facts
   are never persisted, only collapse state is, a scan failure degrades to a `plain` cluster,

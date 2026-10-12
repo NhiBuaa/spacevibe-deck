@@ -7,8 +7,7 @@ How to build, run, test and check the repository. Architecture is in
 
 ## Prerequisites
 
-Node.js 22 (what CI runs) and the native toolchain `node-pty` needs on your platform. The
-Rust toolchain is required only to build the frozen Tauri host or to run its tests.
+Node.js 22 (what CI runs) and the native toolchain `node-pty` needs on your platform.
 `npm ci` runs a postinstall that restores the executable bit on node-pty's spawn helpers,
 whose only symptom when lost is `posix_spawnp failed`.
 
@@ -20,13 +19,10 @@ whose only symptom when lost is `posix_spawnp failed`.
 | `npm run electron:dev:watch`         | Alias for `electron:dev`                                                                                     |
 | `npm run electron:dev:once`          | Build the renderer and main process, then launch once from `dist-electron/`                                   |
 | `npm run dev`                        | Browser-only Vite preview of the renderer; every IPC call fails soft                                            |
-| `npm run tauri dev`                  | The frozen Tauri host                                                                                          |
 | `npm test`                           | The Vitest suite                                                                                               |
 | `npm run build`                      | `tsc` over `src/` plus the shipping renderer bundle                                                            |
 | `npm run electron:build`             | `tsc -p tsconfig.electron.json` plus the CommonJS rename pass; this is the whole typecheck of `electron/`       |
 | `npm run lint`                       | oxlint, then `prettier --check`                                                                                |
-| `npm run generate:menu`              | Regenerate `src-tauri/src/menu_registry.rs` from the action registry                                           |
-| `npm run generate:menu:check`        | Fail if the generated file is stale                                                                            |
 | `npm run electron:package`           | Local unsigned `Deck Electron.app` (arm64, `dir` target) in `dist-electron-app/`                               |
 | `npm run electron:package:release`   | The shipping config: signing preflight, signed and notarized, published nowhere                                 |
 | `npm run electron:package:monaco-smoke` | The packaged Monaco regression smoke (universal, unsigned)                                                  |
@@ -37,9 +33,6 @@ whose only symptom when lost is `posix_spawnp failed`.
 | `npm run refresh:pricing`            | Rewrite the usage pricing snapshot from LiteLLM. By hand only, never from a build                              |
 | `npm run build:landing`              | The landing production build                                                                                   |
 | `npm run video:render`               | Render the marketing video from the DOM stage                                                                  |
-
-`predev` and `prebuild` run `generate:menu`, so a plain `npm run build` always regenerates
-the Rust registry first.
 
 The [Electron dev compiler](../../scripts/electron-dev-build.mjs) follows imports from main
 and both preloads, including shared `src/` dependencies. It keeps output in
@@ -56,19 +49,16 @@ Each workflow runs on push to `main`, on pull requests and by hand, only for the
 owns; a newer push cancels an older run of the same workflow on the same ref. A change that
 touches only `docs/**` or `*.md` runs nothing.
 
-- [`ci.yml`](../../.github/workflows/ci.yml) `check` (ubuntu): `generate:menu:check`, `lint`,
-  `test`, `build`, `electron:build`; plus `backend-check` for the ingest Worker. Skipped when
+- [`ci.yml`](../../.github/workflows/ci.yml) `check` (ubuntu): `lint`, `test`, `build`,
+  `electron:build`; plus `backend-check` for the ingest Worker. Skipped when
   only `marketing/**` changed.
 - [`landing.yml`](../../.github/workflows/landing.yml) (ubuntu): the landing's Vitest files
   and `build:landing`, when `marketing/**` changes.
-- [`tauri.yml`](../../.github/workflows/tauri.yml) (ubuntu): `cargo fmt --check` and
-  `cargo test` for the feature-frozen Tauri host, when `src-tauri/**` changes.
 - By hand only, in `ci.yml`: `windows-check` — `npm test` on Windows, which spawns a real
-  ConPTY through `electron/pty/windows-pty.test.ts`, plus `tauri build --no-bundle`; run it
-  before a Windows release. It still carries the pre-existing failures in
-  [traps](../internals/traps.md). The two packaging jobs — a Tauri Windows engineering
-  bundle that refuses to run in a public repository, and the unsigned Electron Windows
-  preview — keep their artifacts for 7 days.
+  ConPTY through `electron/pty/windows-pty.test.ts`, plus `build` and `electron:build`; run
+  it before a Windows release. It still carries the pre-existing failures in
+  [traps](../internals/traps.md). `windows-electron-package` builds the unsigned Electron
+  Windows preview and keeps it for 7 days.
 
 Lint is oxlint with `correctness` as errors and `max-lines` at 300 as a warning, so the
 over-length files that predate the rule stay a visible backlog without failing the build.
@@ -79,9 +69,8 @@ covers that tree.
 ## Tests
 
 Vitest with the `node` environment by default; component tests opt into jsdom with an
-`@vitest-environment jsdom` pragma. `npm test` excludes two `node:test` suites (run with
-`npm run test:updater-manifest` and in CI directly) and the superseded Tauri IPC contract
-test, which stays untouched until `src-tauri/` goes.
+`@vitest-environment jsdom` pragma. `npm test` excludes only `backend/`, whose `node:test`
+suite runs in CI's `backend-check`.
 
 Tests that guard a repository rule rather than a module:
 
@@ -103,8 +92,9 @@ Tests that guard a repository rule rather than a module:
 - [`scripts/icon-system.test.ts`](../../scripts/icon-system.test.ts): no hand-drawn SVG
   outside the icon primitive.
 - [`electron/usage/parity.test.ts`](../../electron/usage/parity.test.ts): the Electron usage
-  scanner reproduces a golden snapshot produced by the Rust scanner. Regenerate the fixture
-  from the Rust side, never from this port's own output.
+  scanner reproduces a golden snapshot produced by the Rust scanner of the removed Tauri host
+  (in git history). Never regenerate the fixture from this port's own output, which would turn
+  the gate into a tautology.
 
 ## What a green run proves
 
@@ -112,16 +102,14 @@ Suite and build evidence is renderer and main-process evidence. It says nothing 
 
 - native behaviour in a running host (PTY, menu accelerators, window close, updater), which
   needs `npm run electron:dev` or a packaged build on the platform;
-- Windows, where no owner has run a real-hardware pass;
-- the Tauri host, which shares the renderer but has its own commands and is run by nobody.
+- Windows, where no owner has run a real-hardware pass.
 
 Name the class of evidence a change has when describing it.
 
 ## Generated and vendored files
 
-- `src-tauri/src/menu_registry.rs` is generated. Edit
-  [`src/terminal/action-registry.ts`](../../src/terminal/action-registry.ts) and run
-  `generate:menu`. The Electron menu needs no generated file: main imports the registry.
+- The menu is not generated: [`electron/menu.ts`](../../electron/menu.ts) imports
+  [`src/terminal/action-registry.ts`](../../src/terminal/action-registry.ts) at runtime.
 - `src/lib/usage-pricing-snapshot.ts` is generated by `refresh:pricing`.
 - `electron/vendor/react-grab/` is vendored; its `SOURCE.md` records the version and hash,
   and a test pins the same SHA-256.

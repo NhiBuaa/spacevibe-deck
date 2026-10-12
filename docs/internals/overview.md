@@ -8,28 +8,16 @@ table, windows, persistent stores, the native menu, the updater, usage analytics
 worktrees and agent session lookup. The renderer (`src/`) is Preact plus xterm.js, and reaches
 the host only through the facades in `src/host/`.
 
-## Two hosts, one renderer
+## The Tauri host is gone
 
-`main` still carries a second host, the Tauri 2 + Rust app under `src-tauri/`. It is
-**feature-frozen**: releases ship Electron on both platforms, `release.yml` builds Tauri only
-by hand from a tag that already shipped, its last version is 0.12.3, and its updater endpoint
-now answers 404. It stays in the tree because a hotfix must remain possible and because CI
-still compiles and tests it. New product features land on Electron so they are not
-implemented twice. See [release.md](../operations/release.md#tauri-hotfix).
+Electron replaced a Tauri 2 + Rust host, removed from `main` on 2026-10-12. Its last release
+is `v0.12.3`, whose updater endpoint answers 404; the tag keeps its source. Two traces remain on
+purpose:
 
-Consequences for anyone reading `src/`:
-
-- A renderer change reaches both hosts. A feature that needs a new host command exists only
-  on Electron; the renderer degrades on Tauri through an `available` flag rather than a
-  separate Tauri implementation.
-- Command and event names are **identical** to the Tauri build's, so the renderer's call
-  sites and tests did not change with the host.
-- Electron-only channels are the majority now: session restore and tails, repositories and
-  worktrees, the file explorer, the browser tab, themes, session history, external apps,
-  telemetry, the updater and GitHub star. Both hosts share the PTY surface, `pty_info`,
-  `git_branch`, `dirs_exist`, `detect_agents`, `resolve_paths`, `open_editor`,
-  `usage_snapshot`, the store, dialog, shell and window facades, and the quit and
-  window-close protocol.
+- Channel and event names are the Tauri build's (`spawn_shell`, `pty_info`, `git_branch`, …),
+  kept so the renderer's call sites and tests did not change with the host.
+- Many `electron/` modules open with "port of `src-tauri/src/…`". That names where the code
+  came from; the Rust file no longer exists.
 
 ## Process model
 
@@ -109,7 +97,7 @@ bridge in a `sandbox: false` renderer was one injected script away from `spawn_s
   the only place a mismatch shows before the running app.
 - **Host detection is one presence check.** `available` in
   [`worktree-host.ts`](../../src/host/worktree-host.ts) (and its twins) reads
-  `globalThis.__deckHost` directly: Electron true, Tauri and the browser preview false. A
+  `globalThis.__deckHost` directly: Electron true, the browser preview false. A
   facade that can degrade answers null or an empty list; one that cannot throws
   "Deck host bridge is unavailable", which is what a browser-only `npm run dev` shows on
   every host call.
@@ -154,8 +142,8 @@ Each is described in [terminal.md](terminal.md), [file-surface.md](file-surface.
 ## Other fixed points
 
 - The macOS menu is derived from [`action-registry.ts`](../../src/terminal/action-registry.ts)
-  at runtime on Electron and generated into `src-tauri/src/menu_registry.rs` for Tauri; the
-  registry is edited, never the output (R3).
+  at runtime by [`electron/menu.ts`](../../electron/menu.ts); a registry item changes in the
+  registry, never in the menu template (R3).
 - Chrome styling is held to the invariants in [`DESIGN-LANGUAGE.md`](../DESIGN-LANGUAGE.md);
   its patterns describe today's surfaces and change with a redesign (R2). The numbers are cited
   from code and parsed by a test, so the file does not move.

@@ -75,14 +75,3 @@ A card's composer places text in the pane; whether it presses Enter is a separat
   `hasRun` input — so pressing Enter there would answer a security prompt on the user's
   behalf. A pane that has never run a turn can only be pasted into, and the card says so.
 - Facts Deck cannot know are drawn as absent, never invented.
-
-## Host scope
-
-`hostHasAgentBoard` gates the **keystroke only**. The menu path never asks it,
-`menu_registry.rs` carries View ▸ Agent Board, and the surface mounts on
-`agentBoardSurfaceActive` with no host gate — so on Tauri that menu item opens a Board with
-no tails and no worktree grouping. `toggle-browser` has the identical exposure, which is why
-this is recorded as the repository's existing posture rather than a guard this page claims.
-
-`agentBoardOpen` is a `WindowRecord` field and `taskPrompt` a `SessionPane` field, so the chip
-and its draft survive quit and relaunch. See [session-restore.md](session-restore.md).

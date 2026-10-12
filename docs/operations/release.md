@@ -3,9 +3,8 @@
 > For maintainers. Using Deck? See [docs/user/](../user/).
 
 One pushed tag ships SpaceVibe Deck for macOS and Windows, both self-updating, through
-[`electron-release.yml`](../../.github/workflows/electron-release.yml). Nothing ships the
-Tauri host automatically any more; [`release.yml`](../../.github/workflows/release.yml) is a
-hand-run hotfix path for a build that already shipped. This page is the runbook for both.
+[`electron-release.yml`](../../.github/workflows/electron-release.yml). This page is its
+runbook.
 
 Manual native acceptance, real-device upgrade checks, and Windows install/update checks run
 only when explicitly requested. They do not block release completion or issue closure.
@@ -49,8 +48,7 @@ Report the checks actually performed; omitted checks are not successful test res
 
 1. Full-history checkout, then refuse a tag whose commit is not an ancestor of `origin/main`.
 2. Validate the tag against `package.json`'s version and derive the channel.
-3. Validate source: `npm run generate:menu:check`, `npm run lint`, `npm test`,
-   `npm run build` — the same gates as CI's `check` job, so a red commit cannot ship.
+3. Validate source: `npm run lint`, `npm test`, `npm run build` — the same gates as CI's `check` job, so a red commit cannot ship.
 4. Create the draft release with `gh release create "$TAG" --draft --target "$GITHUB_SHA"`.
    Creating it upstream of both platform jobs is what stops the two electron-builder
    publishers from each creating their own release. `--target` is required because the
@@ -236,7 +234,7 @@ Monaco regression smoke.
   A dmg-only release could never self-update. node-pty is `asarUnpack`ed and signed in place.
 - Windows: `nsis` `x64`, artifact `SpaceVibe-Deck-<version>-win-x64-setup.exe`, per-user,
   not one-click, and the install-directory chooser is kept on purpose.
-- Both hosts share the icon set in `src-tauri/icons/`.
+- The icons are [`build/icon.icns`](../../build/icon.icns) and [`build/icon.ico`](../../build/icon.ico).
 - Publish provider is GitHub (`mxrsv/spacevibe-deck`) with no explicit `channel`.
 
 A Windows `Deck Electron` preview that auto-updates into this build gets a **new** side-by-side
@@ -272,42 +270,19 @@ time across windows ([`update-flight.ts`](../../electron/updater/update-flight.t
 that dies releases the flight. The renderer side is host-agnostic
 ([`src/updater/update-controller.ts`](../../src/updater/update-controller.ts)).
 
-## Tauri hotfix
+## Old Tauri installs
 
-The Tauri host is feature-frozen and its last shipped version is `0.12.3`
-([`src-tauri/tauri.conf.json`](../../src-tauri/tauri.conf.json)). Its updater endpoint,
-`releases/latest/download/latest.json`, now answers 404 because `releases/latest` is an
-Electron release, so a deployed Tauri client's update check fails. The migration notice in
-[`migration-notice.ts`](../../src/updater/migration-notice.ts) is enabled in source but was
-added by `28da0ad` after `v0.12.3`; it has never shipped in a Tauri release. Published Tauri
-installs therefore do not show it. The 1.1.0 transition is documented as a manual Electron
-download and clean install, not as a Tauri notice delivered through an update.
+The Tauri host was removed from `main` on 2026-10-12; its last release is `v0.12.3`, and that
+tag keeps its source. Its updater endpoint, `releases/latest/download/latest.json`, answers 404
+because `releases/latest` is an Electron release, so a deployed Tauri client's update check
+fails. No migration notice ever shipped in a Tauri release: the move to Electron is a manual
+download and clean install. No hotfix path remains; one would mean restoring `release.yml`
+and `src-tauri/` from git history first.
 
 On macOS, old Tauri data remains in `~/Library/Application Support/dev.spacevibe.deck`;
-on Windows, `%APPDATA%\dev.spacevibe.deck`. Electron uses `SpaceVibe Deck` instead.
-The shared bundle identifier does not make the data directories identical: Tauri keys its
-app data by identifier (see [`migrate.rs`](../../src-tauri/src/migrate.rs)), while Electron
-uses `app.getPath("userData")` in [`main.ts`](../../electron/main.ts). Neither settings nor
-workspaces are migrated between hosts.
-
-To rebuild a Tauri hotfix:
-
-1. Run `release.yml` by `workflow_dispatch` with the `tag` input set to an **existing**
-   `vX.Y.Z` or `vX.Y.Z-rc.N` source tag. The `release-freeze` job refuses any tag push, and
-   `resolve-target` refuses a tag that does not match that exact shape or does not exist. It
-   rebuilds from the tag's commit, never from `main`.
-2. The DAG is `resolve-target` → `prepare-release-notes` + `validate-source` → the macOS
-   stable draft and the unsigned Windows preview draft → per-platform validation
-   ([`scripts/verify-updater-manifest.mjs`](../../scripts/verify-updater-manifest.mjs)
-   re-downloads every draft asset and verifies the Minisign-signed manifest against
-   `DECK_UPDATER_PUBLIC_KEY`) → publish → channel promotion.
-3. Beyond the Apple secrets above it needs `TAURI_SIGNING_PRIVATE_KEY` and
-   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
-
-A future hotfix containing the notice needs a separate release decision and a delivery path
-to installed users. Rebuilding the old `v0.12.3`
-tag cannot add a later commit. Building a newer tag with `MIGRATION_NOTICE_ENABLED = true`
-also does not by itself restore the broken updater endpoint or deliver the banner to users.
+on Windows, `%APPDATA%\dev.spacevibe.deck`. Electron uses `SpaceVibe Deck` instead: Tauri
+keyed its app data by bundle identifier, while Electron uses `app.getPath("userData")` in
+[`main.ts`](../../electron/main.ts). Neither settings nor workspaces are migrated between hosts.
 
 ## Preview and local builds
 

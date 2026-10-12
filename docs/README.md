@@ -1,7 +1,7 @@
 # SpaceVibe Deck documentation
 
 Three tiers, split by reader. Every page describes the shipped Electron host in the present
-tense; anything about the frozen Tauri host says so.
+tense.
 
 ## `user/` — using Deck
 
@@ -40,7 +40,7 @@ tense; anything about the frozen Tauri host says so.
 
 - [Development](operations/development.md) — commands, CI, tests, what a green run proves.
 - [Cutting a release](operations/release.md) — the tag, the four jobs, the gates, secrets,
-  the updater client, the Tauri hotfix path.
+  the updater client.
 
 ## Elsewhere
 

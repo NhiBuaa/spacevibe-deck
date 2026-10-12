@@ -6,8 +6,7 @@ Deck can reopen the tabs that were open at quit and resume each built-in agent's
 conversation, but launch never does it unasked: the board offers the previous session as one
 **Last session** line, and only its **Reopen** runs the restore. Reopening everything by
 default buried the start of a new day under yesterday's agents, so the setting that switched
-it off (`restoreSessions`) went with it and validation drops the stale field. Resume lookup is
-Electron only: the lookup channel has no Tauri counterpart.
+it off (`restoreSessions`) went with it and validation drops the stale field.
 
 ## The journal
 

@@ -3,11 +3,11 @@
 > **Boundary:** standalone desktop app; no shared DB or API with the SpaceVibe web repos.
 > Do not edit sibling repos from this session. Workspace map: [`../AGENTS.md`](../AGENTS.md).
 
-Deck is a terminal for running many agent CLIs side by side. `main` carries **two hosts**: the
-Tauri 2 + Rust host, feature-frozen and built only by hand, and the Electron host in
-`electron/` that has replaced it on every tag. The renderer is Preact + xterm.js and reaches
-whichever host it runs under through the facades in `src/host/`. Everything in this repo — UI
-strings, comments, docs, and commits — is **English only**.
+Deck is a terminal for running many agent CLIs side by side. The host is Electron, in
+`electron/`; the renderer is Preact + xterm.js and reaches it through the facades in
+`src/host/`. The Tauri host Electron replaced was removed on 2026-10-12, so a comment that
+still cites a `src-tauri/` file names where code was ported from, not a live twin. Everything
+in this repo — UI strings, comments, docs, and commits — is **English only**.
 
 Read [docs/internals/overview.md](docs/internals/overview.md) before your first change. The
 documentation index is [docs/README.md](docs/README.md).
@@ -17,10 +17,6 @@ documentation index is [docs/README.md](docs/README.md).
 - **Auto-update is a core requirement.** A release is not complete if distribution falls back
   to manual download. Release artifacts include the updater payloads and manifests described
   in [operations/release.md](docs/operations/release.md).
-- **Tauri is feature-frozen.** New product features land on Electron so they are not
-  implemented twice. A renderer change reaches both hosts; a change needing a new host command
-  is Electron-only and degrades on Tauri through an `available` flag, never a second
-  implementation. Say which host a change runs on rather than implying both.
 - **Windows ships unsigned by decision.** See the
   [platform limits](docs/operations/release.md#platform-limits).
 - **Analytics is mandatory** — always on, no opt-out, and the disclosure stays. The contract is
@@ -57,12 +53,11 @@ owned the work — not in this file.
 Stop and ask before writing code when a task touches:
 
 - PTY ownership, process classification, the window coordinator, tab materialization, layout
-  or close/quit coordination, on either host;
+  or close/quit coordination;
 - bundle, dependency, signing, release channel, updater or version configuration;
 - an **invariant** in [docs/DESIGN-LANGUAGE.md](docs/DESIGN-LANGUAGE.md) (§1–4, §7, §20,
   §21: tokens, color roles, typography, motion and resource budget, scales, interaction
   states; a rule marked _(pattern)_ there is not one);
-- Electron/Tauri cutover scope;
 - any sibling repo.
 
 Not a fork: internal renames, tests, editing the menu registry, and replacing a DL
@@ -79,7 +74,6 @@ and why — a fork nobody can reconstruct is a decision that will be re-litigate
 | Command                       | Purpose                                                                                                                                                                 |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `npm run dev`                 | browser-only Vite preview; IPC operations fail soft                                                                                                                     |
-| `npm run tauri dev`           | the Tauri host                                                                                                                                                          |
 | `npm run electron:dev`        | Electron dev with renderer HMR and incremental main/preload rebuilds via [`scripts/electron-dev-watch.mjs`](scripts/electron-dev-watch.mjs) |
 | `npm run electron:dev:watch`  | alias for `electron:dev` |
 | `npm run electron:dev:once`   | build and launch once from the static renderer bundle through [`scripts/electron-dev-launch.mjs`](scripts/electron-dev-launch.mjs) |
@@ -88,8 +82,6 @@ and why — a fork nobody can reconstruct is a decision that will be re-litigate
 | `npm run electron:smoke`      | headed smoke test; needs a display server and a real PTY                                                                                                                |
 | `npm test`                    | Vitest suite                                                                                                                                                            |
 | `npm run build`               | TypeScript + shipping renderer bundle                                                                                                                                   |
-| `npm run generate:menu`       | regenerate menu from registry                                                                                                                                           |
-| `npm run generate:menu:check` | prove generated menu is current                                                                                                                                         |
 | `npm run lint`                | oxlint + prettier check; max-lines stays a warning (101 pre-existing over-length files are backlog)                                                                     |
 | `npm run prototype:gallery`   | visual comparison gallery at `127.0.0.1:5175`                                                                                                                           |
 | `npm run build:landing`       | landing production build                                                                                                                                                |
@@ -120,13 +112,7 @@ refactors, tests and docs skip it. How to run it:
   and `session.json`.
 - Do not test through Playwright MCP or a browser tab on `npm run dev`: those reach only the
   browser preview and prove nothing about IPC, PTYs or persistence.
-- Report each flow walked and its result; screenshots go to scratch, not the repo. The gate
-  covers Electron only — say so for a change that also reaches Tauri.
-
-## Layout
-
-Both hosts are installed in this checkout, so Electron and its native dependencies belong
-here. Adding a feature to one host without the other leaves a parity gap.
+- Report each flow walked and its result; screenshots go to scratch, not the repo.
 
 ## Sessions and checkouts
 
@@ -151,8 +137,9 @@ Several agent sessions run against this repo at once. The owner's standing rule 
 - **R2. Design language has two tiers.** Tests enforce the DL invariants. The DL patterns
   describe shipped surfaces, and a redesign may replace them. Cite a rule in a comment only
   when the code would look wrong without the reason. A cited number must stay declared.
-- **R3. Menu output is generated.** Edit the registry, then run `generate:menu`; never edit
-  generated menu code manually.
+- **R3. The menu is built from the registry.** [`electron/menu.ts`](electron/menu.ts)
+  derives registry items from `ACTION_REGISTRY` at runtime; change one by editing the
+  registry, not the menu template.
 - **R4. Load-bearing seams stay explicit.** PTY/window/tab/layout/close modules require a plan
   and cross-boundary verification, not a drive-by refactor.
 - **R5. Renderer state uses Preact signals; module stores are window-scoped.**
