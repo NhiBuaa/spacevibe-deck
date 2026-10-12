@@ -115,6 +115,17 @@ constants that currently switch behaviour off and are meant to be flipped back.
   `TextDecoder.decode` throws inside node-pty's emitter and kills the main process.
 - **The spawn helpers lose their executable bit** on install; the postinstall restores it and
   the only symptom otherwise is `posix_spawnp failed`.
+- **A pane's bash sources `.bashrc` twice** when the user's profile already sources it (the
+  common `~/.bash_profile` that ends with `source ~/.bashrc`), because the bootstrap rcfile
+  sources the profile and then `.bashrc` itself. Superset does the same; guard-free rc files
+  that append to `PATH` or start a program will see the duplicate.
+- **An agent wrapper must never stay a parent process.** It ends in `exec`, and the pane's
+  classification and Claude's registry join both break if it does; see
+  [Shell bootstrap and agent wrappers](terminal.md#shell-bootstrap-and-agent-wrappers).
+- **In a pane `command -v claude`, `codex` and `opencode` always succeed,** installed or not:
+  the wrapper is on `PATH` and exits 127 with `deck: <agent> not found on PATH` when it finds
+  no real binary. An agent running in the pane sees the same, so a check for the CLI from
+  inside a pane proves nothing. Superset behaves identically.
 - **`marketing/**` has no lint gate.** It is in `.prettierignore` and oxlint's ignore list, so
   a "prettier clean" claim over that tree is vacuous. It also shares application components
   and a virtual clock, so a component change can silently alter rendered media.

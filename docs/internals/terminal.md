@@ -25,8 +25,9 @@ Ids are process-local integers from 1, never reused.
   `resize_pty` and `kill_pty` call `assertOwner(paneId, windowLabel)`; a pane routed to
   another window, or one mid-transfer, is refused with a `PaneAccessError`. Output is
   delivered by `coordinator.deliver`, which drops (never broadcasts) an event with no route.
-- **Spawn** runs the user's login shell (`$SHELL -l` on macOS; `pwsh.exe` or Windows
-  PowerShell on Windows, which throws rather than falling back to `cmd.exe`) with
+- **Spawn** runs the user's shell (`$SHELL -l` on macOS, through the bootstrap in
+  [Shell bootstrap and agent wrappers](#shell-bootstrap-and-agent-wrappers); `pwsh.exe` or
+  Windows PowerShell on Windows, which throws rather than falling back to `cmd.exe`) with
   `TERM=xterm-256color`, `COLORTERM=truecolor`, `TERM_PROGRAM=SpaceVibeDeck` and
   `encoding: null` so bytes arrive as Buffers and a streaming UTF-8 decoder can hold back a
   split code point. `ConEmuANSI=ON` is set on macOS only, so Claude Code emits OSC 9;4.
@@ -44,6 +45,50 @@ Ids are process-local integers from 1, never reused.
   the shell group outright; groups 0 and 1 are refused. `killAll` reads the process table
   once for the whole batch. On Windows it is `taskkill /T`, which only walks the tree that
   exists at call time, so a crashed Deck orphans agents; accepted.
+
+## Shell bootstrap and agent wrappers
+
+macOS pane shells start through Deck-written files under `<userData>/agent-shell/`, so that
+`claude`, `codex` and `opencode` typed in a pane resolve to Deck's wrappers. They are
+rewritten atomically at every boot ([`provision.ts`](../../electron/agent-shell/provision.ts));
+if that fails, panes start a plain `$SHELL -l` and the wrappers are absent. Windows and the
+Tauri host are untouched.
+
+- **A wrapper must `exec` the real CLI.** Classification reads `ps args` of the tty's
+  foreground process group, and Claude's session registry joins on the foreground pid. A
+  wrapper that stays alive as a parent would change both
+  ([`agent-wrappers.ts`](../../electron/agent-shell/agent-wrappers.ts)). The wrapper finds the
+  real binary by skipping every `…/agent-shell/bin` on `PATH`, not just its own, so a Deck
+  started from a pane of another install (dev inside release) never resolves to a wrapper.
+- **Only pane spawns are bootstrapped.** `shellLaunch(paths)` in
+  [`macos.ts`](../../electron/platform/macos.ts) takes the paths from
+  [`spawn.ts`](../../electron/pty/spawn.ts); agent discovery, editors and `gh` launches still
+  run a plain `$SHELL -l`, so the catalog sees the user's own `PATH`.
+- **Each shell has its own mechanism**
+  ([`shell-bootstrap.ts`](../../electron/agent-shell/shell-bootstrap.ts)), and none replaces
+  the user's startup files:
+  - zsh keeps `-l` and gets `ZDOTDIR` pointing at four Deck dotfiles. Each sources the user's
+    file of the same name and hands `ZDOTDIR` back to the next Deck file. The user's
+    `ZDOTDIR` is remembered in `DECK_ORIG_ZDOTDIR` after each file runs, so a `.zshenv` that
+    relocates the dotfiles (`~/.config/zsh`) still reaches the real `.zshrc`. `.zshrc` and
+    `.zlogin` also re-prepend the bin directory in a `precmd` hook, because mise and asdf
+    rebuild `PATH` there.
+  - bash runs `--rcfile`, which sources `/etc/profile`, the first of `~/.bash_profile`,
+    `~/.bash_login` and `~/.profile`, then `~/.bashrc`, then prepends the bin directory. It
+    is therefore **not a login shell** any more.
+  - fish keeps `-l` and prepends the bin directory with `--init-command`.
+  - Any other shell gets no bootstrap and no wrappers on `PATH`.
+- **Identity is first-wins.** The outermost wrapper exports `DECK_AGENT_ID`. An agent that
+  launches another from its tool calls passes through a second wrapper, which only sets
+  `DECK_AGENT_NESTED`. Both hook scripts exit early when `DECK_AGENT_NESTED` is set or
+  `DECK_AGENT_ID` names the other agent, so the inner agent never rotates the generation or
+  draws marks on the outer one's row. `buildEnv` deletes both variables from the inherited
+  environment: a Deck started from an agent's tool call would otherwise mark every pane
+  nested.
+- **The generation check is per pane and agent**
+  ([`hook-server.ts`](../../electron/agent-hooks/hook-server.ts)). Keyed by pane alone, a
+  nested Codex `SessionStart` evicted the pane's Claude occupant, and Claude's next `Stop`
+  was then dropped as "a previous occupant".
 
 ## Process classification
 

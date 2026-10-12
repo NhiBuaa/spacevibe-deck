@@ -105,7 +105,7 @@ export const messages = {
     finaleTitle: "Your shell, intact.",
     proofPtyTitle: "Real PTY, real shell",
     proofPtyBody:
-      "Every pane runs your login shell ($SHELL -l) — PATH, aliases, and dotfiles just work.",
+      "Every pane runs your own shell and loads your login files — PATH, aliases, and dotfiles just work.",
     proofOpenTitle: "Open source, MIT licensed",
     proofOpenBody: "The whole app is on GitHub — read it, build it, fork it, ship a patch.",
     proofLocalTitle: "Your work stays on your machine",
@@ -248,7 +248,7 @@ export const messages = {
     finaleTitle: "Shell của bạn, nguyên vẹn.",
     proofPtyTitle: "PTY thật, shell thật",
     proofPtyBody:
-      "Mỗi pane chạy đúng login shell của bạn ($SHELL -l) — PATH, alias, dotfiles hoạt động y nguyên.",
+      "Mỗi pane chạy đúng shell của bạn và nạp các file login của bạn — PATH, alias, dotfiles hoạt động y nguyên.",
     proofOpenTitle: "Mã nguồn mở, giấy phép MIT",
     proofOpenBody: "Toàn bộ app nằm trên GitHub — đọc, tự build, fork hay gửi patch đều được.",
     proofLocalTitle: "Công việc của bạn ở lại trên máy bạn",
