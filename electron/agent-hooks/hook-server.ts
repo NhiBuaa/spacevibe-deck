@@ -58,17 +58,25 @@ export interface HookServer {
   close(): Promise<void>;
 }
 
+/** The agents that post to the endpoint; each keeps its own generation on a pane. */
+const HOOK_AGENTS = ["claude", "codex"] as const;
+const generationKey = (paneId: number, agent: string) => `${paneId}:${agent}`;
+
 export function createHookServer(deps: HookServerDeps): HookServer {
   const now = deps.now ?? Date.now;
   const log = deps.log ?? ((message: string) => console.warn(message));
-  /** Current occupant per pane — the generation check's memory. */
-  const sessions = new Map<number, string | null>();
+  /**
+   * Current occupant per pane AND agent — the generation check's memory. Keyed by agent too, so
+   * a nested Codex `SessionStart` cannot evict the pane's Claude occupant.
+   */
+  const sessions = new Map<string, string | null>();
   let server: http.Server | null = null;
   let port: number | null = null;
 
   function accept(post: HookPost): void {
-    const decision = nextPaneSession(sessions.get(post.paneId) ?? null, post);
-    sessions.set(post.paneId, decision.current);
+    const key = generationKey(post.paneId, post.agent ?? "claude");
+    const decision = nextPaneSession(sessions.get(key) ?? null, post);
+    sessions.set(key, decision.current);
     if (!decision.accept) {
       log(`Deck: dropped a ${post.event} hook from a previous occupant of pane ${post.paneId}`);
       return;
@@ -166,7 +174,7 @@ export function createHookServer(deps: HookServerDeps): HookServer {
       return port;
     },
     forgetPane(paneId) {
-      sessions.delete(paneId);
+      for (const agent of HOOK_AGENTS) sessions.delete(generationKey(paneId, agent));
     },
     close() {
       return new Promise((resolve) => {

@@ -9,6 +9,8 @@ export function codexHookScript(): string {
   return [
     "#!/bin/sh",
     "# Deck Codex lifecycle bridge. No stdout: hook output must not change the conversation.",
+    '[ -n "$DECK_AGENT_NESTED" ] && exit 0',
+    '[ -n "$DECK_AGENT_ID" ] && [ "$DECK_AGENT_ID" != codex ] && exit 0',
     'if [ -z "$DECK_HOOK_PORT" ] || [ -z "$DECK_PANE_ID" ] || [ -z "$DECK_HOOK_TOKEN" ]; then exit 0; fi',
     "if ! curl -q --noproxy '*' -fsS --max-time 2 -o /dev/null --data-binary @- \\",
     '  -H "Content-Type: application/json" \\',

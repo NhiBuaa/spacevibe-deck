@@ -683,6 +683,18 @@ describe("AgentAttentionTracker — contract signals (stage 2/3, 2026-09-03)", (
     expect(tracker.noteContract(1, hook("completed"))).toBeNull();
   });
 
+  it("drops a Claude hook signal on a pane running another agent, and lets an unclassified one pass", () => {
+    const { tracker } = setup();
+    tracker.noteProcess(1, "codex", true);
+    expect(tracker.noteContract(1, hook("completed"))).toBeNull();
+    expect(tracker.snapshot(1)?.attention).toBe("none");
+    // opencode's own event stream is a server signal: the label check is for hook posts only.
+    tracker.noteProcess(2, "opencode", true);
+    expect(tracker.noteContract(2, hook("completed", { source: "server" }))?.attention).toBe(
+      "completed",
+    );
+  });
+
   it("Stop completes explicitly with the hook as source, even when no working was seen", () => {
     const { tracker } = setup();
     tracker.noteProcess(1, "claude", true);

@@ -980,6 +980,16 @@ export function createAgentAttentionTracker(
       ) {
         return null;
       }
+      // A Claude hook post (no `agent` on the signal) on a pane known to run something else is a
+      // nested run's; an unclassified label passes, as the generation check above already guards.
+      if (
+        signal.source === "hook" &&
+        signal.agent === undefined &&
+        prev.agentLabel !== null &&
+        prev.agentLabel !== "claude"
+      ) {
+        return null;
+      }
       if (signal.agent === "codex") {
         if (prev.agentLabel !== "codex") return null;
         if (signal.kind === "session") {
