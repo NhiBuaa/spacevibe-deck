@@ -7,8 +7,8 @@
  * turned back into an app stage. Sizes are real px (widgets.css): the scene
  * CSS resolves `cqw` against `.a-appwin`, which a widget does not have.
  *
- * The DATA is the scenes' own, imported rather than copied, so a widget and
- * the panel it replaces cannot disagree about a command or a figure.
+ * The DATA lives in `./scenes/`, imported rather than copied, so two widgets
+ * cannot disagree about a command or a figure.
  */
 
 import { STAGE_ICONS, renderChromeIcon } from "../appwin.js";

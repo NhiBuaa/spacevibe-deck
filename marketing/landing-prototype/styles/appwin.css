@@ -273,7 +273,7 @@
   white-space: nowrap;
 }
 
-:is(.a-appwin__line, .scene-restore__line).t-body {
+.a-appwin__line.t-body {
   color: var(--sg-fg);
 }
 
@@ -287,12 +287,9 @@
    borrow from the theme's ANSI read as syntax highlighting the real window
    never shows. Weight and dimness carry the hierarchy instead.
 
-   `.scene-restore__line` shares the vocabulary HERE, not in scenes.css: a
-   restore column IS a pane, and declaring the inks twice is how the first
-   neutral pass had to be applied twice by hand. Scoped `:is()`, never a bare
-   `.t-dim` — an unscoped class would repaint anything that borrowed the
-   word. */
-:is(.a-appwin__line, .scene-restore__line).t-agent {
+   Scoped to `.a-appwin__line`, never a bare `.t-dim` — an unscoped class
+   would repaint anything that borrowed the word. */
+.a-appwin__line.t-agent {
   color: var(--sg-fg-dim);
   font-weight: 600;
 }
@@ -301,11 +298,11 @@
   color: var(--sg-fg);
 }
 
-:is(.a-appwin__line, .scene-restore__line).t-dim {
+.a-appwin__line.t-dim {
   color: var(--sg-fg-faint);
 }
 
-:is(.a-appwin__line, .scene-restore__line).t-ok {
+.a-appwin__line.t-ok {
   color: var(--sg-fg);
 }
 

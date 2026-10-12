@@ -1,6 +1,6 @@
 /**
  * The marks that name what Deck actually runs: the hero's agent row and the
- * panel scenes draw them from here.
+ * chapters' widgets draw them from here.
  *
  * Until 2026-08-19 the page never printed the word "claude" or "codex"
  * anywhere: a visitor could read the whole landing and still not know which
@@ -21,9 +21,9 @@ import { AGENT_LOGOS } from "../../../src/lib/agent-logos.ts";
 import { ACTIVE_AGENTS } from "../../../src/lib/agents/agent-registry.ts";
 
 /**
- * Exported because the panel scenes draw the same marks — the catalog scene
- * lists every agent, the ⌘T menu scene leads each agent row with one. Two
- * copies of this table would let the hero and the scenes disagree about what
+ * Exported because the chapters' widgets draw the same marks — the catalog
+ * widget lists every agent, the ⌘T widget leads each agent row with one. Two
+ * copies of this table would let the hero and the widgets disagree about what
  * `codex` looks like.
  *
  * `mark` is `null` for an active agent the logo map has no file for, which the
@@ -65,7 +65,7 @@ function monogramLetter(id) {
  * knowing simplification, not an oversight.
  *
  * `className` is the caller's own base class and the monogram appends
- * `--mono` to it, so one helper serves the 18px hero row and scenes and the
+ * `--mono` to it, so one helper serves the 18px hero row and widgets and the
  * 15px catalog rows without owning a line of any of their CSS.
  *
  * @param {{ id: string, label: string, mark: string | null }} agent

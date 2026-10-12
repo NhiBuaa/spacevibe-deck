@@ -1,13 +1,14 @@
-/* Feature panels + closing band. The window itself is the shared ".a-appwin"
-   chrome from direction-a.css — this file only adds the panel stack, the
-   Open-board scene, the focus-expand state, and the closing band. Design
-   tokens are sourced from the shared tokens.css :root: the accent + font
-   stacks are aliased to the local --t- and --a- names here, and the --sg-
-   chrome vars resolve from :root so hero + panels stay in lockstep.
+/* The `.tour` section: the ground the feature chapters sit in, then the closing
+   band and the footer. The chapters have their own sheets (layout-chapters.css,
+   widgets.css, stat-band.css); this file owns the section's ground, the finale
+   and the footer. Design tokens are sourced from the shared tokens.css :root:
+   the accent + font stacks are aliased to the local --t- and --a- names here,
+   and the --sg- chrome vars resolve from :root so the hero window and the proof
+   terminal stay in lockstep.
 
    The section class is still `.tour` — it was a sticky scroll tour until
-   2026-08-19, and the closing band and footer below it kept their `.tour__*`
-   names when the chapters became panels. */
+   2026-08-19, then seven stacked panels, and since 2026-10-12 three chapters of
+   widgets — and the closing band and footer keep their `.tour__*` names. */
 
 .tour {
   --t-ink: #ffffff;
@@ -74,254 +75,6 @@
   content: "";
   mask-image: linear-gradient(180deg, transparent 0%, #000 26%);
   pointer-events: none;
-}
-
-/* ---------- feature panels ---------- */
-
-/* The stack that replaced the sticky tour. One column of panels on the
-   page-wide frame; each panel is its own object with its own window mock, so
-   scroll position drives nothing but ordinary document flow. */
-.panels {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  width: var(--frame-width);
-  flex-direction: column;
-  gap: clamp(1.25rem, 2.6vw, 2.25rem);
-  margin-inline: auto;
-  padding: clamp(2.4rem, 5vh, 4rem) var(--frame-pad) clamp(2rem, 5vh, 4rem);
-}
-
-.panel {
-  position: relative;
-  display: grid;
-  overflow: hidden;
-  grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.14fr);
-  gap: clamp(1.5rem, 3vw, 3rem);
-  align-items: center;
-  padding: clamp(1.75rem, 3.4vw, 3rem);
-  border: 1px solid var(--t-line);
-  border-radius: 20px;
-  /* One step off the page, no more. The lit plane the mock stands on is
-     `.panel__stage` inside it, so this surface has to stay under that or the
-     panel reads as two competing planes. */
-  background: rgb(255 255 255 / 4%);
-  box-shadow: 0 1px 0 rgb(255 255 255 / 5%) inset;
-}
-
-/* Two shapes, not one. A scene drawn at the window's design width — three
-   terminal panes, three restore columns, a file tree beside an editor — dies
-   in a half-width column: the mock is sized in `cqw`, so narrowing the column
-   shrinks the type until the `max(…, 7px)` floors are all that is left. Those
-   scenes take the full panel width with the copy above them (`wide`); the ones
-   that are naturally tall and narrow keep the beside-the-copy shape (`side`).
-   The six panels run `side, side, wide, wide, side, side` with the flips on
-   1 and 6, so the art moves across the stack instead of six panels printing
-   one template. It is NOT a strict alternation — 3 and 4 are both `wide`, 5
-   and 6 both `side` — and the flips follow the spec rather than a pattern
-   this sheet invents. */
-.panel[data-shape="side"] .panel__art {
-  order: 2;
-}
-
-/* Flipping with `order` alone left the art in the NARROW column: the track
-   sizes belong to grid positions, not to the items that reorder into them. The
-   template flips with the order. */
-.panel[data-shape="side"][data-flip] {
-  grid-template-columns: minmax(0, 1.14fr) minmax(0, 0.86fr);
-}
-
-.panel[data-shape="side"][data-flip] .panel__art {
-  order: 0;
-}
-
-.panel[data-shape="side"][data-flip] .panel__copy {
-  order: 2;
-}
-
-.panel[data-shape="wide"] {
-  grid-template-columns: minmax(0, 1fr);
-  gap: clamp(1.25rem, 2.4vw, 2rem);
-  align-items: stretch;
-}
-
-/* The copy sits on the same measure it would have in a side panel rather than
-   running the panel's full width — a 1200px line of body text is unreadable
-   whatever it says. */
-.panel[data-shape="wide"] .panel__copy {
-  max-width: 58ch;
-  padding: 0;
-}
-
-.panel[data-shape="wide"] .panel__copy p {
-  max-width: none;
-}
-
-.panel__copy {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 0.55rem;
-  padding: clamp(0.5rem, 1.6vw, 1.75rem);
-}
-
-/* Faint, not signal-bright: the number is an index, and white at full strength
-   competed with the title right beside it. */
-.panel__num {
-  color: var(--t-ink-faint);
-  font-family: var(--a-font-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.06em;
-}
-
-.panel__copy h2 {
-  margin: 0;
-  font: 500 clamp(1.45rem, 2.3vw, 1.95rem) / 1.16 var(--a-font-display);
-  letter-spacing: -0.022em;
-  text-wrap: balance;
-}
-
-.panel__copy p {
-  max-width: 42ch;
-  margin: 0;
-  color: var(--t-ink-soft);
-  font-size: clamp(0.92rem, 1.05vw, 1rem);
-  line-height: 1.6;
-  text-wrap: pretty;
-}
-
-/* The art used to bleed past the panel's padding on its outer side — the
-   window is a view INTO the product, so cutting it at the panel edge would say
-   there is more of it than the panel can hold. It never read that way: the
-   negative margin was clamped to exactly the panel's own padding and `.panel`
-   is `overflow: hidden`, so the stage stopped flush against the border instead
-   of running through it — one edge 1px from the frame while the other three
-   kept 35px, which reads as a broken margin, not as a crop. The stage sits
-   inside the padding on all four sides now. */
-.panel__art {
-  min-width: 0;
-}
-
-/* Reveal on scroll, same idiom as the closing band below. */
-.panel[data-reveal] {
-  opacity: 0;
-  transform: translateY(1.4rem);
-  transition:
-    opacity 620ms ease var(--reveal-delay, 0ms),
-    transform 620ms cubic-bezier(0.22, 0.78, 0.18, 1) var(--reveal-delay, 0ms);
-}
-
-.panel[data-reveal].is-revealed {
-  opacity: 1;
-  transform: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .panel[data-reveal] {
-    opacity: 1;
-    transform: none;
-    transition: none;
-  }
-}
-
-/* ---------- the plane each panel's mock stands on ---------- */
-
-/* The hero desk, held back. Same painting, same idea — a lit plane under a
-   near-black window — but dimmer, smaller-radius and cropped differently per
-   panel, so the hero keeps the one full-strength picture on the page. */
-.panel__stage {
-  position: relative;
-  display: flex;
-  padding: clamp(0.9rem, 2vw, 1.85rem);
-  overflow: hidden;
-  border: 1px solid rgb(255 255 255 / 14%);
-  border-radius: 16px;
-  background: var(--t-surface-2);
-  isolation: isolate;
-}
-
-.panel__stage-art {
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  background-image: var(--plate-image);
-  background-size: cover;
-  /* Two thirds of the hero plate's brightness: the panels are read while
-     scrolling past, and a plane as bright as the hero's turned every one of
-     them into a second hero. */
-  filter: saturate(0.72) brightness(0.66) contrast(1.02);
-}
-
-/* A different painting per panel, not a different crop of one. Cropping alone
-   gave stages that all read as the same picture, which is what it was. The
-   hero keeps `--plate-image` and no panel takes it.
-
-   That was affordable while there were five panels and five plates to spend.
-   There are SEVEN panels now and still five plates, so two paintings are read
-   twice: `cloudstudy` paints the rail and catalog panels, and `clouds` the
-   Board and restore panels, each pair at crops far enough apart to read as two
-   views rather than one picture repeated. No panel repeats the hero. Cutting
-   the old `grid` panel is what freed `plateau` for the usage panel. Rejected:
-   more paintings — 30-60 kB assets that do not exist, and which picture goes
-   where is an owner's choice, not a stylesheet's.
-
-   The order below is the panel order, so the seven rules read against the
-   plan's own table top to bottom. */
-.panel[data-scene="rail"] .panel__stage-art {
-  background-image: var(--plate-cloudstudy);
-  background-position: 42% 46%;
-}
-
-.panel[data-scene="board"] .panel__stage-art {
-  background-image: var(--plate-clouds);
-  background-position: 50% 82%;
-}
-
-.panel[data-scene="menu"] .panel__stage-art {
-  background-image: var(--plate-valley);
-  background-position: 56% 40%;
-}
-
-.panel[data-scene="restore"] .panel__stage-art {
-  background-image: var(--plate-clouds);
-  background-position: 50% 38%;
-}
-
-.panel[data-scene="surfaces"] .panel__stage-art {
-  background-image: var(--plate-jamaica);
-  background-position: 50% 44%;
-}
-
-/* Freed by the cut `grid` panel, kept at the crop that panel used. */
-.panel[data-scene="usage"] .panel__stage-art {
-  background-image: var(--plate-plateau);
-  background-position: 50% 62%;
-}
-
-/* The one reuse: panel 1's painting, cropped high and to the right so the two
-   stages do not read as the same picture twice. */
-.panel[data-scene="catalog"] .panel__stage-art {
-  background-image: var(--plate-cloudstudy);
-  background-position: 68% 22%;
-}
-
-/* ---------- the app window (shared .a-appwin chrome) ---------- */
-
-/* Inside a panel the mock is an object again: a real cast shadow and a faint
-   halo, the same treatment the hero desk gives it, sized to the panel's art
-   column rather than to a pinned viewport. */
-.panel__art .a-appwin {
-  width: 100%;
-  max-width: none;
-  margin: 0;
-  aspect-ratio: 1000 / 620;
-  /* Dark border, not light: the window sits on a lit plane here, same as it
-     does on the hero desk, and a white hairline on that ground disappears. */
-  border-color: rgb(0 0 0 / 38%);
-  border-radius: 9px;
-  box-shadow:
-    0 1.8rem 3.6rem -0.9rem rgb(0 0 0 / 62%),
-    0 0.5rem 1.2rem -0.5rem rgb(0 0 0 / 45%);
 }
 
 /* ---------- closing band ---------- */
@@ -751,36 +504,6 @@
 /* ---------- narrow screens ---------- */
 
 @media (max-width: 768px) {
-  /* Panels go to one column here.
-     The flipped selector is repeated here on purpose: `[data-shape][data-flip]`
-     is (0,3,0) and beat a bare `.panel` (0,1,0), so the rail panel was the one
-     block still holding two columns at 768. */
-  .panel,
-  .panel[data-shape="side"][data-flip] {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 1.25rem;
-    padding: 1.25rem;
-    border-radius: 16px;
-  }
-
-  .panel:nth-child(odd of .panel) .panel__art,
-  .panel:nth-child(even of .panel) .panel__art {
-    order: 2;
-  }
-
-  .panel:nth-child(even of .panel) .panel__copy {
-    order: 1;
-  }
-
-  .panel__copy {
-    padding: 0.25rem;
-  }
-
-  .panels {
-    gap: 1rem;
-    padding-top: 2.75rem;
-  }
-
   .tour__finale-grid {
     grid-template-columns: 1fr;
     gap: 2rem;
@@ -814,8 +537,7 @@
   }
 
   /* Reveal targets must not stay hidden without their transition. */
-  .tour__finale [data-reveal],
-  .panel[data-reveal] {
+  .tour__finale [data-reveal] {
     opacity: 1 !important;
     transform: none !important;
   }

@@ -4,7 +4,7 @@
 
 :root {
   /* ---- the editorial frame ----
-     One column runs the whole document: the hero, the panels, the closing band
+     One column runs the whole document: the hero, the chapters, the closing band
      and the footer all sit inside the same width, and frame.css draws its two
      edges as a fixed overlay. Every horizontal rule on the page is a
      `border-top`/`border-bottom` on something this wide, so they all land
@@ -60,7 +60,7 @@
   --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, "Cascadia Code", Menlo, monospace;
 
   /* ---- app-window chrome: deck-dark ----
-     Shared by .a-appwin in the hero and in every tour panel. Until 2026-08-20
+     Shared by .a-appwin in the hero and the marketing video. Until 2026-08-20
      this block was Tokyo Night held at 60% of its original saturation; it is
      now the app's own resolved token set for `deck-dark`, the theme a new
      install actually opens in (src/settings/themes.ts, src/lib/derive-colors.ts).
@@ -87,9 +87,9 @@
 
      Two carried-over notes:
 
-     · --sg-hairline-soft stays an ALPHA. It is the landing's own soft edge (ten
-       consumers across direction-a.css, scenes.css, tour.css and video.css,
-       .a-appwin__pane's border among them); only its hue changes. Turning it
+     · --sg-hairline-soft stays an ALPHA. It is the landing's own soft edge
+       (consumers in appwin.css and video.css, the status bar's top border
+       among them); only its hue changes. Turning it
        into the app's near-background solid seam would erase those edges.
      · The dim and faint inks are opaque hex now, not alphas over the stage,
        because that is what the app's --text-muted / --text-faint are. Opaque

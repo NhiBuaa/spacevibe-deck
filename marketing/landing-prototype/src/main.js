@@ -5,7 +5,6 @@ import "../styles/frame.css";
 import "../styles/direction-a.css";
 import "../styles/tour.css";
 import "../styles/demo-loop.css";
-import "../styles/scenes.css";
 import "../styles/release-modal.css";
 import "../styles/hero-copy-column.css";
 import "../styles/hero.css";

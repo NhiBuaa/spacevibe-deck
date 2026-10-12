@@ -2,12 +2,10 @@
  * The closing band's proof-terminal script, and nothing else.
  *
  * This module used to carry the Open board's fixtures too — agent chips,
- * recent rows, preset thumbnails and the sidebar's status map — because one
- * panel still hand-rolled the board and a pane grid out of the shared stage
- * renderers. That chain went with the six-panel rewrite, and every panel scene
- * now holds its own fixture beside its own body in `./scenes/`. What is left
- * is the one piece of tour state no scene owns. English-only, like everything
- * rendered inside terminal chrome.
+ * recent rows, preset thumbnails and the sidebar's status map. Those went with
+ * the panels, and the chapters' widgets read their data from `./scenes/`. What
+ * is left is the one piece of tour state no widget owns. English-only, like
+ * everything rendered inside terminal chrome.
  */
 
 import { deepFreeze } from "../product-stage.js";
