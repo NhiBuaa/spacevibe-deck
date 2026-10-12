@@ -305,11 +305,16 @@ to wear `asked`'s yellow as an inferred `completed`. `phaseConfidence` in
 [`agent-attention.ts`](../../src/terminal/agent-attention.ts) is the axis; each adapter is
 switchable under Settings → Agents through the `agentSignalAdapters` setting.
 
-**Every adapter ships off.** The per-agent Signals switch in
-[`settings-schema.ts`](../../src/settings/settings-schema.ts) preserves each user's choice.
-Claude Signals registers guarded hooks in Claude's user settings; Codex and opencode still
-add reporting flags to launcher commands. Claude's registry below runs independently of the
-switch. Without hooks, API failures cannot produce the explicit `failed` mark. Without an
+**Claude Signals ships on; Codex and opencode ship off until their slices.** The per-agent
+Signals switch in [`settings-schema.ts`](../../src/settings/settings-schema.ts) is resolved by
+a revision ladder in [`signal-adapter-choice.ts`](../../src/settings/signal-adapter-choice.ts):
+each slice adds a rung that turns its agent on once for a settings file saved under an older
+revision and keeps every other stored value; from the current revision on, a stored value is
+the user's choice. Revision 2 could not tell a chosen "off" from the old default, so a
+revision-2 Claude "off" comes back on once. A file older than revision 2 still reads as the
+defaults. Claude Signals registers guarded hooks in Claude's user settings; Codex and opencode
+still add reporting flags to launcher commands. Claude's registry below runs independently of
+the switch. Without hooks, API failures cannot produce the explicit `failed` mark. Without an
 opencode reporting port, its server cannot provide a contract session identity for
 [`live-session-state.ts`](../../src/ui/sessions/live-session-state.ts).
 
@@ -331,6 +336,23 @@ opencode reporting port, its server cannot provide a contract session identity f
   script is absent. Separate development and release installations do not remove each
   other's hooks. A registration error is logged and leaves registry discovery available;
   a later Signals change retries. A leftover `.deck-hooks.lock` is never stolen automatically.
+- **Claude's turn hooks post a bounded body.** `UserPromptSubmit`, `PostToolUse` and
+  `PostToolUseFailure` say `working`; their stdin carries the whole prompt or tool response,
+  and the endpoint's 64 KiB cap would drop "back to working" exactly on large tool output. The
+  [script](../../electron/agent-hooks/claude-hooks-file.ts) therefore reads a bounded prefix,
+  posts only the event name, session id and tool name, and drains the rest of stdin. It posts
+  nothing for a subagent: a top-level `agent_id` marks one, and only depth-1 keys are read, so
+  a tool argument of that name cannot fake it. `working` clears a `requested` the hooks raised
+  (the tool was approved); a registry-raised `requested` stays the registry's to clear.
+- **A fresh hook phase outranks the output heuristic.**
+  [`agent-attention.ts`](../../src/terminal/agent-attention.ts) refuses heuristic transitions,
+  including the 3.2-second silence resync, while an explicit contract phase stands, so a quiet
+  tool run cannot latch an inferred `completed` mid-turn. The phase hollows to inferred after
+  120 seconds of silence, and the heuristic applies again.
+- **Escape and Ctrl+C clear hook-backed work.** [`pane.ts`](../../src/terminal/pane.ts) reports
+  the key without changing what it writes to the PTY. If the last contract signal was
+  `working` or `requested` (an OSC 9;4 transition after it does not disarm), the pane reads
+  idle with no completion latch; `warning` and `error` stay, and the next hook overwrites.
 - **Endpoint and script precede the first window.**
   [`main.ts`](../../electron/main.ts) waits for the hook listener and integration setup;
   [`spawn.ts`](../../electron/pty/spawn.ts) stamps each shell with its installation's script
