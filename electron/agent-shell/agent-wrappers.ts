@@ -33,12 +33,20 @@ export function agentWrapperSource(agent: WrappedAgent): string {
     "IFS=:",
     "for dir in $PATH; do",
     '  [ -z "$dir" ] && continue',
-    '  dir="${dir%/}"',
+    // Normalize `bin/`, `bin//` and `bin/.` so they cannot evade the skip below.
+    "  while :; do",
+    '    case "$dir" in',
+    '      */.) dir="${dir%/.}" ;;',
+    '      */) dir="${dir%/}" ;;',
+    "      *) break ;;",
+    "    esac",
+    "  done",
     // Skip every Deck install's wrapper directory, or this script would find itself.
     '  case "$dir" in',
     `    *${WRAPPER_DIR_SUFFIX}) continue ;;`,
     "  esac",
-    `  if [ -x "$dir/${agent}" ] && [ ! -d "$dir/${agent}" ]; then`,
+    // Whatever spelling reached this script (`bin/../bin`), it is never its own target.
+    `  if [ -x "$dir/${agent}" ] && [ ! -d "$dir/${agent}" ] && ! [ "$dir/${agent}" -ef "$0" ]; then`,
     `    real="$dir/${agent}"`,
     "    break",
     "  fi",

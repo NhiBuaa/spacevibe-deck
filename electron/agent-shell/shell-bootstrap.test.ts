@@ -152,6 +152,15 @@ function scratchEntries(pathValue: string, home: string): string[] {
   return pathValue.split(":").filter((entry) => entry.startsWith(home) || entry === paths.binDir);
 }
 
+// A multi-line value whose continuation line looks like one of Deck's exports.
+const INJECTING = { UNRELATED: "a\nexport DECK_INJECTED=pwned; echo T:injected=1\nb" };
+const INJECTION_PROBE = ['echo "T:injection=${DECK_INJECTED:-none}"'];
+
+function expectNoInjection(result: Startup): void {
+  expect(field(result, "injection")).toBe("none");
+  expect(result.lines).not.toContain("T:injected=1");
+}
+
 const POSIX_PROBE = [
   'echo "T:claude=$(command -v claude)"',
   'echo "T:path=$PATH"',
@@ -211,6 +220,11 @@ describe.skipIf(process.platform === "win32")("zsh startup", () => {
     expect(field(startup(zsh!, home, zshProbe), "ids")).toBe("7,tok,1234");
   });
 
+  it.skipIf(zsh === null)("does not run text smuggled in another variable's value", () => {
+    const home = makeHome(userFiles(""));
+    expectNoInjection(startup(zsh!, home, [...zshProbe, ...INJECTION_PROBE], INJECTING));
+  });
+
   it.skipIf(zsh === null)("follows an inherited ZDOTDIR and leaves it in place", () => {
     const home = makeHome({});
     const zdotdir = path.join(home, "zd");
@@ -268,6 +282,11 @@ describe.skipIf(process.platform === "win32")("bash startup", () => {
       expect(field(result, "greet")).toBe("alias-works");
     },
   );
+
+  it.skipIf(bash === null)("does not run text smuggled in another variable's value", () => {
+    const home = makeHome(bashFiles);
+    expectNoInjection(startup(bash!, home, [...POSIX_PROBE, ...INJECTION_PROBE], INJECTING));
+  });
 
   it.skipIf(bash === null)("survives an rc file that unsets the DECK_* variables", () => {
     const home = makeHome(bashFiles);

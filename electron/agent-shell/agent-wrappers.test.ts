@@ -32,9 +32,9 @@ interface Run {
 }
 
 /** Run `claude` through the dev wrapper with an explicit, minimal environment. */
-function run(env: Record<string, string>, args: string[] = []): Promise<Run> {
+function run(env: Record<string, string>, args: string[] = [], timeout = 5000): Promise<Run> {
   return new Promise((resolve, reject) => {
-    const child = spawn(path.join(DEV_BIN, "claude"), args, { env, timeout: 5000 });
+    const child = spawn(path.join(DEV_BIN, "claude"), args, { env, timeout });
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (chunk: Buffer) => (stdout += chunk));
@@ -78,6 +78,20 @@ describe.skipIf(process.platform === "win32")("agent wrapper", () => {
   it("drops a stale nested flag when no agent owns the pane", async () => {
     const result = await run({ PATH, DECK_AGENT_NESTED: "1" });
     expect(result.stdout).toContain("id=claude nested= ");
+  });
+
+  // Each spelling names the wrapper's own directory; none may make it exec itself.
+  it.each([
+    ["a trailing slash", `${DEV_BIN}/`],
+    ["doubled trailing slashes", `${DEV_BIN}//`],
+    ["a trailing dot", `${DEV_BIN}/.`],
+    ["dot-slash chains", `${DEV_BIN}/././/`],
+    ["a detour through the parent", `${DEV_BIN}/../bin`],
+  ])("never execs itself through %s on PATH", async (_label, spelling) => {
+    const missing = await run({ PATH: [spelling, EMPTY_BIN].join(":") }, [], 3000);
+    expect(missing.code).toBe(127);
+    const found = await run({ PATH: [spelling, REAL_BIN].join(":") }, [], 3000);
+    expect(found.stdout).toContain("id=claude");
   });
 
   it("exits 127 with a message when there is no real binary", async () => {

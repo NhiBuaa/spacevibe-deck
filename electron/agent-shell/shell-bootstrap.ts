@@ -53,10 +53,34 @@ function shellName(executable: string): string {
   return (executable.split("/").pop() ?? executable).replace(/^-+/, "");
 }
 
-// A rc file may unset or overwrite Deck's variables; the saved `export -p`
-// lines put them back. zsh prints `export X=..`, bash `declare -x X=".."`.
-const SAVE_ENV = `_deck_saved_env="$(export -p 2>/dev/null | grep -E '^(export|declare -x|typeset -x) DECK_')"`;
-const RESTORE_ENV = `eval "$_deck_saved_env" 2>/dev/null || true`;
+/**
+ * The variables Deck sets on a pane (`buildEnv`, `bootstrapLaunch`) or the
+ * wrappers set later. A user's rc file may unset or overwrite any of them.
+ */
+const DECK_VARIABLES = [
+  "DECK_PANE_ID",
+  "DECK_HOOK_TOKEN",
+  "DECK_HOOK_PORT",
+  "DECK_CLAUDE_HOOK_SCRIPT",
+  "DECK_CODEX_HOOK_SCRIPT",
+  "DECK_AGENT_ID",
+  "DECK_AGENT_NESTED",
+  "DECK_ORIG_ZDOTDIR",
+] as const;
+
+// Saved and restored by NAME, never by eval'ing `export -p` text: a multi-line
+// value of any variable could otherwise smuggle in a line that looks like one
+// of ours. Each variable is remembered as set-or-unset plus its value, then put
+// back exactly. Plain sh syntax, so it runs in both zsh and bash.
+const SAVE_ENV = DECK_VARIABLES.map(
+  (name) =>
+    `if [ -n "\${${name}+x}" ]; then _deck_set_${name}=1; _deck_val_${name}=$${name}; else _deck_set_${name}=; fi`,
+).join("\n");
+const RESTORE_ENV = DECK_VARIABLES.map(
+  (name) =>
+    `if [ -n "$_deck_set_${name}" ]; then export ${name}="$_deck_val_${name}"; else unset ${name}; fi`,
+).join("\n");
+const FORGET_ENV = `unset ${DECK_VARIABLES.flatMap((name) => [`_deck_set_${name}`, `_deck_val_${name}`]).join(" ")}`;
 
 /** Idempotently prepend the bin directory to PATH (sh, zsh and bash). */
 function prependBinFunction(binDir: string): string {
@@ -117,7 +141,7 @@ function zshStage(
     'export DECK_ORIG_ZDOTDIR="$_deck_user_zdotdir"',
     ...(after === undefined ? [] : [after]),
     last ? 'export ZDOTDIR="$_deck_user_zdotdir"' : `export ZDOTDIR=${shellQuote(zshDir)}`,
-    "unset _deck_saved_env _deck_user_zdotdir",
+    `${FORGET_ENV} _deck_user_zdotdir`,
     "",
   ].join("\n");
 }
@@ -159,7 +183,7 @@ export function bashRcfile(paths: AgentShellPaths): string {
     RESTORE_ENV,
     prependBinFunction(paths.binDir),
     "hash -r 2>/dev/null || true",
-    "unset _deck_saved_env",
+    FORGET_ENV,
     "",
   ].join("\n");
 }
