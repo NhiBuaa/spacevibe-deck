@@ -288,9 +288,22 @@ Run in order; the first row not Done is the next work. Each slice gets its own p
     - third-party `PermissionRequest` hooks, which can return allow or deny;
     - a newly pulled `.codex/hooks.json` in a project the user already trusts in Codex.
 
-    This is a reading of the code that has not been run yet; slice 3 runs the check below and
-    records the result here. On the owner's machine, the two third-party `PermissionRequest`
-    entries in `~/.codex/hooks.json` already carry a `trusted_hash` in `config.toml`.
+    Checked 2026-10-12 with Codex 0.162.1 (`codex --enable hooks … exec --ephemeral` in a scratch
+    repo whose `.codex/hooks.json` has a `SessionStart` hook that touches a file):
+    - folder trusted, no bypass: the hook does not run (an untrusted hook is skipped);
+    - folder trusted, with the bypass: it runs, with no review;
+    - hook disabled in `config.toml` (`hooks.state."<file>:session_start:0:0".enabled = false`),
+      with the bypass: it does not run. The bypass skips trust only. A `-c` override of
+      `hooks.state` is ignored as a session flag;
+    - folder never trusted, with the bypass and `sandbox_mode = "read-only"`: it does not run.
+      The project layer still needs folder trust;
+    - under the owner's own `sandbox_mode = "danger-full-access"`, the first `codex exec` in a
+      never-trusted folder wrote `trust_level = "trusted"` for it to `config.toml`, and with
+      the bypass that repo's hook ran on that same run. That auto-trust is Codex's, not the
+      bypass's; once the folder is trusted, the third case above applies.
+
+    On the owner's machine, the two third-party `PermissionRequest` entries in
+    `~/.codex/hooks.json` already carry a `trusted_hash` in `config.toml`.
   - Accepted by the owner, 2026-10-11.
 - **RISK2 — Deck writes to user-level agent config by default.** The guarded entries are inert
   outside Deck's authenticated panes, but they sit in `~/.claude/settings.json` and
