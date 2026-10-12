@@ -14,11 +14,6 @@
      design. */
   --a-accent: var(--accent);
   --a-accent-rgb: var(--accent-rgb);
-  /* One launch-only colour signal. Chrome stays achromatic; this violet-to-cyan
-     edge marks the V1 milestone without competing with the warm stage plate. */
-  --a-release-violet: #a98bff;
-  --a-release-cyan: #62dcff;
-  --a-release-cyan-rgb: 98 220 255;
   --a-ease-lock: cubic-bezier(0.22, 0.78, 0.18, 1);
   /* Match the app's font language (src/styles.css): one system sans for all
      text + chrome, mono reserved for real terminal content only. */
@@ -254,88 +249,6 @@
   height: 0.85rem;
 }
 
-/* The release pill is the launch signal above the headline. Its colour is
-   spent on a one-pixel edge and the product name — never on a filled face —
-   so the app window remains the hero's focal artifact. */
-.a-hero__pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  margin-bottom: clamp(1.1rem, 2.4vh, 1.6rem);
-  padding: 0.32rem 0.85rem 0.32rem 0.4rem;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background:
-    linear-gradient(var(--a-surface-1), var(--a-surface-1)) padding-box,
-    linear-gradient(
-        108deg,
-        var(--a-release-violet),
-        var(--a-release-cyan) 64%,
-        var(--a-line-strong)
-      )
-      border-box;
-  background-position:
-    0 0,
-    0% 50%;
-  background-size:
-    100% 100%,
-    180% 100%;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 7%),
-    0 0 1.5rem rgb(var(--a-release-cyan-rgb) / 8%);
-  color: var(--a-ink-soft);
-  font: 500 0.72rem/1 var(--a-font-display);
-  letter-spacing: 0.01em;
-  transition:
-    background-position 420ms var(--a-ease-lock),
-    box-shadow 280ms var(--a-ease-lock),
-    color 240ms var(--a-ease-lock);
-}
-
-.a-hero__pill:hover,
-.a-hero__pill:focus-visible {
-  background-position:
-    0 0,
-    100% 50%;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 10%),
-    0 0 1.9rem rgb(var(--a-release-cyan-rgb) / 14%);
-  color: var(--a-ink);
-}
-
-.a-hero__pill-text {
-  background: linear-gradient(
-    90deg,
-    var(--a-release-violet) 0%,
-    var(--a-release-cyan) 25%,
-    var(--a-release-violet) 50%,
-    var(--a-release-cyan) 75%,
-    var(--a-release-violet) 100%
-  );
-  background-clip: text;
-  background-position: 0% 50%;
-  background-size: 200% 100%;
-  color: transparent;
-  filter: drop-shadow(0 0 0.45rem rgb(var(--a-release-cyan-rgb) / 18%));
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: normal;
-  text-transform: uppercase;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.a-hero__pill-arrow {
-  color: var(--a-ink);
-  font-size: 0.9rem;
-  transition: transform 280ms var(--a-ease-lock);
-}
-
-.a-hero__pill:hover .a-hero__pill-arrow,
-.a-hero__pill:focus-visible .a-hero__pill-arrow {
-  transform: translateX(0.125rem);
-}
-
 /* Icon + label, kept together so the trailing slot — the arrow, or the
    coming-soon tag — stays pinned to the button's right edge. */
 .a-cta-lead {
@@ -428,24 +341,6 @@
   font: 500 0.53rem/1 var(--a-font-mono);
   letter-spacing: 0.06em;
   text-transform: uppercase;
-}
-
-/* The badge that dates this build. It used to be an outline chip pulsing above
-   the download button; inside the release pill it is a solid one and nothing
-   breathes. A bordered chip inside a bordered pill drew two nested rings, and
-   a pulse on the inner one read as a defect rather than a signal — the pill's
-   own hover is the interaction now. `text-transform` is inherited untouched,
-   so it still renders NEW and still reads as one family with the PREVIEW /
-   COMING SOON chips. */
-.a-cta-new__tag {
-  padding: 0.24rem 0.5rem;
-  border-color: transparent;
-  border-radius: 999px;
-  background: rgb(255 255 255 / 88%);
-  color: var(--a-surface-0);
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
 }
 
 /* Tag and install glyph share the trailing slot and stay pinned together. */
@@ -543,8 +438,7 @@
     padding: 0;
   }
 
-  /* One compact row: the brand and the board's link. The changelog
-     link gives way because the release pill above the headline goes there. */
+  /* One compact row: the brand, the changelog and the board's link. */
   .a-topbar {
     justify-content: space-between;
     gap: 1rem;
@@ -553,7 +447,6 @@
 
   /* Download gives way too: a phone cannot run the app, and the hero's own
      install buttons are a thumb's reach below. */
-  .a-topbar__changelog:not(.a-topbar__feedback),
   .a-topbar__github,
   .a-topbar__download {
     display: none;
@@ -571,13 +464,6 @@
   .a-cta-tag {
     font-size: 0.48rem;
   }
-
-  /* The rule above shrinks every tag for the narrow column; the release badge
-     is the one that must not shrink with them, because it is the whole slot. */
-  .a-hero__pill .a-cta-new__tag {
-    padding: 0.22rem 0.44rem;
-    font-size: 0.58rem;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -586,8 +472,6 @@
   .a-install-icon,
   .a-quiet-cta,
   .a-quiet-cta i,
-  .a-hero__pill,
-  .a-hero__pill-arrow,
   .a-topbar__changelog,
   .a-topbar__changelog::after,
   .a-topbar__github::after {

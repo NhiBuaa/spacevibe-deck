@@ -23,10 +23,6 @@
   justify-content: center;
 }
 
-.hero-copy .hero-pill {
-  margin-bottom: clamp(1.4rem, 3vh, 2rem);
-}
-
 .hero-copy .hero-title {
   font-size: clamp(2.7rem, 4.5vw, 4.25rem);
 }

@@ -1,9 +1,9 @@
 /**
- * The hero's copy column, piece by piece: the release pill, the headline, one
- * install unit, the agent marks — plus the Pause control beside the window.
+ * The hero's copy column, piece by piece: the headline, one install unit, the
+ * agent marks — plus the Pause control beside the window.
  *
- * The live hooks keep their names — `data-release-label`,
- * `data-copy="installMac"`, `data-download-proof`, the `data-install-*` set —
+ * The live hooks keep their names — `data-copy="installMac"`,
+ * `data-download-proof`, the `data-install-*` set —
  * so `upgradeReleaseLinks` and `mountQuickInstall` serve them unchanged.
  */
 
@@ -11,17 +11,6 @@ import { AGENT_MARKS, renderAgentMark } from "./agent-strip.js";
 import { RELEASES_URL, WINDOWS_FALLBACK_URL } from "./download-links.js";
 import { initialInstallPlatform } from "./install-command.js";
 import { renderAppleIcon, renderInstallIcon, renderWindowsIcon } from "./os-icons.js";
-import { CHANGELOG_URL } from "./site-urls.js";
-
-export function renderReleasePill(copy) {
-  return `
-    <a class="a-hero__pill hero-pill hero-rise" href="${CHANGELOG_URL}">
-      <span class="a-cta-tag a-cta-new__tag" data-copy="newBadge">${copy.newBadge}</span>
-      <span class="a-hero__pill-text" data-copy="releaseLabel" data-release-label>${copy.releaseLabel}</span>
-      <span class="a-hero__pill-arrow" aria-hidden="true">→</span>
-    </a>
-  `;
-}
 
 /**
  * One large line and no subhead (owner, 2026-10-11: the hero carried too much

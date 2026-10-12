@@ -13,7 +13,6 @@ import {
   renderHeadline,
   renderInstallBlock,
   renderPauseButton,
-  renderReleasePill,
 } from "./hero-copy-column.js";
 import { mountTopbarDownload, renderTopbar } from "./topbar.js";
 
@@ -94,7 +93,6 @@ export function renderHero(copy) {
           ${renderTopbar(copy)}
 
           <div class="hero-copy">
-            ${renderReleasePill(copy)}
             ${renderHeadline(copy)}
             ${renderInstallBlock(copy)}
             ${renderAgentRow(copy)}

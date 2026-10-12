@@ -4,7 +4,6 @@ export const messages = {
     navChangelog: "Changelog",
     navGithub: "GitHub",
     navDownload: "Download",
-    releaseLabel: "Deck 2.6.0",
     headline: "Keep every agent in sight.",
     seeFeatures: "See how it works",
     installMac: "Install for macOS",
@@ -100,7 +99,6 @@ export const messages = {
     downloadMac: "Download for macOS",
     downloadWin: "Download for Windows",
     comingSoon: "coming soon",
-    newBadge: "New",
     winPreviewTag: "preview",
     winUnsignedNote:
       "Unsigned build — Windows will show a SmartScreen warning. Choose More info → Run anyway.",
@@ -146,7 +144,6 @@ export const messages = {
     navChangelog: "Changelog",
     navGithub: "GitHub",
     navDownload: "Tải về",
-    releaseLabel: "Deck 2.6.0",
     headline: "Không agent nào rời khỏi tầm mắt.",
     seeFeatures: "Xem nó chạy thế nào",
     installMac: "Cài đặt cho macOS",
@@ -247,7 +244,6 @@ export const messages = {
     // Kept English in both locales (owner, 2026-08-17): the badge is one word
     // that reads the same either way, and "New" beside a Vietnamese CTA is
     // shorter and louder than "Mới".
-    newBadge: "New",
     winPreviewTag: "thử nghiệm",
     winUnsignedNote:
       "Bản chưa ký — Windows sẽ hiện cảnh báo SmartScreen. Chọn More info → Run anyway.",

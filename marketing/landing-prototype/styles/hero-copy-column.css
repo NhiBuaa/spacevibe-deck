@@ -331,10 +331,6 @@
     animation-delay: var(--hero-delay, 0ms);
   }
 
-  .hero-pill {
-    --hero-delay: 40ms;
-  }
-
   .hero-install {
     --hero-delay: 120ms;
   }
