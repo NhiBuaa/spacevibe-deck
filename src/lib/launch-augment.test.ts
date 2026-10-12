@@ -137,11 +137,38 @@ describe("augmentLaunchCommand — codex without a wrapper (CX2)", () => {
     }
   });
 
-  it("keeps today's notification condition when the bypass is not accepted", () => {
-    for (const shellBootstrap of [false, true]) {
-      expect(augment("codex --full-auto", { codexBypassHookTrust: false, shellBootstrap })).toBe(
-        "codex --full-auto -c tui.notification_condition=always",
-      );
+  it("keeps today's notification condition when the bypass is not accepted and no wrapper runs", () => {
+    expect(augment("codex --full-auto", { codexBypassHookTrust: false })).toBe(
+      "codex --full-auto -c tui.notification_condition=always",
+    );
+  });
+
+  it("leaves the command to the wrapper even when main's probe found no bypass", () => {
+    for (const codexBypassHookTrust of [false, true]) {
+      for (const command of [
+        "codex --full-auto",
+        "codex queue --thread abc --message hello",
+        "codex agents",
+      ]) {
+        expect(augment(command, { codexBypassHookTrust, shellBootstrap: true })).toBe(command);
+      }
+    }
+  });
+
+  it.each([
+    ["codex agents"],
+    ["codex queue --thread abc --message hello"],
+    ["codex archive abc"],
+    ["codex --remote ws://h:1"],
+  ])("never adds -c tui.notification_condition to %s, on any path", (command) => {
+    const over = [
+      { codexBypassHookTrust: false },
+      { codexBypassHookTrust: false, shellBootstrap: true },
+      { platform: "windows" as const },
+      { hooksSupported: false },
+    ];
+    for (const context of over) {
+      expect(augment(command, context)).not.toContain("notification_condition");
     }
   });
 
@@ -155,9 +182,7 @@ describe("augmentLaunchCommand — codex without a wrapper (CX2)", () => {
       expect(augment("codex --full-auto", over)).toBe(
         "codex --full-auto -c tui.notification_condition=always",
       );
-      expect(augment("codex agents", over)).toBe(
-        "codex agents -c tui.notification_condition=always",
-      );
+      expect(augment("codex agents", over)).toBe("codex agents");
     }
   });
 

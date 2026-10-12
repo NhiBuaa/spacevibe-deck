@@ -113,8 +113,18 @@ export function augmentLaunchCommand(command: string, context: AugmentContext): 
     // bootstrapped shell the wrapper does the work (and the daemon strip) itself.
     const posix = context.platform !== "windows" && context.hooksSupported;
     const unwrapped = posix && !context.shellBootstrap;
+    // The wrapper decides everything, including what an old Codex gets: nothing is added here
+    // even when main's probe failed, since a `-c` override alone makes Codex skip the shared
+    // daemon (and `codex queue` then refuses to run while one is up).
+    if (posix && context.shellBootstrap) {
+      return { command, sessionId };
+    }
     if (unwrapped && form.daemon && !form.infoOnly) {
       return { command: `${CLEARED_PANE_CREDENTIALS} ${command.trim()}`, sessionId };
+    }
+    // No path ever adds a flag to a command that talks to the shared daemon.
+    if (form.daemon) {
+      return { command, sessionId };
     }
     if (context.adapters.codex) {
       if (posix && context.codexBypassHookTrust) {
