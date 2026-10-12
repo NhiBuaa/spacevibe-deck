@@ -9,8 +9,10 @@
  * app (`buildAttentionList` walks the rail's own panes).
  *
  * Budget (motion review, 2026-10-10): at most one working + one asked row per
- * beat, nothing outside the window loops, and every loop pauses off screen, in
- * a hidden tab and behind the on-page Pause control (WCAG 2.2.2).
+ * beat, nothing outside the window loops, and every loop pauses off screen and
+ * in a hidden tab, and never starts under reduced motion. There is no on-page
+ * Pause control (owner, 2026-10-13, decided twice after being told it is what
+ * WCAG 2.2.2 asks of a loop that runs past five seconds).
  */
 
 const FADE_OUT = { duration: 120, easing: "cubic-bezier(0.3, 0, 0.8, 0.15)" };
@@ -190,28 +192,22 @@ export function mountAskedBeat(root, beats, { stillBeat = 0 } = {}) {
 }
 
 /**
- * One switch for everything that moves on its own: the user's Pause, the
- * product scrolled under {@link VISIBLE_RATIO} on screen, or a hidden tab all
+ * One switch for everything that moves on its own: reduced motion, the
+ * product scrolled under {@link VISIBLE_RATIO} on screen, or a hidden tab each
  * turn it off. `section.dataset.motion` mirrors the state so CSS can hold its
  * own loops (spinner, ripple) in the same breath.
  *
  * @param {HTMLElement} section
- * @param {{ watch: Element, button: HTMLButtonElement | null, copy: Record<string, string>,
- *           onPlay: () => void, onPause: () => void }} options
+ * @param {{ watch: Element, onPlay: () => void, onPause: () => void }} options
  * @returns {() => void} dispose
  */
-export function mountMotionGate(section, { watch, button, copy, onPlay, onPause }) {
+export function mountMotionGate(section, { watch, onPlay, onPause }) {
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  let userPaused = false;
   let onScreen = true;
   let active = false;
 
-  if (button) {
-    button.hidden = reduceMotion;
-  }
-
   function sync() {
-    const next = !reduceMotion && !userPaused && onScreen && document.visibilityState !== "hidden";
+    const next = !reduceMotion && onScreen && document.visibilityState !== "hidden";
 
     section.dataset.motion = next ? "on" : "off";
 
@@ -221,13 +217,6 @@ export function mountMotionGate(section, { watch, button, copy, onPlay, onPause 
 
     active = next;
     (next ? onPlay : onPause)();
-  }
-
-  function toggle() {
-    userPaused = !userPaused;
-    button.setAttribute("aria-pressed", String(userPaused));
-    button.setAttribute("aria-label", userPaused ? copy.heroPlay : copy.heroPause);
-    sync();
   }
 
   const observer =
@@ -246,13 +235,11 @@ export function mountMotionGate(section, { watch, button, copy, onPlay, onPause 
         );
 
   observer?.observe(watch);
-  button?.addEventListener("click", toggle);
   document.addEventListener("visibilitychange", sync);
   sync();
 
   return () => {
     observer?.disconnect();
-    button?.removeEventListener("click", toggle);
     document.removeEventListener("visibilitychange", sync);
     onPause();
   };

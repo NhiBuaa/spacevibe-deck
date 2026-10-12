@@ -136,8 +136,6 @@ export const messages = {
     releaseModalClose: "Close release notice",
     heroMetaFree: "Free · Open source",
     heroAgentsTail: "or any CLI on your $PATH",
-    heroPause: "Pause the demo",
-    heroPlay: "Play the demo",
   },
   vi: {
     navProduct: "Deck",

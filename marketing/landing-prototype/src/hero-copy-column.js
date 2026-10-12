@@ -1,6 +1,6 @@
 /**
- * The hero's copy column, piece by piece: the headline, one install unit, the
- * agent marks — plus the Pause control beside the window.
+ * The hero's copy column, piece by piece: the headline, one install unit and
+ * the agent marks.
  *
  * The live hooks keep their names — `data-copy="installMac"`,
  * `data-download-proof`, the `data-install-*` set —
@@ -124,18 +124,5 @@ export function renderAgentRow(copy) {
       <ul class="hero-agents__marks" aria-label="Agent CLIs Deck launches">${marks}</ul>
       <span class="hero-agents__tail" data-copy="heroAgentsTail">${copy.heroAgentsTail}</span>
     </div>
-  `;
-}
-
-export function renderPauseButton(copy) {
-  return `
-    <button class="hero-pause" type="button" aria-pressed="false" aria-label="${copy.heroPause}">
-      <svg class="hero-pause__glyph hero-pause__glyph--pause" viewBox="0 0 16 16" aria-hidden="true">
-        <rect x="4" y="3" width="2.6" height="10" rx="1" /><rect x="9.4" y="3" width="2.6" height="10" rx="1" />
-      </svg>
-      <svg class="hero-pause__glyph hero-pause__glyph--play" viewBox="0 0 16 16" aria-hidden="true">
-        <path d="M5 3.2v9.6a.6.6 0 0 0 .9.5l7.6-4.8a.6.6 0 0 0 0-1L5.9 2.7a.6.6 0 0 0-.9.5Z" />
-      </svg>
-    </button>
   `;
 }

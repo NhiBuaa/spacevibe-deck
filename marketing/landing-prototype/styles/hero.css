@@ -88,11 +88,6 @@
     0 0 1.2rem 0 color-mix(in srgb, var(--sg-yellow) 14%, transparent);
 }
 
-.hero-desk .hero-pause {
-  top: 0;
-  right: 0;
-}
-
 @media (prefers-reduced-motion: no-preference) {
   .hero-window {
     animation: hero-lift 760ms var(--hero-enter) 260ms both;

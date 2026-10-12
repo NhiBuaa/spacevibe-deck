@@ -12,7 +12,6 @@ import {
   renderAgentRow,
   renderHeadline,
   renderInstallBlock,
-  renderPauseButton,
 } from "./hero-copy-column.js";
 import { mountTopbarDownload, renderTopbar } from "./topbar.js";
 
@@ -110,8 +109,6 @@ export function renderHero(copy) {
                   </div>
                 </div>
               </figure>
-
-              ${renderPauseButton(copy)}
             </div>
           </div>
         </div>
@@ -133,8 +130,6 @@ export function renderHero(copy) {
       });
       const disposeGate = mountMotionGate(section, {
         watch: section.querySelector(".hero-desk"),
-        button: section.querySelector(".hero-pause"),
-        copy,
         onPlay: beat.play,
         onPause: beat.pause,
       });

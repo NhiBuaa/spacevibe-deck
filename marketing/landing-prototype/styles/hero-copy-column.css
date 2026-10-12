@@ -1,7 +1,7 @@
 /* ---- The hero's pieces (2026-10-10) ----
-   The copy column's parts, the install unit, the agent marks, the Pause
-   control, the rail's live marks and the one-shot entrance. The layout that
-   places them lives in hero.css.
+   The copy column's parts, the install unit, the agent marks, the rail's live
+   marks and the one-shot entrance. The layout that places them lives in
+   hero.css.
 
    Motion budget (review 2026-10-10): nothing outside the product loops; the
    entrance runs once (~1.1s) and never touches the headline, which is the LCP
@@ -190,7 +190,6 @@
 /* One focus ring for every control the hero adds. */
 .hero-install__tab:focus-visible,
 .hero-install__copy:focus-visible,
-.hero-pause:focus-visible,
 .hero-agents__item:focus-visible {
   outline: var(--hero-focus);
   outline-offset: 3px;
@@ -247,47 +246,6 @@
   font: 400 0.72rem/1 var(--a-font-mono);
 }
 
-/* ---- Pause ---- */
-
-.hero-pause {
-  position: absolute;
-  z-index: 6;
-  display: grid;
-  width: 2rem;
-  height: 2rem;
-  place-items: center;
-  padding: 0;
-  border: 1px solid rgb(255 255 255 / 18%);
-  border-radius: 50%;
-  background: rgb(10 12 11 / 62%);
-  color: rgb(255 255 255 / 72%);
-  cursor: pointer;
-  backdrop-filter: blur(8px);
-  transition:
-    color 150ms var(--hero-std),
-    border-color 150ms var(--hero-std);
-}
-
-.hero-pause:hover {
-  border-color: rgb(255 255 255 / 36%);
-  color: var(--a-ink);
-}
-
-.hero-pause[hidden] {
-  display: none;
-}
-
-.hero-pause__glyph {
-  width: 0.78rem;
-  height: 0.78rem;
-  fill: currentColor;
-}
-
-.hero-pause[aria-pressed="false"] .hero-pause__glyph--play,
-.hero-pause[aria-pressed="true"] .hero-pause__glyph--pause {
-  display: none;
-}
-
 /* ---- The rail's live marks ----
    The braille spinner itself is appwin-tree.css's: it is the app's mark. What
    lives here is the landing's own emphasis on the beat. */
@@ -339,7 +297,7 @@
     --hero-delay: 200ms;
   }
 
-  /* Off screen, in a hidden tab or paused: every loop holds its frame. Each
+  /* Off screen or in a hidden tab: every loop holds its frame. Each
      selector out-ranks the one that declares its `animation` shorthand, which
      would otherwise reset the play state to running. */
   .hero[data-motion="off"] .a-tree__dot[data-state="asked"]::after,
