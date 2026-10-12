@@ -56,8 +56,8 @@ beforeEach(() => {
 });
 
 /**
- * Every adapter ships OFF — a pane opens with the command the user chose. The
- * cases below are about what an adapter does once the user switches it on.
+ * Codex and opencode ship OFF; Claude's default is ON (DEF1). The cases below set
+ * each adapter they need explicitly.
  */
 function signalsOn(...agents: readonly (keyof SignalAdapters)[]): void {
   const on = Object.fromEntries(agents.map((agent) => [agent, true]));

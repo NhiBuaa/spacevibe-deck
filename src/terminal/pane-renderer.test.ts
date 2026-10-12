@@ -5,7 +5,7 @@ import { DEFAULT_SETTINGS } from "../settings/settings-schema";
 const xterm = vi.hoisted(() => ({
   constructorOptions: undefined as Record<string, unknown> | undefined,
   opened: false,
-  key: (_event: { key: string }) => {},
+  key: (_event: { key: string; domEvent: KeyboardEvent }) => {},
   data: (_data: string) => {},
 }));
 
@@ -44,7 +44,7 @@ vi.mock("@xterm/xterm", () => ({
     onBell() {
       return { dispose() {} };
     }
-    onKey(callback: (event: { key: string }) => void) {
+    onKey(callback: (event: { key: string; domEvent: KeyboardEvent }) => void) {
       xterm.key = callback;
     }
     onData(callback: (data: string) => void) {
@@ -288,7 +288,7 @@ it("marks keyboard, browser paste, deferred IME and Shift+Enter as user input", 
   const onData = vi.fn(async () => true);
   const pane = createPane(1, DEFAULT_SETTINGS, { ...events, onData });
   const host = pane.element.querySelector(".pane__term")!;
-  xterm.key({ key: "a" });
+  xterm.key({ key: "a", domEvent: new KeyboardEvent("keydown", { key: "a" }) });
   xterm.data("a");
   expect(onData).toHaveBeenLastCalledWith(1, "a", true);
   xterm.data("\x1b[1;1R");

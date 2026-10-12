@@ -783,6 +783,15 @@ export function createTabManager(
         syncViews();
       }
     },
+    onPaneInterrupt(id: number): void {
+      // Escape / Ctrl+C: the key already went to the PTY. If the tracker was showing explicit
+      // work or a hook request, it now reads idle until the agent's next hook says otherwise.
+      const interruptSnap = tracker.noteInterrupt(id);
+      if (interruptSnap !== null) {
+        maybeNotify(id, interruptSnap);
+        syncViews();
+      }
+    },
     onPaneFocus(id: number): void {
       if (!windowFocused) return; // only ack when the window is foreground
       const ackSnap = tracker.acknowledge(id); // clears attention+unread, not phase

@@ -248,6 +248,14 @@ export interface AgentAttentionTracker {
    * the ids of the panes whose snapshot changed.
    */
   tick(now: number): number[];
+  /**
+   * Escape or Ctrl+C in the pane (INT1). Clears explicit work the way Superset does: only when
+   * the LAST contract signal for the current session was a `working` or `requested` (an OSC
+   * 9;4 `working` after it does not disarm), or a contract-raised `requested` is showing. The
+   * pane reads idle with `hasRun` false and raises no completion; `warning`/`error` stay.
+   * Session id, generation and Codex lifecycle are untouched, so the next hook overwrites.
+   */
+  noteInterrupt(id: number): PaneAttentionSnapshot | null;
   /** The user focused the pane: clear attention + unread (phase untouched). */
   acknowledge(id: number): PaneAttentionSnapshot | null;
   /** Current snapshot, or null for a pane the tracker has never seen. */
@@ -284,6 +292,12 @@ interface PaneState {
   readonly contractAt: number | null;
   /** The phase was last set by a contract-layer signal (stage 3's freshness). */
   readonly phaseFromContract: boolean;
+  /**
+   * The last accepted contract signal of the current session was `working` or `requested`,
+   * which is what an interrupt key may clear (INT1). Unlike `phaseFromContract`, an OSC
+   * transition does not reset it.
+   */
+  readonly interruptible: boolean;
   readonly unread: boolean;
   /** The current agent has reached `working` at least once (see snapshot). */
   readonly hasRun: boolean;
@@ -338,6 +352,7 @@ function freshState(): PaneState {
     pendingSessionId: null,
     contractAt: null,
     phaseFromContract: false,
+    interruptible: false,
     unread: false,
     hasRun: false,
     changedAt: 0,
@@ -611,6 +626,12 @@ export function createAgentAttentionTracker(
       ...prev,
       sessionId: signal.sessionId,
       contractAt: signal.observedAt,
+      interruptible:
+        signal.kind === "working" || signal.kind === "requested"
+          ? true
+          : signal.kind === "answered"
+            ? prev.interruptible
+            : false,
     };
     switch (signal.kind) {
       case "session":
@@ -629,7 +650,12 @@ export function createAgentAttentionTracker(
           phaseFromContract: true,
           hasRun: false,
           ...(prev.source === "output-heuristic"
-            ? { attention: "none", source: null, confidence: "explicit", detail: null }
+            ? {
+                attention: "none" as const,
+                source: null,
+                confidence: "explicit" as const,
+                detail: null,
+              }
             : {}),
         };
       case "working": {
@@ -821,6 +847,7 @@ export function createAgentAttentionTracker(
             codexLifecycle: null,
             contractAt: null,
             phaseFromContract: false,
+            interruptible: false,
             detail: null,
             isAgent: true,
             hasProcess: true,
@@ -850,6 +877,7 @@ export function createAgentAttentionTracker(
             codexLifecycle: null,
             contractAt: null,
             phaseFromContract: false,
+            interruptible: false,
             detail: null,
             isAgent: true,
             hasProcess: true,
@@ -934,6 +962,7 @@ export function createAgentAttentionTracker(
               codexLifecycle: null,
               contractAt: null,
               phaseFromContract: false,
+              interruptible: false,
               detail: null,
             }
           : {}),
@@ -1048,6 +1077,27 @@ export function createAgentAttentionTracker(
         }
       }
       return changed;
+    },
+
+    noteInterrupt(id) {
+      const prev = panes.get(id);
+      if (prev === undefined || !prev.isAgent) {
+        return null;
+      }
+      const asked =
+        prev.attention === "requested" && (prev.source === "hook" || prev.source === "server");
+      if (!asked && !(prev.interruptible && prev.phase === "working")) {
+        return null;
+      }
+      return commit(id, prev, {
+        ...prev,
+        phase: "idle",
+        phaseConfidence: "explicit",
+        phaseFromContract: true,
+        interruptible: false,
+        hasRun: false,
+        ...(asked ? { attention: "none", source: null, confidence: "explicit", detail: null } : {}),
+      });
     },
 
     acknowledge(id) {

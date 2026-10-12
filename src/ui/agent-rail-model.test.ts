@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RepositoryScan } from "../repositories/repository-client";
+import { createAgentAttentionTracker } from "../terminal/agent-attention";
 import type { PaneView, TabView } from "../terminal/tabs-store";
 import {
   buildAgentRail,
@@ -205,6 +206,26 @@ describe("buildAgentRail state mapping", () => {
     // mark carries the failure, the list does not move the row to carry it.
     expect(streamRows(view)).toHaveLength(1);
     expect(streamRows(view)[0].state).toBe("failed");
+  });
+});
+
+describe("paneSignal — an interrupted hook turn (INT1)", () => {
+  it("reads idle, not done, once the tracker has cleared the interrupted work", () => {
+    const tracker = createAgentAttentionTracker({ now: () => 1_000 });
+    tracker.noteProcess(1, "claude", true);
+    const hook = (kind: "working" | "completed") =>
+      tracker.noteContract(1, {
+        source: "hook",
+        kind,
+        sessionId: "s-1",
+        detail: null,
+        message: null,
+        observedAt: 2_000,
+      });
+    const working = hook("working")!;
+    expect(paneSignal(pane(1, working))).toEqual({ state: "working", confidence: "explicit" });
+    const interrupted = tracker.noteInterrupt(1)!;
+    expect(paneSignal(pane(1, interrupted))).toEqual({ state: "idle", confidence: "explicit" });
   });
 });
 

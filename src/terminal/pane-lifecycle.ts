@@ -63,6 +63,7 @@ export function createPaneLifecycle(deps: {
   onFocus: (id: number) => void;
   onUserInput?: (id: number) => void;
   onAttentionSignal?: (id: number, signal: PaneAttentionSignal) => void;
+  onInterruptKey?: (id: number) => void;
   /** Test seam — defaults to real createPane (xterm). */
   createPane?: CreatePaneFn;
 }): PaneLifecycle {
@@ -172,6 +173,9 @@ export function createPaneLifecycle(deps: {
     },
     onAttentionSignal(id, signal) {
       deps.onAttentionSignal?.(id, signal);
+    },
+    onInterruptKey(id) {
+      deps.onInterruptKey?.(id);
     },
   };
 

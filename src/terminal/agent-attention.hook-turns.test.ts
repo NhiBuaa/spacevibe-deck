@@ -136,3 +136,97 @@ describe("Claude turn hooks — a fresh hook phase outranks the heuristic", () =
     expect(tracker.snapshot(1)?.phaseConfidence).toBe("inferred");
   });
 });
+
+describe("Claude turn hooks — an interrupt key clears explicit work (INT1)", () => {
+  it("clears hook-backed working to idle with no run and no completion", () => {
+    const { tracker, send } = setup();
+    send("SessionStart");
+    send("UserPromptSubmit");
+    const snap = tracker.noteInterrupt(1);
+    expect(snap).toMatchObject({
+      phase: "idle",
+      phaseConfidence: "explicit",
+      hasRun: false,
+      attention: "none",
+      sessionId: "session-1",
+    });
+  });
+
+  it("clears a hook request, and a later working signal re-applies", () => {
+    const { tracker, send } = setup();
+    send("PermissionRequest", "Bash");
+    expect(tracker.noteInterrupt(1)).toMatchObject({
+      phase: "idle",
+      attention: "none",
+      source: null,
+      detail: null,
+      hasRun: false,
+    });
+    expect(send("PostToolUse", "Bash")).toMatchObject({ phase: "working", hasRun: true });
+  });
+
+  it("ignores working the heuristic inferred on a pane no hook has spoken for", () => {
+    const { tracker, heuristic } = setup();
+    heuristic("working");
+    expect(tracker.noteInterrupt(1)).toBeNull();
+    expect(tracker.snapshot(1)?.phase).toBe("working");
+  });
+
+  it("ignores a request the registry or the terminal raised", () => {
+    const { tracker } = setup();
+    tracker.noteRegistry(1, { sessionId: "session-1", waiting: true, detail: null });
+    expect(tracker.noteInterrupt(1)).toBeNull();
+    expect(tracker.snapshot(1)?.attention).toBe("requested");
+  });
+
+  it("keeps an error", () => {
+    const { tracker, send } = setup();
+    send("UserPromptSubmit");
+    send("StopFailure", "rate_limit");
+    send("PostToolUse", "Bash");
+    expect(tracker.snapshot(1)?.attention).toBe("error");
+    expect(tracker.noteInterrupt(1)).toMatchObject({ phase: "idle", attention: "error" });
+  });
+
+  it("still clears after an OSC 9;4 working replaced the hook's phase", () => {
+    const { tracker, send, advance } = setup();
+    send("UserPromptSubmit");
+    tracker.noteActivity(1, {
+      phase: "working",
+      source: "osc-progress",
+      severity: null,
+      oscState: 1,
+      observedAt: advance(1),
+    });
+    expect(tracker.noteInterrupt(1)).toMatchObject({ phase: "idle", hasRun: false });
+  });
+
+  it("does nothing after Stop, an error or a new session", () => {
+    const { tracker, send } = setup();
+    send("UserPromptSubmit");
+    send("Stop");
+    expect(tracker.noteInterrupt(1)).toBeNull();
+    send("UserPromptSubmit");
+    send("SessionStart");
+    expect(tracker.noteInterrupt(1)).toBeNull();
+    expect(tracker.snapshot(1)?.phase).toBe("working");
+  });
+
+  it("does nothing on a pane whose gate is closed, or after it already cleared", () => {
+    const { tracker, send } = setup();
+    expect(tracker.noteInterrupt(99)).toBeNull();
+    tracker.noteProcess(2, "zsh", false);
+    expect(tracker.noteInterrupt(2)).toBeNull();
+    send("UserPromptSubmit");
+    tracker.noteInterrupt(1);
+    expect(tracker.noteInterrupt(1)).toBeNull();
+  });
+
+  it("holds off the heuristic the way any fresh contract phase does", () => {
+    const { tracker, send, heuristic } = setup();
+    send("UserPromptSubmit");
+    tracker.noteInterrupt(1);
+    expect(heuristic("working")).toBeNull();
+    expect(tracker.snapshot(1)?.phase).toBe("idle");
+  });
+});
