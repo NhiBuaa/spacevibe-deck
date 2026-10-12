@@ -41,8 +41,10 @@ docs/plans/
 marketing/video/.frames/
 marketing/video/out/
 
-# Local agent configuration and worktree bookkeeping, per-machine.
-.claude/
+# Local agent configuration and worktree bookkeeping, per-machine. Project skills
+# under .claude/skills/ are shared and committed.
+.claude/*
+!.claude/skills/
 
 # Electron host build output + local run logs
 dist-electron/
