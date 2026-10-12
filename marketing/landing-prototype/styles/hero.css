@@ -150,24 +150,13 @@
     right: 0.6rem;
   }
 
-  /* appwin.css floors the rail's type at 7-8px on a phone; the beat plays in
-     the rail, so its rows have to stay readable. */
-  .hero-window :is(
-      .a-appwin__cardlabel,
-      .a-appwin__clustername,
-      .a-appwin__cardname,
-      .a-appwin__new
-    ) {
-    font-size: max(1.1cqw, 10px);
+  /* appwin-tree.css floors the rail's type at 7-8.5px; the beat plays in the
+     rail, so on a phone its rows have to stay readable. */
+  .hero-window :is(.a-tree__name, .a-tree__project, .a-tree__checkoutname) {
+    font-size: max(calc(12.5 * var(--u)), 10px);
   }
 
-  .hero-window :is(
-      .a-appwin__cardmeta,
-      .a-appwin__cardbadge,
-      .a-appwin__barebadge,
-      .a-appwin__cardcount,
-      .a-appwin__barename
-    ) {
-    font-size: max(0.9cqw, 9px);
+  .hero-window :is(.a-tree__sentence, .a-tree__count, .a-tree__panemsg) {
+    font-size: max(calc(11 * var(--u)), 9px);
   }
 }

@@ -8,12 +8,22 @@ marketing/
 └── cmd_e.py, stackgrid-cmd-e.*   legacy Manim explainer (superseded)
 ```
 
-## `stage/` — one app window, three surfaces
+## `stage/` — the app window, drawn
 
-The landing hero, the landing's scroll tour and the film all build their app
-window from `stage/appwin.js` + `stage/stage-data.js`. There is no second
-drawing of the UI to keep in sync: change the chrome once and every surface
-follows.
+The stage holds two generations of the window while the landing moves to the
+current app:
+
+- **Deck 2.10** — the landing hero draws the tree rail, the strip and pane
+  cards from [`stage/stage-tree.js`](./stage/stage-tree.js), styled by
+  [`appwin-tree.css`](./landing-prototype/styles/appwin-tree.css), over the
+  working-session fixture in
+  [`stage/working-session.js`](./stage/working-session.js).
+- **Deck 1.1 and older** — the scroll tour's panels and the film still build
+  theirs from [`stage/appwin.js`](./stage/appwin.js) +
+  [`stage/stage-data.js`](./stage/stage-data.js), until each is redrawn.
+
+When the app's chrome changes, the hero changes in `stage-tree.js`; the older
+surfaces drift until their own pass.
 
 `stage/brand.js` holds the product name and mark. The Stackgrid → Deck rename
 is one edit there, not a grep.

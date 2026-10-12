@@ -1,7 +1,6 @@
 /**
  * The hero's copy column, piece by piece: the release pill, the headline, one
- * install unit, the agent marks — plus the Pause control and the rail fixture
- * the product side stands on.
+ * install unit, the agent marks — plus the Pause control beside the window.
  *
  * The live hooks keep their names — `data-release-label`,
  * `data-copy="installMac"`, `data-download-proof`, the `data-install-*` set —
@@ -12,31 +11,7 @@ import { AGENT_MARKS, renderAgentMark } from "./agent-strip.js";
 import { RELEASES_URL, WINDOWS_FALLBACK_URL } from "./download-links.js";
 import { initialInstallPlatform } from "./install-command.js";
 import { renderAppleIcon, renderInstallIcon, renderWindowsIcon } from "./os-icons.js";
-import { stageRail } from "./product-stage.js";
 import { CHANGELOG_URL } from "./site-urls.js";
-
-/*
- * The hero's rail. Worktree colours are cut to the one cyan card: in the
- * hero's window a yellow or red checkout mark reads as `asked` or
- * `failed`, and the beat needs yellow to mean one thing. Closed cards hold
- * still (working/asked → done), so the only loops on screen are the beat's.
- */
-const RAIL_COLORS = { "spacevibe-deck/detach": "var(--sg-cyan)" };
-const LOOPING_STATES = new Set(["working", "asked"]);
-
-export const calmRail = stageRail.map((cluster) => ({
-  ...cluster,
-  checkouts: cluster.checkouts.map((checkout) => {
-    const color = RAIL_COLORS[`${cluster.project}/${checkout.name}`];
-    const panes = checkout.open
-      ? checkout.panes
-      : checkout.panes.map((pane) =>
-          LOOPING_STATES.has(pane.state) ? { ...pane, state: "done" } : pane,
-        );
-
-    return color ? { ...checkout, panes, color } : { ...checkout, panes };
-  }),
-}));
 
 export function renderReleasePill(copy) {
   return `

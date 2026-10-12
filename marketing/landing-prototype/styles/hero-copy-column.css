@@ -288,105 +288,35 @@
   display: none;
 }
 
-/* ---- The rail's live marks ---- */
+/* ---- The rail's live marks ----
+   The braille spinner itself is appwin-tree.css's: it is the app's mark. What
+   lives here is the landing's own emphasis on the beat. */
 
-/* The app's braille spinner replaces the three bars (f1fa8fb1). Ten stacked
-   frames, one shown at a time by opacity — reduced motion keeps the first. */
-.hero .a-appwin__cardload {
-  display: none;
-}
-
-.hero-braille {
-  display: none;
-  grid-area: 1 / 1;
-  place-items: center;
-  color: var(--sg-fg);
-  font: 600 max(1.3cqw, 10px) / 1 var(--a-font-mono);
-}
-
-.a-appwin__cardstatus[data-state="working"] > .hero-braille {
-  display: grid;
-}
-
-.hero-braille > i {
-  grid-area: 1 / 1;
-  font-style: normal;
-  opacity: 0;
-}
-
-.hero-braille > i:first-child {
-  opacity: 1;
-}
-
-/* Asked: the row takes a warm edge, the dot ripples. The one peripheral
+/* Asked: the row takes a warm edge, the badge ripples. The one peripheral
    motion on the page is the one that means "this needs you". */
-.hero .a-appwin__cardrow {
+.hero .a-tree__row {
   transition:
     background-color 240ms var(--hero-std),
     box-shadow 240ms var(--hero-std);
 }
 
-.hero .a-appwin__cardrow:has(> .a-appwin__cardstatus[data-state="asked"]) {
+.hero .a-tree__row:has(.a-tree__dot[data-state="asked"]) {
+  --tree-ground: color-mix(in srgb, var(--sg-yellow) 10%, var(--sg-rail));
   background: color-mix(in srgb, var(--sg-yellow) 10%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sg-yellow) 46%, transparent);
 }
 
-.hero .a-appwin__cardstatus[data-state="asked"] > .a-appwin__carddot {
-  position: relative;
-}
-
-.hero .a-appwin__cardrow.is-answered {
+.hero .a-tree__row.is-answered {
   animation: hero-answered 700ms var(--hero-std);
 }
 
 /* Only the focused pane's cursor blinks, as in xterm. */
-.hero .a-appwin__pane:not(.is-focused) .a-appwin__cursor {
+.hero .a-tree__pane:not(.is-focused) .a-appwin__cursor {
   animation: none;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .hero-braille > i {
-    opacity: 0;
-    animation: hero-braille 800ms steps(1, end) infinite;
-  }
-
-  .hero-braille > i:nth-child(2) {
-    animation-delay: 80ms;
-  }
-
-  .hero-braille > i:nth-child(3) {
-    animation-delay: 160ms;
-  }
-
-  .hero-braille > i:nth-child(4) {
-    animation-delay: 240ms;
-  }
-
-  .hero-braille > i:nth-child(5) {
-    animation-delay: 320ms;
-  }
-
-  .hero-braille > i:nth-child(6) {
-    animation-delay: 400ms;
-  }
-
-  .hero-braille > i:nth-child(7) {
-    animation-delay: 480ms;
-  }
-
-  .hero-braille > i:nth-child(8) {
-    animation-delay: 560ms;
-  }
-
-  .hero-braille > i:nth-child(9) {
-    animation-delay: 640ms;
-  }
-
-  .hero-braille > i:nth-child(10) {
-    animation-delay: 720ms;
-  }
-
-  .hero .a-appwin__cardstatus[data-state="asked"] > .a-appwin__carddot::after {
+  .hero .a-tree__dot[data-state="asked"]::after {
     position: absolute;
     inset: 0;
     border-radius: 50%;
@@ -416,26 +346,13 @@
   /* Off screen, in a hidden tab or paused: every loop holds its frame. Each
      selector out-ranks the one that declares its `animation` shorthand, which
      would otherwise reset the play state to running. */
-  .hero[data-motion="off"] .hero-braille > i,
-  .hero[data-motion="off"]
-    .a-appwin__cardstatus[data-state="asked"]
-    > .a-appwin__carddot::after,
+  .hero[data-motion="off"] .a-tree__dot[data-state="asked"]::after,
   .hero[data-motion="off"] .a-appwin__cursor,
   .hero[data-motion="off"] .a-appwin__spinner {
     animation-play-state: paused;
   }
 }
 
-@keyframes hero-braille {
-  0% {
-    opacity: 1;
-  }
-
-  10%,
-  100% {
-    opacity: 0;
-  }
-}
 
 @keyframes hero-ripple {
   from {

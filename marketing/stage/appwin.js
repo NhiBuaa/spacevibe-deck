@@ -274,7 +274,7 @@ function monogramLetter(agent) {
  * @param {string} agent agent id, as `stageRail` and `stageStrip` spell it
  * @param {string} className the caller's base class, carried by both branches
  */
-function renderStageAgentMark(agent, className) {
+export function renderStageAgentMark(agent, className) {
   const src = AGENT_MARK_SRC[agent];
   if (src === undefined) {
     return `<span class="${className} ${className}--mono">${monogramLetter(agent)}</span>`;
