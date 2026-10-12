@@ -34,13 +34,6 @@
  * - `Failed`            → error, with the capped message as its detail
  * - `PermissionRequest` → requested; `PermissionReplied` → the ask was answered
  * - `SessionEnd`        → nothing
- *
- * opencode (its server's events, `source: "server"`):
- * - `session.status` (busy/retry) → working; (idle) → completed
- * - `session.idle`                → completed
- * - `session.error`               → error
- * - `permission.asked` / `.v2.`   → requested
- * - `permission.replied` / `.v2.` → the ask was answered
  */
 
 export type ContractKind =
@@ -50,7 +43,7 @@ export type ContractKind =
 export interface HookEvent {
   readonly turnId?: string;
   readonly paneId: number;
-  readonly source: "hook" | "server";
+  readonly source: "hook";
   readonly agent: string;
   readonly event: string;
   readonly sessionId: string;
@@ -64,7 +57,7 @@ export interface HookEvent {
 export interface ContractSignal {
   readonly agent?: string;
   readonly turnId?: string;
-  readonly source: "hook" | "server";
+  readonly source: "hook";
   readonly kind: ContractKind;
   readonly sessionId: string;
   readonly detail: string | null;
@@ -115,7 +108,7 @@ function codexKind(event: HookEvent): ContractKind | null {
   }
 }
 
-function opencodeHookKind(event: HookEvent): ContractKind | null {
+function opencodeKind(event: HookEvent): ContractKind | null {
   switch (event.event) {
     case "SessionStart":
       return "session";
@@ -134,27 +127,6 @@ function opencodeHookKind(event: HookEvent): ContractKind | null {
   }
 }
 
-function opencodeKind(event: HookEvent): ContractKind | null {
-  switch (event.event) {
-    case "session.status":
-      // The client emits `session.status` only for busy/retry — idle comes as
-      // `session.idle` — but the map states the rule rather than trusting it.
-      return event.detail === "idle" ? "completed" : "working";
-    case "session.idle":
-      return "completed";
-    case "session.error":
-      return "error";
-    case "permission.asked":
-    case "permission.v2.asked":
-      return "requested";
-    case "permission.replied":
-    case "permission.v2.replied":
-      return "answered";
-    default:
-      return null;
-  }
-}
-
 /** The signal an event carries, or null for an event that is not a state. */
 export function contractSignalOf(event: HookEvent): ContractSignal | null {
   const kind =
@@ -163,10 +135,8 @@ export function contractSignalOf(event: HookEvent): ContractSignal | null {
       : event.source === "hook" && event.agent === "codex"
         ? codexKind(event)
         : event.source === "hook" && event.agent === "opencode"
-          ? opencodeHookKind(event)
-          : event.source === "server" && event.agent === "opencode"
-            ? opencodeKind(event)
-            : null;
+          ? opencodeKind(event)
+          : null;
   if (kind === null) {
     return null;
   }
@@ -190,7 +160,7 @@ export function contractSignalOf(event: HookEvent): ContractSignal | null {
         : null;
   return {
     ...(event.agent === "codex" ? { agent: "codex", turnId: event.turnId } : {}),
-    ...(event.agent === "opencode" && event.source === "hook" ? { agent: "opencode" } : {}),
+    ...(event.agent === "opencode" ? { agent: "opencode" } : {}),
     source: event.source,
     kind,
     sessionId: event.sessionId,
@@ -212,7 +182,7 @@ export function parseHookEvent(raw: unknown): HookEvent | null {
     typeof node.paneId !== "number" ||
     !Number.isSafeInteger(node.paneId) ||
     node.paneId <= 0 ||
-    (node.source !== "hook" && node.source !== "server") ||
+    node.source !== "hook" ||
     typeof node.agent !== "string" ||
     typeof node.event !== "string" ||
     typeof node.sessionId !== "string" ||

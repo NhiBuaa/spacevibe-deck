@@ -231,33 +231,35 @@ describe("explicit agent launch target", () => {
   it.each(["committed", "aborted"] as const)(
     "reports a cancelled command when delayed preparation overlaps a %s transfer",
     async (kind) => {
-      detectedAgents.value = [{ name: "opencode", path: "/bin/opencode" }];
+      // A Codex launch re-reads the launch config before it arms, which is the slow preparation.
+      detectedAgents.value = [{ name: "codex", path: "/bin/codex" }];
       settings.value = {
         ...DEFAULT_SETTINGS,
-        agentSignalAdapters: { ...DEFAULT_SETTINGS.agentSignalAdapters, opencode: true },
+        agentSignalAdapters: { ...DEFAULT_SETTINGS.agentSignalAdapters, codex: true },
       };
       const pty = createMemoryPtyClient({ nextId: 1 });
       const transfer = createMemoryTransferClient();
-      let release!: (port: number) => void;
+      let hold = false;
+      let release!: () => void;
       const { tm } = wire(pty, {
         transfer,
-        signalConfig: async () => ({
-          claudeSettingsPath: "/settings",
-          hookPort: 1,
-          hooksSupported: true,
-          shellBootstrap: false,
-          codexBypassHookTrust: false,
-          codexNoDaemon: false,
-        }),
-        opencodeAttach: () =>
-          new Promise<number>((done) => {
-            release = done;
-          }),
+        signalConfig: async () => {
+          if (hold) await new Promise<void>((done) => (release = done));
+          return {
+            claudeSettingsPath: "/settings",
+            hookPort: 1,
+            hooksSupported: true,
+            shellBootstrap: false,
+            codexBypassHookTrust: false,
+            codexNoDaemon: false,
+          };
+        },
       });
       await tm.openQuickAgent(null, "/other");
+      hold = true;
       const result = await tm.launchAgentAtTarget(
         tm.captureAgentLaunchTarget("/repo")!,
-        "opencode",
+        "codex",
         () => true,
       );
       expect(result.kind).toBe("spawned");
@@ -265,7 +267,7 @@ describe("explicit agent launch target", () => {
       tm.focusAgentLaunch(result.receipt);
       const moving = tm.movePaneToNewWindow();
       await vi.waitFor(() => expect(transfer.calls).toContain("await:xfer-1"));
-      release(45123);
+      release();
       await vi.advanceTimersByTimeAsync(0);
       expect(persistError.value).toContain("agent did not start");
       transfer.settle(
@@ -349,38 +351,33 @@ describe("explicit agent launch target", () => {
     tm.dispose();
   });
 
-  it("does not arm an OpenCode command after disposal during adapter preparation", async () => {
-    detectedAgents.value = [{ name: "opencode", path: "/bin/opencode" }];
+  it("does not arm a Codex command after disposal during adapter preparation", async () => {
+    detectedAgents.value = [{ name: "codex", path: "/bin/codex" }];
     settings.value = {
       ...DEFAULT_SETTINGS,
-      agentSignalAdapters: { ...DEFAULT_SETTINGS.agentSignalAdapters, opencode: true },
+      agentSignalAdapters: { ...DEFAULT_SETTINGS.agentSignalAdapters, codex: true },
     };
     const pty = createMemoryPtyClient({ nextId: 1 });
-    let release!: (port: number) => void;
-    const attach = vi.fn(
-      () =>
-        new Promise<number>((done) => {
-          release = done;
-        }),
-    );
-    const { tm } = wire(pty, {
-      signalConfig: async () => ({
+    let release!: () => void;
+    const fetchConfig = vi.fn(async () => {
+      await new Promise<void>((done) => (release = done));
+      return {
         claudeSettingsPath: "/settings",
         hookPort: 1,
         hooksSupported: true,
         shellBootstrap: false,
         codexBypassHookTrust: false,
         codexNoDaemon: false,
-      }),
-      opencodeAttach: attach,
+      };
     });
+    const { tm } = wire(pty, { signalConfig: fetchConfig });
     expect(
-      (await tm.launchAgentAtTarget(tm.captureAgentLaunchTarget("/repo")!, "opencode", () => true))
+      (await tm.launchAgentAtTarget(tm.captureAgentLaunchTarget("/repo")!, "codex", () => true))
         .kind,
     ).toBe("spawned");
-    expect(attach).toHaveBeenCalledOnce();
+    expect(fetchConfig).toHaveBeenCalledOnce();
     tm.dispose();
-    release(45123);
+    release();
     await vi.advanceTimersByTimeAsync(3000);
     expect(pty.writes).toEqual([]);
   });

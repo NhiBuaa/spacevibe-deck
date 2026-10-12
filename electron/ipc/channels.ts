@@ -58,12 +58,10 @@ export const CHANNELS = {
   // Electron-only, like the block above.
   agentRegistry: "agent_registry",
   // Stage 2 of the same layer: the launch config a pane's command is
-  // augmented with (`--settings` file, hook port), and opencode's per-pane
-  // server attachment (`{ paneId }` → `{ port }`). Electron-only, like the
+  // augmented with (`--settings` file, hook port). Electron-only, like the
   // block above; the hook endpoint itself is loopback HTTP, not IPC, and its
   // accepted posts arrive as the `hook:event` push below.
   agentSignalConfig: "agent_signal_config",
-  opencodeAttach: "opencode_attach",
   // Window label accessor, for the same restore work: no renderer accessor
   // existed before this (main derived it per-request via `labelOf(event)`
   // only). Electron-only, like the block above.
@@ -223,7 +221,7 @@ export const EVENTS = {
   // choices dismiss the row across every window). Carries consent state only —
   // never a daily id.
   telemetryState: "telemetry:state-changed",
-  // One accepted hook post or opencode server event, delivered to the window
+  // One accepted hook post, delivered to the window
   // that owns the pane (agent-signal contract layer, stage 2). Flat keys —
   // `electron/agent-hooks/hook-server.ts`'s `HookEventPayload`.
   hookEvent: "hook:event",

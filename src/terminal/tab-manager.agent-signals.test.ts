@@ -22,9 +22,8 @@ const UUID = /^[0-9a-f-]{36}$/;
 
 type HookHandler = (event: HookEvent) => void;
 
-function harness(infoByPane: Map<number, PaneProcessInfo>, over: { attach?: number | null } = {}) {
+function harness(infoByPane: Map<number, PaneProcessInfo>) {
   let handler: HookHandler | null = null;
-  const opencodeAttach = vi.fn(async () => over.attach ?? 45123);
   const { tm, pty } = setupControllable(infoByPane, {
     signalConfig: async () => ({
       claudeSettingsPath: SETTINGS_PATH,
@@ -34,7 +33,6 @@ function harness(infoByPane: Map<number, PaneProcessInfo>, over: { attach?: numb
       codexBypassHookTrust: false,
       codexNoDaemon: false,
     }),
-    opencodeAttach,
     hookEvents: async (next) => {
       handler = next;
       return () => {
@@ -45,7 +43,6 @@ function harness(infoByPane: Map<number, PaneProcessInfo>, over: { attach?: numb
   return {
     tm,
     pty,
-    opencodeAttach,
     emitHook(event: HookEvent) {
       handler?.(event);
     },
@@ -200,12 +197,12 @@ describe("createTabManager — arm-time augmentation (stage 2)", () => {
     }
   });
 
-  it("reattaches an opencode port on Restart", async () => {
+  it("restarts opencode with the user's command, adding no port", async () => {
     signalsOn("opencode");
     const infos = new Map<number, PaneProcessInfo>([
       [1, processInfo(1, "/repo", "opencode", "agent", "opencode")],
     ]);
-    const { tm, pty, opencodeAttach } = harness(infos);
+    const { tm, pty } = harness(infos);
     try {
       await tm.init();
       await tm.materialize({ layout: null, cwds: ["/repo"], agent: "opencode" });
@@ -214,11 +211,8 @@ describe("createTabManager — arm-time augmentation (stage 2)", () => {
       await vi.advanceTimersByTimeAsync(2000);
       infos.set(1, processInfo(1, "/repo", "zsh", "idle-shell", null));
       await vi.advanceTimersByTimeAsync(2000);
-      opencodeAttach.mockClear();
       await expect(tm.restartPane(1)).resolves.toBe(true);
-      expect(opencodeAttach).toHaveBeenCalledWith(1);
-      expect(pty.writes.at(-1)?.data).toContain("--port 45123");
-      expect(pty.writes.at(-1)?.data).toBe("opencode -c --port 45123\r");
+      expect(pty.writes.at(-1)?.data).toBe("opencode -c\r");
     } finally {
       tm.dispose();
     }
@@ -230,7 +224,7 @@ describe("createTabManager — arm-time augmentation (stage 2)", () => {
   for (const [agent, launchCommand, codexOff] of [
     ["claude", "claude --dangerously-skip-permissions", false],
     ["codex", "codex --full-auto", true],
-    ["opencode", "opencode", true],
+    ["opencode", "opencode", false],
   ] as const) {
     it(`types the user's ${agent} command unchanged ${codexOff ? "while its Signals are off" : "with the shipped defaults"}`, async () => {
       if (codexOff) {
@@ -242,7 +236,7 @@ describe("createTabManager — arm-time augmentation (stage 2)", () => {
       const infoByPane = new Map<number, PaneProcessInfo>([
         [1, processInfo(1, "/repo", agent, "agent", agent)],
       ]);
-      const { tm, pty, opencodeAttach } = harness(infoByPane);
+      const { tm, pty } = harness(infoByPane);
       await tm.init();
       await tm.materialize({
         layout: null,
@@ -256,7 +250,6 @@ describe("createTabManager — arm-time augmentation (stage 2)", () => {
       await vi.advanceTimersByTimeAsync(0);
 
       expect(pty.writes.find((write) => write.id === 1)?.data).toBe(`${launchCommand}\r`);
-      expect(opencodeAttach).not.toHaveBeenCalled();
       tm.dispose();
     });
   }
@@ -300,28 +293,6 @@ describe("createTabManager — arm-time augmentation (stage 2)", () => {
     } finally {
       tm.dispose();
     }
-  });
-
-  it("asks main for a port before typing opencode, and appends it", async () => {
-    signalsOn("opencode");
-    const infoByPane = new Map<number, PaneProcessInfo>([
-      [1, processInfo(1, "/repo", "opencode", "agent", "opencode")],
-    ]);
-    const { tm, pty, opencodeAttach } = harness(infoByPane, { attach: 45777 });
-    await tm.init();
-    await tm.materialize({
-      layout: null,
-      cwds: ["/repo"],
-      workspacePath: "/repo",
-      agent: "opencode",
-      launchCommand: "opencode",
-    });
-    await vi.advanceTimersByTimeAsync(0);
-    pty.emitOutput(1, "$ ");
-    await vi.advanceTimersByTimeAsync(0);
-    expect(opencodeAttach).toHaveBeenCalledWith(1);
-    expect(pty.writes.find((write) => write.id === 1)?.data).toBe("opencode --port 45777\r");
-    tm.dispose();
   });
 
   it("appends codex's notification flag, and nothing when the adapter is off", async () => {

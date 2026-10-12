@@ -66,7 +66,6 @@ import { registerDevServers } from "./ipc/register-dev-servers";
 import { registerChanges } from "./ipc/register-changes";
 import { registerAgentSignals } from "./ipc/register-agent-signals";
 import { createHookServer } from "./agent-hooks/hook-server";
-import { createOpencodeClients } from "./agent-hooks/opencode-client";
 import { createClaudeIntegration } from "./agent-hooks/claude-integration";
 import { provisionAgentShell } from "./agent-shell/provision";
 import { bootstrapLaunch, type AgentShellPaths } from "./agent-shell/shell-bootstrap";
@@ -154,9 +153,9 @@ const browserPanels = new BrowserPanels({
 
 // ---------------------------------------------- Agent-signal contract layer
 // Stage 2 (`docs/internals/terminal.md`):
-// a loopback endpoint the CLI hooks Deck installs post to, and one opencode
-// subscription per pane. Both deliver through the coordinator, so an event
-// reaches the window that owns the pane and no other. Created BEFORE the PTY
+// a loopback endpoint the CLI hooks and Deck's opencode plugin post to. It
+// delivers through the coordinator, so an event reaches the window that owns
+// the pane and no other. Created BEFORE the PTY
 // manager because every shell learns the endpoint's port at spawn.
 const hookServer = createHookServer({
   tokenFor: (paneId) => pty.hookTokenOf(paneId),
@@ -172,9 +171,6 @@ const hookServer = createHookServer({
     if (enabled) coordinator.deliver(paneId, EVENTS.hookEvent, payload);
   },
 });
-const opencodeClients = createOpencodeClients({
-  emitToOwner: (paneId, payload) => coordinator.deliver(paneId, EVENTS.hookEvent, payload),
-});
 const claudeIntegration = createClaudeIntegration({ userData: app.getPath("userData") });
 const codexIntegration = createCodexIntegration({ userData: app.getPath("userData") });
 const opencodeIntegration = createOpencodeIntegration({ userData: app.getPath("userData") });
@@ -188,8 +184,8 @@ const codexCapabilities = createCodexCapabilities();
 let probedWithCodexSignals: boolean | null = null;
 
 /**
- * Register or remove both hook sets, and follow the opencode switch. Codex is re-probed at boot and whenever its switch
- * flips, without holding the caller up: discovery starts a login shell.
+ * Register or remove both hook sets, and follow the opencode switch. Codex is re-probed at boot
+ * and whenever its switch flips, without holding the caller up: discovery starts a login shell.
  */
 async function syncAgentIntegrations(settings: unknown): Promise<void> {
   const codexOn = codexSignalsEnabled(settings);
@@ -209,9 +205,8 @@ const pty = new PtyManager({
   register: (paneId, label) => coordinator.register(paneId, label),
   unregister: (paneId) => {
     coordinator.unregister(paneId);
-    // A pane's generation and its opencode subscription die with its PTY.
+    // A pane's generation dies with its PTY.
     hookServer.forgetPane(paneId);
-    opencodeClients.detach(paneId);
   },
   assertOwner: (paneId, label) => coordinator.assertAccess(paneId, label),
   hookPort: () => hookServer.port(),
@@ -468,9 +463,6 @@ registerAgentSignals({
       codexNoDaemon: codex.noDaemon,
     };
   },
-  opencode: opencodeClients,
-  assertOwner: (paneId, label) => coordinator.assertAccess(paneId, label),
-  labelOf,
 });
 
 // ------------------------------------------------- Dev server discovery

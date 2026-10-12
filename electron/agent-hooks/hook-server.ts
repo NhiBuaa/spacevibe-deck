@@ -27,8 +27,7 @@ import {
 export interface HookEventPayload {
   readonly turnId?: string;
   readonly paneId: number;
-  /** `hook` for a CLI hook post, `server` for opencode's own event stream. */
-  readonly source: "hook" | "server";
+  readonly source: "hook";
   readonly agent: string;
   readonly event: string;
   readonly sessionId: string;

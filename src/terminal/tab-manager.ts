@@ -47,14 +47,13 @@ import { countAgentLaunch } from "../telemetry/usage-counters";
 import { createAgentRegistrySync } from "./agent-registry-sync";
 import { agentRegistry as fetchAgentRegistry } from "../host/agent-registry-host";
 import { UNAVAILABLE_REGISTRY } from "../lib/agent-registry";
-import { augmentLaunchCommand, needsOpencodePort } from "../lib/launch-augment";
+import { augmentLaunchCommand } from "../lib/launch-augment";
 import { commandAgentId } from "../lib/launch-profile";
 import {
   agentSignalConfig as fetchSignalConfig,
   available as signalsHostAvailable,
   listenHookEvents as listenHostHookEvents,
   NO_SIGNAL_CONFIG,
-  opencodeAttach as hostOpencodeAttach,
 } from "../host/agent-signals-host";
 import { contractSignalOf, type HookEvent } from "../lib/agent-signal-map";
 import { lastSessionIdFor, noteExplicitTail } from "./session-tail-store";
@@ -362,8 +361,6 @@ export function createTabManager(
   // cannot (Tauri, the browser preview), and `null` disables that half.
   let signalConfig = NO_SIGNAL_CONFIG;
   const signalConfigFetch = deps.signalConfig === undefined ? fetchSignalConfig : deps.signalConfig;
-  const opencodeAttach =
-    deps.opencodeAttach === undefined ? hostOpencodeAttach : deps.opencodeAttach;
   const hookEventsListen = deps.hookEvents === undefined ? listenHostHookEvents : deps.hookEvents;
   // Stages 1–3 are Electron-only (spec §8): a host with no `agent_signal_config`
   // — Tauri, the browser preview, the test harness — arms the user's command
@@ -376,7 +373,7 @@ export function createTabManager(
    * its CLI report to Deck (spec §4 stage 2; `launch-augment.ts`). The user's
    * own command is what `launchCommandByPane` and the journal hold — the
    * augmented string exists only here and in the shell it is typed into.
-   * An opencode pane asks main for a port first. Claude obtains its session
+   * Claude obtains its session
    * identity from SessionStart or the registry, including manual launches.
    */
   async function prepareLaunch({ id, command }: AgentLaunchEntry): Promise<AgentLaunchEntry> {
@@ -385,10 +382,6 @@ export function createTabManager(
     const platform = environment.platform;
     if (command === null) {
       return { id, command: null };
-    }
-    let opencodePort: number | null = null;
-    if (opencodeAttach !== null && needsOpencodePort(command, adapters)) {
-      opencodePort = await opencodeAttach(id).catch(() => null);
     }
     // What the installed Codex accepts can change while Deck runs (an upgrade, or
     // the switch flipping, which makes main re-probe), so a Codex launch asks again
@@ -401,7 +394,6 @@ export function createTabManager(
       platform,
       claudeSettingsPath: signalConfig.claudeSettingsPath,
       sessionId: null,
-      opencodePort,
       hooksSupported: signalConfig.hooksSupported,
       shellBootstrap: signalConfig.shellBootstrap,
       codexBypassHookTrust: signalConfig.codexBypassHookTrust,
@@ -428,7 +420,7 @@ export function createTabManager(
   }
 
   /**
-   * One accepted hook post or server event for a pane of this window. The
+   * One accepted hook post for a pane of this window. The
    * map decides what it means; the tracker decides whether it applies (gate
    * and generation); a `Stop`'s sentence goes straight to the tail store.
    */
@@ -3488,7 +3480,7 @@ export function createTabManager(
         }
       }),
     );
-    // Stage 2: the launch config, then the hook/server events. The config is
+    // Stage 2: the launch config, then the hook events. The config is
     // awaited so the first launch after boot is augmented; the subscription
     // is registered like every other host listener.
     if (signalConfigFetch !== null) {

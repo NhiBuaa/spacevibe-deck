@@ -18,10 +18,6 @@ function claude(event: string, over: Partial<HookEvent> = {}): HookEvent {
   };
 }
 
-function opencode(event: string, over: Partial<HookEvent> = {}): HookEvent {
-  return claude(event, { source: "server", agent: "opencode", sessionId: "ses_abc", ...over });
-}
-
 describe("contractSignalOf — claude hooks", () => {
   it("Stop is a completion carrying the sentence", () => {
     expect(contractSignalOf(claude("Stop", { message: "Suite is green." }))).toEqual({
@@ -82,7 +78,6 @@ describe("contractSignalOf — claude hooks", () => {
 
   it("a hook from an agent the map does not know says nothing", () => {
     expect(contractSignalOf(claude("Stop", { agent: "codex" }))).toBeNull();
-    expect(contractSignalOf(claude("Stop", { source: "server" }))).toBeNull();
   });
 });
 
@@ -146,33 +141,6 @@ describe("contractSignalOf — opencode plugin", () => {
   });
 });
 
-describe("contractSignalOf — opencode server", () => {
-  it("maps status, idle, error and both permission spellings", () => {
-    expect(contractSignalOf(opencode("session.status"))?.kind).toBe("working");
-    expect(contractSignalOf(opencode("session.status", { detail: "idle" }))?.kind).toBe(
-      "completed",
-    );
-    expect(contractSignalOf(opencode("session.idle"))?.kind).toBe("completed");
-    expect(
-      contractSignalOf(opencode("session.error", { detail: "ProviderAuthError" })),
-    ).toMatchObject({
-      kind: "error",
-      detail: "ProviderAuthError",
-    });
-    expect(contractSignalOf(opencode("permission.asked", { detail: "bash" }))).toMatchObject({
-      kind: "requested",
-      detail: "permission — bash",
-    });
-    expect(contractSignalOf(opencode("permission.v2.asked"))).toMatchObject({
-      kind: "requested",
-      detail: "permission",
-    });
-    expect(contractSignalOf(opencode("permission.replied"))?.kind).toBe("answered");
-    expect(contractSignalOf(opencode("permission.v2.replied"))?.kind).toBe("answered");
-    expect(contractSignalOf(opencode("message.updated"))).toBeNull();
-  });
-});
-
 describe("parseHookEvent", () => {
   it("accepts the flat wire shape and refuses anything else", () => {
     const wire = {
@@ -189,6 +157,8 @@ describe("parseHookEvent", () => {
     expect(parseHookEvent(wire)).toEqual({ ...wire, detail: null });
     expect(parseHookEvent({ ...wire, paneId: "7" })).toBeNull();
     expect(parseHookEvent({ ...wire, source: "other" })).toBeNull();
+    // opencode's server stream is gone: nothing produces this source any more.
+    expect(parseHookEvent({ ...wire, source: "server" })).toBeNull();
     expect(parseHookEvent({ ...wire, sessionId: "../x" })).toBeNull();
     expect(parseHookEvent(null)).toBeNull();
     expect(parseHookEvent({ ...wire, message: "", receivedAt: "x" })).toMatchObject({

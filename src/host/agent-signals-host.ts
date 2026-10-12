@@ -1,7 +1,6 @@
 /**
  * Renderer facade for the agent-signal contract layer's stage-2 channels:
- * the launch config (`agent_signal_config`), opencode's per-pane attachment
- * (`opencode_attach`) and the `hook:event` push. Electron-only, like
+ * the launch config (`agent_signal_config`) and the `hook:event` push. Electron-only, like
  * `agent-registry-host.ts`: `available` is the same host-presence check, and
  * every function degrades to "no adapter" where the host cannot answer, so a
  * Tauri or browser-preview launch is typed exactly as before.
@@ -79,22 +78,7 @@ export async function agentSignalConfig(): Promise<AgentSignalConfig> {
   }
 }
 
-/** Reserve a port for an opencode pane and subscribe main to it; null when the host cannot. */
-export async function opencodeAttach(paneId: number): Promise<number | null> {
-  if (!available) {
-    return null;
-  }
-  try {
-    const raw = await invoke<unknown>("opencode_attach", { paneId });
-    const port = (raw as { port?: unknown } | null)?.port;
-    return typeof port === "number" && Number.isSafeInteger(port) && port > 0 ? port : null;
-  } catch (error) {
-    console.warn("opencode_attach failed:", error);
-    return null;
-  }
-}
-
-/** Subscribe to accepted hook posts and server events for this window's panes. */
+/** Subscribe to accepted hook posts for this window's panes. */
 export async function listenHookEvents(handler: (event: HookEvent) => void): Promise<UnlistenFn> {
   if (!available) {
     return () => {};

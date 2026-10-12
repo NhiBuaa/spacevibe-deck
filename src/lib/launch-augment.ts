@@ -25,8 +25,8 @@
  *   command (`agents`, `app-server`, `remote-control`, `--remote`) is launched
  *   with the pane's `DECK_*` credentials emptied, so the shared daemon never
  *   keeps them.
- * - **opencode** — `--port <n>` with the port main reserved for the pane, so
- *   its server can be subscribed to.
+ * - **opencode** — nothing: Deck's plugin loads through the wrapper's
+ *   `OPENCODE_CONFIG_DIR`, never through the typed command.
  *
  * A flag the user already typed is never doubled (spec §6): Deck's addition
  * is skipped and the row stays inferred for that half. Typed VISIBLY
@@ -48,8 +48,6 @@ export interface AugmentContext {
   readonly claudeSettingsPath: string | null;
   /** A uuid minted for a fresh Claude launch, or null to leave the id to Claude. */
   readonly sessionId: string | null;
-  /** The port main reserved for an opencode pane, or null. */
-  readonly opencodePort: number | null;
   /** The host registers hooks at all (false on Windows). */
   readonly hooksSupported: boolean;
   /** Pane shells start through Deck's bootstrap, so the agent wrappers run. */
@@ -73,11 +71,6 @@ export function shellQuote(value: string): string {
 
 function tokens(command: string): string[] {
   return command.trim().split(/\s+/).filter(Boolean);
-}
-
-/** Whether `flag` (or `flag=…`) appears as its own argument. */
-function hasFlag(command: string, flag: string): boolean {
-  return tokens(command).some((token) => token === flag || token.startsWith(`${flag}=`));
 }
 
 /** Whether a `-c key=value` / `--config key=value` pair for `key` was typed. */
@@ -143,19 +136,10 @@ export function augmentLaunchCommand(command: string, context: AugmentContext): 
         extra.push("-c", "tui.notification_condition=always");
       }
     }
-  } else if (agent === "opencode" && context.adapters.opencode) {
-    if (context.opencodePort !== null && !hasFlag(command, "--port")) {
-      extra.push("--port", String(context.opencodePort));
-    }
   }
 
   return {
     command: extra.length === 0 ? command : `${command.trim()} ${extra.join(" ")}`,
     sessionId,
   };
-}
-
-/** Which agents a launch would ASK main for something before arming. */
-export function needsOpencodePort(command: string, adapters: SignalAdapters): boolean {
-  return commandAgentId(command) === "opencode" && adapters.opencode && !hasFlag(command, "--port");
 }

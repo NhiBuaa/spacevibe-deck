@@ -36,8 +36,8 @@ export type AttentionKind = "none" | "completed" | "requested" | "warning" | "er
 /**
  * What produced the current attention.
  *
- * `registry`, `hook` and `server` are the contract-layer sources (spec §5):
- * `claude agents --json`, a per-pane hook post, and opencode's own server.
+ * `registry` and `hook` are the contract-layer sources (spec §5): `claude agents --json`
+ * and a per-pane post from a CLI hook or Deck's opencode plugin.
  */
 export type AttentionSource =
   | "osc-progress"
@@ -46,8 +46,7 @@ export type AttentionSource =
   | "output-heuristic"
   | "process"
   | "registry"
-  | "hook"
-  | "server";
+  | "hook";
 
 /**
  * How much a state is to be trusted. `explicit` is a signal the CLI documents
@@ -87,7 +86,7 @@ export interface PaneAttentionSnapshot {
   agentLabel: string | null;
   /**
    * The session this pane's agent is running, as a FACT — from the Claude
-   * registry (stage 1) or, later, a hook or server — never from a transcript
+   * registry (stage 1) or, later, a hook — never from a transcript
    * mtime. Null until a contract-layer source says so; reset with the gate,
    * since a session cannot outlive the process that ran it.
    */
@@ -95,7 +94,7 @@ export interface PaneAttentionSnapshot {
   /**
    * What the agent is waiting on, when a contract-layer source says it is
    * (`permission prompt`, `input needed`, …) — the accessible name's detail.
-   * Null whenever `attention` is not a registry/hook/server `requested`.
+   * Null whenever `attention` is not a registry/hook `requested`.
    */
   detail: string | null;
   /** Per-pane unread, independent of the legacy tab-level unread. */
@@ -143,7 +142,7 @@ export interface RegistryFact {
 export interface ContractSignal {
   readonly agent?: string;
   readonly turnId?: string;
-  readonly source: "hook" | "server";
+  readonly source: "hook";
   readonly kind:
     "session" | "working" | "completed" | "requested" | "answered" | "error" | "interrupted";
   readonly sessionId: string;
@@ -226,12 +225,11 @@ export interface AgentAttentionTracker {
     sessionId: string | null,
   ): PaneAttentionSnapshot | null;
   /**
-   * A CLI's own event for this pane, over a channel it documents — a Claude
-   * hook post or opencode's server stream (stage 2). Every kind is explicit.
-   * Gated like every other input, and generation-checked: a hook post naming
-   * a session other than the pane's current one is a previous occupant's and
-   * is dropped (stage 3). A server event may name a NEW session — one opencode
-   * TUI runs several — and rotates the pane's session instead.
+   * A CLI's own event for this pane — a hook post, or one from Deck's opencode
+   * plugin (stage 2). Every kind is explicit. Gated like every other input, and
+   * generation-checked: a post naming a session other than the pane's current
+   * one is a previous occupant's and is dropped (stage 3). opencode's plugin
+   * announces a new root session with a `session` signal before its first state.
    */
   noteContract(id: number, signal: ContractSignal): PaneAttentionSnapshot | null;
   /**
@@ -1007,11 +1005,8 @@ export function createAgentAttentionTracker(
       }
       // Generation check (stage 3): a hook post is bound to ONE process, so a
       // session other than the pane's current one belongs to a previous
-      // occupant — unless nothing has named the current one yet. A server
-      // event is bound to a PORT, and one opencode TUI runs several sessions,
-      // so it rotates the pane's session rather than being refused.
+      // occupant — unless nothing has named the current one yet.
       if (
-        signal.source === "hook" &&
         prev.sessionId !== null &&
         prev.sessionId !== signal.sessionId &&
         signal.kind !== "session"
@@ -1065,8 +1060,7 @@ export function createAgentAttentionTracker(
         if (now - prev.contractAt <= CONTRACT_FRESHNESS_MS) {
           continue;
         }
-        const contractAttention =
-          prev.attention !== "none" && (prev.source === "hook" || prev.source === "server");
+        const contractAttention = prev.attention !== "none" && prev.source === "hook";
         const staleConfidence = contractAttention && prev.confidence === "explicit";
         const stalePhase = prev.phaseFromContract && prev.phaseConfidence === "explicit";
         if (!staleConfidence && !stalePhase) {
@@ -1093,8 +1087,7 @@ export function createAgentAttentionTracker(
       if (prev === undefined || !prev.isAgent) {
         return null;
       }
-      const asked =
-        prev.attention === "requested" && (prev.source === "hook" || prev.source === "server");
+      const asked = prev.attention === "requested" && prev.source === "hook";
       if (!asked && !(prev.interruptible && prev.phase === "working")) {
         return null;
       }

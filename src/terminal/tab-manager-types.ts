@@ -134,13 +134,11 @@ export interface TabManagerDeps extends TerminalManagerDeps {
   registry?: (() => Promise<RegistrySnapshot>) | null;
   /**
    * Test seams for the stage-2 adapters. `signalConfig` answers the launch
-   * config (`--settings` file, hook port); `opencodeAttach` reserves a port
-   * for an opencode pane; `hookEvents` subscribes to accepted hook posts and
-   * server events. Each defaults to `src/host/agent-signals-host.ts`, which
+   * config (`--settings` file, hook port); `hookEvents` subscribes to
+   * accepted hook posts. Each defaults to `src/host/agent-signals-host.ts`, which
    * answers "no adapter" where the host cannot; `null` disables that half.
    */
   signalConfig?: (() => Promise<AgentSignalConfig>) | null;
-  opencodeAttach?: ((paneId: number) => Promise<number | null>) | null;
   hookEvents?: ((handler: (event: HookEvent) => void) => Promise<UnlistenFn>) | null;
   /**
    * The space slide's seam (DL-35.2). Called synchronously on a

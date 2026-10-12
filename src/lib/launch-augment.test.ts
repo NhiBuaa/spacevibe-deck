@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  augmentLaunchCommand,
-  needsOpencodePort,
-  shellQuote,
-  type AugmentContext,
-} from "./launch-augment";
+import { augmentLaunchCommand, shellQuote, type AugmentContext } from "./launch-augment";
 
 const ALL_ON = { claude: true, codex: true, opencode: true };
 const SETTINGS = "/Users/dev/Library/Application Support/SpaceVibe Deck/agent-hooks/claude.json";
@@ -16,7 +11,6 @@ function context(over: Partial<AugmentContext> = {}): AugmentContext {
     platform: "macos",
     claudeSettingsPath: SETTINGS,
     sessionId: UUID,
-    opencodePort: 45123,
     hooksSupported: true,
     shellBootstrap: false,
     codexBypassHookTrust: false,
@@ -59,29 +53,18 @@ describe("augmentLaunchCommand — codex and opencode", () => {
     );
   });
 
-  it("pins opencode's port to the one main reserved, unless the user chose one", () => {
-    expect(augmentLaunchCommand("opencode", context()).command).toBe("opencode --port 45123");
-    expect(augmentLaunchCommand("opencode --port 4096", context()).command).toBe(
-      "opencode --port 4096",
-    );
-    expect(augmentLaunchCommand("opencode", context({ opencodePort: null })).command).toBe(
-      "opencode",
-    );
+  it("adds nothing to opencode: its plugin loads through the wrapper, not the command", () => {
+    expect(augmentLaunchCommand("opencode", context())).toEqual({
+      command: "opencode",
+      sessionId: null,
+    });
+    expect(augmentLaunchCommand("opencode -c", context()).command).toBe("opencode -c");
   });
 
   it("leaves every other agent untouched", () => {
     for (const command of ["gemini", "agy -p", "cursor-agent --force", "aider --watch"]) {
       expect(augmentLaunchCommand(command, context())).toEqual({ command, sessionId: null });
     }
-  });
-});
-
-describe("the two questions a launch asks before arming", () => {
-  it("needsOpencodePort only for an opencode launch without a port, adapter on", () => {
-    expect(needsOpencodePort("opencode", ALL_ON)).toBe(true);
-    expect(needsOpencodePort("opencode --port 1", ALL_ON)).toBe(false);
-    expect(needsOpencodePort("opencode", { ...ALL_ON, opencode: false })).toBe(false);
-    expect(needsOpencodePort("claude", ALL_ON)).toBe(false);
   });
 });
 

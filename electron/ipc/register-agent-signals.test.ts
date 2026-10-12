@@ -22,12 +22,6 @@ const LAUNCH_CONFIG = {
 function register(overrides: Partial<RegisterAgentSignalsDeps> = {}): void {
   registerAgentSignals({
     config: () => LAUNCH_CONFIG,
-    opencode: {
-      attach: vi.fn(),
-      detach: vi.fn(),
-    } as unknown as RegisterAgentSignalsDeps["opencode"],
-    assertOwner: vi.fn(),
-    labelOf: () => "main",
     ...overrides,
   });
 }
