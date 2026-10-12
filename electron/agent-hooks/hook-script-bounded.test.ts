@@ -151,4 +151,23 @@ describe.skipIf(process.platform === "win32")("claude hook script — bounded ev
     });
     expect(posts).toEqual([]);
   });
+
+  it("posts straight to the loopback listener whatever proxy the environment names", async () => {
+    const dead = "http://127.0.0.1:1";
+    const proxy = { http_proxy: dead, HTTP_PROXY: dead, ALL_PROXY: dead, all_proxy: dead };
+    for (const [event, stdin] of [
+      ["PostToolUse", payload("PostToolUse", BASH)], // the bounded post
+      ["Stop", payload("Stop")], // the forwarded post
+    ] as const) {
+      const { posts, port } = await startListener();
+      const env = {
+        DECK_PANE_ID: "7",
+        DECK_HOOK_TOKEN: "secret",
+        DECK_HOOK_PORT: String(port),
+        ...proxy,
+      };
+      await runHookScript(hookScriptSource(), { env, event, stdin });
+      expect(posts, event).toHaveLength(1);
+    }
+  });
 });

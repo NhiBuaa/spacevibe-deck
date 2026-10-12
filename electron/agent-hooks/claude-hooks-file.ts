@@ -30,7 +30,8 @@
  * `SubagentStop` and `TeammateIdle` are deliberately NOT installed (Superset
  * #6641: a sub-agent's stop is not the row's state).
  *
- * The script is POSIX `sh` + `curl` (both ship with macOS and every Linux)
+ * The script is POSIX `sh` + `curl` (both ship with macOS and every Linux; `--noproxy '*'` keeps
+ * a proxy variable from routing the loopback post, and the pane token, through a proxy)
  * and exits 0 on every path, so a dead endpoint is never the CLI's failure.
  * When the post fails on a `Notification`, it prints the `terminalSequence`
  * Claude documents — an OSC 777 that the pane's existing handler already
@@ -102,14 +103,14 @@ export function hookScriptSource(): string {
     `case "$EVENT" in ${BOUNDED_EVENTS.join("|")})`,
     `  BODY=$(head -c ${BOUNDED_PREFIX_BYTES} | LC_ALL=C awk '${BOUNDED_BODY_AWK}')`,
     "  cat >/dev/null",
-    '  [ -n "$BODY" ] && printf \'%s\' "$BODY" | curl -s -m 2 -o /dev/null --data-binary @- \\',
+    "  [ -n \"$BODY\" ] && printf '%s' \"$BODY\" | curl -s --noproxy '*' -m 2 -o /dev/null --data-binary @- \\",
     '    -H "Content-Type: application/json" \\',
     '    -H "X-Deck-Pane: $DECK_PANE_ID" \\',
     '    -H "X-Deck-Token: $DECK_HOOK_TOKEN" \\',
     '    "http://127.0.0.1:$DECK_HOOK_PORT/hook"',
     "  exit 0 ;;",
     "esac",
-    "if ! curl -s -m 2 -o /dev/null --data-binary @- \\",
+    "if ! curl -s --noproxy '*' -m 2 -o /dev/null --data-binary @- \\",
     '    -H "Content-Type: application/json" \\',
     '    -H "X-Deck-Pane: $DECK_PANE_ID" \\',
     '    -H "X-Deck-Token: $DECK_HOOK_TOKEN" \\',
