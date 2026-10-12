@@ -126,6 +126,14 @@ constants that currently switch behaviour off and are meant to be flipped back.
   the wrapper is on `PATH` and exits 127 with `deck: <agent> not found on PATH` when it finds
   no real binary. An agent running in the pane sees the same, so a check for the CLI from
   inside a pane proves nothing. Superset behaves identically.
+- **Codex trusts a hook by its position in `hooks.json`.** Deleting or reordering a group or
+  handler in the middle of an event makes Codex ask the user to review hooks that did not
+  change; Deck empties its group in place instead
+  ([why](terminal.md#the-contract-layer)).
+- **A Codex hook needs its host's tty.** Codex 0.162 can host a session in a shared daemon
+  whose hooks carry the daemon's environment, possibly a live pane's credentials. Main refuses
+  a Codex post whose `X-Deck-Tty` is not that pane's tty, so a daemon-hosted Codex stays
+  inferred and a hook that bypasses the script is refused.
 - **`marketing/**` has no lint gate.** It is in `.prettierignore` and oxlint's ignore list, so
   a "prettier clean" claim over that tree is vacuous. It also shares application components
   and a virtual clock, so a component change can silently alter rendered media.

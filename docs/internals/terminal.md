@@ -305,18 +305,18 @@ to wear `asked`'s yellow as an inferred `completed`. `phaseConfidence` in
 [`agent-attention.ts`](../../src/terminal/agent-attention.ts) is the axis; each adapter is
 switchable under Settings → Agents through the `agentSignalAdapters` setting.
 
-**Claude Signals ships on; Codex and opencode ship off.** The per-agent
+**Claude and Codex Signals ship on; opencode ships off until its slice.** The per-agent
 Signals switch in [`settings-schema.ts`](../../src/settings/settings-schema.ts) is resolved by
 a revision ladder in [`signal-adapter-choice.ts`](../../src/settings/signal-adapter-choice.ts):
 each rung turns one agent on once for a settings file saved under an older
 revision and keeps every other stored value; from the current revision on, a stored value is
 the user's choice. Revision 2 could not tell a chosen "off" from the old default, so a
-revision-2 Claude "off" comes back on once. A file older than revision 2 still reads as the
-defaults. Claude Signals registers guarded hooks in Claude's user settings; Codex and opencode
-still add reporting flags to launcher commands. Claude's registry below runs independently of
-the switch. Without hooks, API failures cannot produce the explicit `failed` mark. Without an
-opencode reporting port, its server cannot provide a contract session identity for
-[`live-session-state.ts`](../../src/ui/sessions/live-session-state.ts).
+revision-2 "off" for Claude or Codex comes back on once. A file older than revision 2 still
+reads as the defaults. Claude and Codex Signals register guarded hooks in the agent's user
+config; opencode still adds a reporting flag to launcher commands. Claude's registry below
+runs independently of the switch. Without hooks, API failures cannot produce the explicit
+`failed` mark. Without an opencode reporting port, its server cannot provide a contract
+session identity for [`live-session-state.ts`](../../src/ui/sessions/live-session-state.ts).
 
 - **Claude answers a registry.** Main polls `claude agents --json`
   ([`claude-registry.ts`](../../electron/agent-registry/claude-registry.ts)) and the renderer
@@ -362,29 +362,69 @@ opencode reporting port, its server cannot provide a contract session identity f
   environment as launcher commands. The [endpoint](../../electron/agent-hooks/hook-server.ts)
   validates tokens and session generations before routing events to the owning window.
   Main suppresses delivery when Signals is off, including hooks already loaded by a session.
-- **Codex lifecycle hooks own its turn state.** Enabling Codex Signals registers
-  `SessionStart`, `UserPromptSubmit`, `Stop`, and `Interrupt` in `CODEX_HOME/hooks.json` through
-  [`codex-hooks.ts`](../../electron/agent-hooks/codex-hooks.ts). Registration preserves
+- **Codex lifecycle hooks own its turn state.** Enabling Codex Signals registers eight events
+  in `CODEX_HOME/hooks.json` through [`codex-hooks.ts`](../../electron/agent-hooks/codex-hooks.ts):
+  Superset's set minus its Subagent events (`SessionStart`, `SessionEnd`, `UserPromptSubmit`,
+  `PreToolUse` on `request_user_input` only, `PostToolUse`, `Stop`, `Interrupt`) plus the native
+  `PermissionRequest`, to which the script never answers. An approval or a question maps to
+  `requested`; `PostToolUse` says `working` and clears it. A subagent's events carry an
+  `agent_id`; the script reports it and the endpoint drops the event. Registration preserves
   existing handlers and never edits `config.toml` or `notify`. The installation-specific
-  `DECK_CODEX_HOOK_SCRIPT` guard restricts delivery to this Deck's authenticated panes;
-  disabling Signals removes only this installation's handlers and stops event delivery.
-  The [bridge](../../electron/agent-hooks/codex-integration.ts) requires POSIX and a Codex
-  version with lifecycle hooks enabled. Existing shells need reopening to inherit the
-  script path, and Codex must load the newly registered hooks.
-  A `Stop` ends the current response; if another hook requests continuation, Codex emits
-  `UserPromptSubmit` for the continuation turn. The [turn reducer](../../src/terminal/codex-lifecycle.ts)
-  rejects late completion from a previous turn; `Interrupt` returns to idle without a
-  completion latch. [`SessionStart`](../../src/terminal/agent-attention.ts) establishes idle
-  before the first turn, including on resume; replayed history cannot start a run or report
-  an old answer as newly completed. A repeated start for the same session preserves an
-  established turn. Terminal repaints and silence cannot override lifecycle phase, even after the
-  confidence freshness window expires. Process exit still ends the pane; turning Signals
-  off returns to the output fallback. Transcript tails are not lifecycle evidence.
-- **Claude commands stay unchanged.**
+  `DECK_CODEX_HOOK_SCRIPT` guard restricts delivery to this Deck's authenticated panes. The
+  [bridge](../../electron/agent-hooks/codex-integration.ts) requires POSIX and a Codex version
+  with lifecycle hooks enabled. Existing shells need reopening to inherit the script path, and
+  Codex must load the newly registered hooks. Only `Stop` forwards stdin, because it carries
+  the last assistant message; every other event posts a bounded body, as Claude's turn hooks do.
+- **Codex trusts a hook by its position, so Deck never moves one.** `config.toml` keys trust by
+  `<file>:<event>:<group>:<handler>`. The four oldest events keep their order and the newer ones
+  append after them, an enabled registration stays where it is, and disabling Signals empties
+  Deck's group to `{"hooks": []}` instead of deleting it, unless nothing follows it. A
+  later enable fills an emptied group again. Deleting a group in the middle of an event
+  makes Codex ask the user to review hooks that did not change.
+- **The wrapper trusts Deck's hooks and keeps Codex out of its shared daemon.**
+  [`codex-wrapper-branch.ts`](../../electron/agent-shell/codex-wrapper-branch.ts) adds
+  `--enable hooks --dangerously-bypass-hook-trust` to every launch in a pane, and `--no-daemon`
+  to the interactive forms (bare `codex`, `resume`, `fork`; not `exec`, `review` or `--remote`).
+  - *Why the bypass:* without it every Codex session opens on a hook-review screen. It runs
+    every enabled hook in every config layer, trusted or not; a hook the user disabled in
+    `config.toml` still stays disabled. The owner accepted the rest
+    ([RISK1](../specs/2026-10-11-agent-status-hooks-by-default.md#risks)).
+  - *Why `--no-daemon`:* Codex 0.162 hosts an interactive session in a shared app-server daemon
+    that runs hooks with the daemon's own environment, so they never reached the pane
+    ([decision 4](../specs/2026-10-11-agent-status-hooks-by-default.md#decisions-owner-2026-10-11)).
+    The cost is that these sessions do not appear in `codex agents` or remote control.
+  - The wrapper adds the flags only while a marker file under `<userData>/agent-shell/` exists
+    (created after the hooks are registered, removed before they go), so turning Signals off
+    needs no wrapper rewrite. It also requires the real binary's `--help` to list the bypass;
+    an older Codex launches unchanged.
+  - `--help`, `--version`, and a flag already present are left alone, and a flag after `--` is
+    prompt text.
+- **A daemon never speaks for a pane.** The daemon keeps the environment of whoever started it,
+  which may hold a live pane's credentials. So the script sends the tty of the first `codex`
+  process above it in `X-Deck-Tty`, and main accepts a Codex post only when that equals the
+  pane's own tty ([`hook-server.ts`](../../electron/agent-hooks/hook-server.ts)); a daemon has
+  none. Commands that start the daemon (`agents`, `app-server`, `remote-control`, `--remote`)
+  are launched with `DECK_PANE_ID`, `DECK_HOOK_TOKEN` and `DECK_HOOK_PORT` emptied.
+- **Codex turn state belongs to the reducer.** A `Stop` ends the current response; if another
+  hook requests continuation, Codex emits `UserPromptSubmit` for the continuation turn. The
+  [turn reducer](../../src/terminal/codex-lifecycle.ts) rejects late completion from a
+  previous turn; `Interrupt` returns to idle without a completion latch.
+  [`SessionStart`](../../src/terminal/agent-attention.ts) establishes idle before the first
+  turn, including on resume; replayed history cannot start a run or report an old answer as
+  newly completed. A repeated start for the same session preserves an established turn.
+  Terminal repaints and silence cannot override lifecycle phase, even after the confidence
+  freshness window expires. Process exit still ends the pane; turning Signals off returns to
+  the output fallback. Transcript tails are not lifecycle evidence.
+- **Launch commands carry hooks flags only where no wrapper runs.**
   [`launch-augment.ts`](../../src/lib/launch-augment.ts) adds no Claude flags. Session identity
-  comes from `SessionStart` or the registry, not a Deck-minted ID. Codex notification flags
-  and opencode's reserved port are still composed at arm time; the journal retains the
-  user's original command. Sessions outside Deck are not mapped to panes or controlled.
+  comes from `SessionStart` or the registry, not a Deck-minted ID. For Codex, a pane started
+  through Deck's bootstrap relies on the wrapper. Otherwise, on a POSIX host whose Codex lists
+  the bypass (main probes `--help` and reports it through `agent_signal_config`), the composed
+  command carries the same flags right after `codex`, and a daemon command is launched with the
+  credentials emptied. Where Codex does not list the bypass, the old
+  `-c tui.notification_condition=always` stays. opencode's reserved port is still composed at
+  arm time; the journal retains the user's original command. Sessions outside Deck are not
+  mapped to panes or controlled.
 - Windows ships no hook script.
 
 ## Actions, keymaps and the menu

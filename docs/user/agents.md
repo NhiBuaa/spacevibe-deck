@@ -66,9 +66,11 @@ Each agent is one row showing its name and the command it launches with:
     installed agents whose CLI takes those flags
     ([model settings](../../src/ui/settings/launch-profile-editor.tsx)).
   - **Integrations → Signals** — on Claude Code, Codex and opencode: use the status the agent reports instead
-    of Deck's estimate, for new sessions. Claude Signals is on by default; Codex and opencode
-    are off. Claude Signals installs Deck hooks in your Claude
-    settings and also covers Claude commands you type manually inside Deck. Turning it off
+    of Deck's estimate, for new sessions. Claude Code and Codex are on by default; opencode is
+    off. Signals installs Deck hooks in your Claude and Codex
+    settings and also covers commands you type manually inside Deck. For Codex, Deck starts
+    its terminal sessions without Codex's shared background service so the reports reach the
+    right pane, which means those sessions do not appear in `codex agents`. Turning it off
     removes this installation's hooks. Reopen terminals created before this integration was
     installed. [Signal integration](../internals/terminal.md#the-contract-layer).
 - For an agent under **Available to install**, choose **Configure launch** to prepare its
@@ -145,8 +147,8 @@ logs only for the built-ins it knows.
 Working, needs-you and failed states come from the terminal itself (bell, notification and
 progress sequences the tool emits, plus sustained output) and work for any agent. When Deck
 reads a needs-you or done state from output timing rather than from the agent, the row's
-tooltip says **(inferred)**. With **Signals** on, which is the default for Claude Code and an
-option for Codex and OpenCode, the state is the agent's own report for new sessions, and a needs-you state can say
+tooltip says **(inferred)**. With **Signals** on, which is the default for Claude Code and
+Codex and an option for OpenCode, the state is the agent's own report for new sessions, and a needs-you state can say
 what it waits on, such as a permission prompt. An agent whose process has left its pane reads
 as **ended** ([rail states](../../src/ui/worktree-card-row.tsx)).
 
