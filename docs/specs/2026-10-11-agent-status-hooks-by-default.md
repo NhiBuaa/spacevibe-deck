@@ -10,6 +10,8 @@ Operating contract (approved 2026-10-11):
 - Slice 1's plan is reviewed by Claude and Codex CLI before code.
 - After that, slices 1–4 run without asking again, unless a slice changes scope or hits a fork
   in AGENTS.md.
+- One session runs the whole queue (owner, 2026-10-12). The plans for slices 2–4 get the same
+  Claude and Codex review before their code, without a separate owner approval.
 Owner checkout: `/Users/kyantran/Documents/Development/spacevibe-workspace/spacevibe-deck`
 Baseline: written against `main` at `db46fa77`.
 Host: Electron on macOS and Linux. Windows stays inferred: hook registration is POSIX-only
@@ -254,7 +256,8 @@ Where Deck departs from Superset, and why. Anything not listed here follows Supe
 ## Delivery slices
 
 Run in order; the first row not Done is the next work. Each slice gets its own plan under
-`docs/plans/` and its own session in a worktree.
+`docs/plans/`. One session runs slices 1–4 in one worktree, `feat/agent-status` (owner,
+2026-10-12). Each slice fast-forwards local `main` before the next one starts.
 
 | Slice | Requirements | Plan | Status |
 | --- | --- | --- | --- |
