@@ -1,6 +1,8 @@
 # Agent status from hooks, on by default
 
 Date: 2026-10-11
+Delivered: all four slices are on local `main` as of 2026-10-12, not pushed; the spec stays
+Active until the owner accepts them.
 Status: Active — approved by the owner on 2026-10-11, together with the
 [decisions](#decisions-owner-2026-10-11), the requirements below, DEF1 overriding a stored
 "off", the slice order and the operating contract. Superset's behaviour is the default for
@@ -275,7 +277,7 @@ Run in order; the first row not Done is the next work. Each slice gets its own p
 | 1. Shell bootstrap, wrappers, nesting | WRAP1, NEST1 | [shell-bootstrap-wrappers](../plans/2026-10-11-shell-bootstrap-wrappers.md) | Done 2026-10-12 — `8aeb71fc`..`47841c81`, changelog `04167317` |
 | 2. Claude on by default | DEF1 (claude), CL1, INT1, DOC1 | [claude-signals-default](../plans/2026-10-12-claude-signals-default.md) | Done 2026-10-12 — `a2b10179`..`db78fdb7`, changelog `b60dd998` |
 | 3. Codex on by default | DEF1 (codex), CX1, CX2, SUB1 (codex), DOC1 | [codex-signals-default](../plans/2026-10-12-codex-signals-default.md) | Done 2026-10-12 — `4c2eff1f`..`a6074a89`, changelog `399c5ae8` (decision 4: `--no-daemon`) |
-| 4. opencode plugin, on by default | DEF1 (opencode), OC1, SUB1 (opencode), DOC1 | [opencode-signals-plugin](../plans/2026-10-12-opencode-signals-plugin.md) | Planned — Codex review READY 2026-10-12 |
+| 4. opencode plugin, on by default | DEF1 (opencode), OC1, SUB1 (opencode), DOC1 | [opencode-signals-plugin](../plans/2026-10-12-opencode-signals-plugin.md) | Done 2026-10-12 — `a2725d63`..`48216194`, changelog `8037e8e1` |
 
 ## Risks
 
