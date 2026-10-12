@@ -67,6 +67,7 @@ import { registerAgentSignals } from "./ipc/register-agent-signals";
 import { createHookServer } from "./agent-hooks/hook-server";
 import { createOpencodeClients } from "./agent-hooks/opencode-client";
 import { createClaudeIntegration } from "./agent-hooks/claude-integration";
+import { provisionAgentShell } from "./agent-shell/provision";
 
 // __dirname is `dist-electron/electron`, so the Vite output is two levels up.
 const RENDERER_DIR = path.join(__dirname, "..", "..", "dist");
@@ -608,6 +609,8 @@ app.whenReady().then(async () => {
   // Every initial shell must inherit a bound endpoint and the installation's
   // hook script. Registration failure keeps registry-based discovery available.
   await hookServer.listen();
+  // Same reason: the wrappers must exist before any pane's shell asks for them.
+  await provisionAgentShell(app.getPath("userData"));
   // Read the stored rebinds BEFORE the first window exists. `createWindow`
   // rebuilds the menu itself, so resolving afterwards would install the
   // shipped accelerators first and correct them a moment later — a window in
