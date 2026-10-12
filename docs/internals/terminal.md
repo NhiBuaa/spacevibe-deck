@@ -305,18 +305,18 @@ to wear `asked`'s yellow as an inferred `completed`. `phaseConfidence` in
 [`agent-attention.ts`](../../src/terminal/agent-attention.ts) is the axis; each adapter is
 switchable under Settings → Agents through the `agentSignalAdapters` setting.
 
-**Claude and Codex Signals ship on; opencode ships off.** The per-agent
+**Claude, Codex and opencode Signals all ship on.** The per-agent
 Signals switch in [`settings-schema.ts`](../../src/settings/settings-schema.ts) is resolved by
 a revision ladder in [`signal-adapter-choice.ts`](../../src/settings/signal-adapter-choice.ts):
 each rung turns one agent on once for a settings file saved under an older
 revision and keeps every other stored value; from the current revision on, a stored value is
 the user's choice. Revision 2 could not tell a chosen "off" from the old default, so a
-revision-2 "off" for Claude or Codex comes back on once. A file older than revision 2 still
+revision-2 "off" for any of the three comes back on once. A file older than revision 2 still
 reads as the defaults. Claude and Codex Signals register guarded hooks in the agent's user
-config; opencode still adds a reporting flag to launcher commands. Claude's registry below
+config; opencode registers nothing and loads a Deck plugin instead. Claude's registry below
 runs independently of the switch. Without hooks, API failures cannot produce the explicit
-`failed` mark. Without an opencode reporting port, its server cannot provide a contract
-session identity for [`live-session-state.ts`](../../src/ui/sessions/live-session-state.ts).
+`failed` mark. Without the plugin, opencode provides no contract session identity for
+[`live-session-state.ts`](../../src/ui/sessions/live-session-state.ts).
 
 - **Claude answers a registry.** Main polls `claude agents --json`
   ([`claude-registry.ts`](../../electron/agent-registry/claude-registry.ts)) and the renderer
@@ -405,6 +405,32 @@ session identity for [`live-session-state.ts`](../../src/ui/sessions/live-sessio
   pane's own tty ([`hook-server.ts`](../../electron/agent-hooks/hook-server.ts)); a daemon has
   none. Commands that use the shared daemon (`agents`, `app-server`, `remote-control`, `queue`, `archive`, `unarchive`, `delete`, `--remote`)
   are launched with `DECK_PANE_ID`, `DECK_HOOK_TOKEN` and `DECK_HOOK_PORT` unset (`env -u`, which csh and fish accept too).
+- **opencode reports through a plugin the wrapper loads.** Deck writes
+  [`opencode-plugin.ts`](../../electron/agent-shell/opencode-plugin.ts) under
+  `<userData>/agent-shell/opencode/plugin/` with the wrappers. While a runtime marker exists
+  (owned by [`opencode-integration.ts`](../../electron/agent-hooks/opencode-integration.ts):
+  created when Signals turns on, removed first when it turns off) the opencode wrapper exports
+  `OPENCODE_CONFIG_DIR` pointing at that directory, and opencode loads the plugin from there.
+  Nothing is written to the user's opencode config, and Deck adds no `--port` and opens no
+  opencode server.
+  - *Root only.* Only the pane's root session speaks. A session with a parent is a subagent,
+    and an unknown one counts as a child, so a failed lookup cannot let a subagent speak. A
+    nested opencode (`DECK_AGENT_NESTED`, or another agent's identity) loads the plugin
+    inert, and the renderer drops an opencode post for a pane known to run another agent.
+  - *Wire.* The plugin posts seven events to a third endpoint path, `/hook/opencode`:
+    `SessionStart`, `SessionEnd`, `Start` and `Stop` (the busy and idle edges), `Failed` (with
+    a capped message), `PermissionRequest` and `PermissionReplied`. It announces a root with
+    `SessionStart` first, because the generation check refuses a later event from a session
+    that is not the pane's current one.
+  - *Proxy-proof loopback.* The post is written on a raw `node:net` socket to `127.0.0.1`,
+    not `fetch` or `node:http`: both honour `HTTP_PROXY` inside opencode, which would send the
+    pane's token to the user's proxy. It runs in opencode's process, so it stays small and
+    never shells out. It returns before the post finishes and drops a failed one.
+  - *Stays inferred:* Windows, a shell without a bootstrap, a typed absolute path, and any
+    opencode started outside the wrapper's reach.
+  - *A user's own `OPENCODE_CONFIG_DIR` is replaced* inside Deck panes while opencode Signals
+    is on, so agents, commands and plugins from that directory do not load there
+    ([RISK5](../specs/2026-10-11-agent-status-hooks-by-default.md#risks)).
 - **Codex turn state belongs to the reducer.** A `Stop` ends the current response; if another
   hook requests continuation, Codex emits `UserPromptSubmit` for the continuation turn. The
   [turn reducer](../../src/terminal/codex-lifecycle.ts) rejects late completion from a
@@ -422,9 +448,9 @@ session identity for [`live-session-state.ts`](../../src/ui/sessions/live-sessio
   the bypass (main probes `--help` and reports it through `agent_signal_config`), the composed
   command carries the same flags right after `codex`, and a daemon command is launched with the
   credentials emptied. Where Codex does not list the bypass, the old
-  `-c tui.notification_condition=always` stays. opencode's reserved port is still composed at
-  arm time; the journal retains the user's original command. Sessions outside Deck are not
-  mapped to panes or controlled.
+  `-c tui.notification_condition=always` stays. opencode gets nothing from `launch-augment`.
+  The journal retains the user's original command. Sessions outside Deck are not mapped to
+  panes or controlled.
 - Windows ships no hook script.
 
 ## Actions, keymaps and the menu

@@ -134,6 +134,13 @@ constants that currently switch behaviour off and are meant to be flipped back.
   whose hooks carry the daemon's environment, possibly a live pane's credentials. Main refuses
   a Codex post whose `X-Deck-Tty` is not that pane's tty, so a daemon-hosted Codex stays
   inferred and a hook that bypasses the script is refused.
+- **Inside a Deck pane, `OPENCODE_CONFIG_DIR` is Deck's while opencode Signals is on.** The
+  wrapper overwrites a value the user exported, so their own opencode agents, commands and
+  plugins from that directory do not load there; turn Signals off to get them back.
+- **A hook or plugin post must never honour proxy variables.** The pane token would go to the
+  user's proxy and the signal would be lost. Claude's hook `curl` passes `--noproxy '*'`, and
+  the opencode plugin writes a raw loopback socket because `fetch` and `node:http` inside
+  opencode follow `HTTP_PROXY`.
 - **`marketing/**` has no lint gate.** It is in `.prettierignore` and oxlint's ignore list, so
   a "prettier clean" claim over that tree is vacuous. It also shares application components
   and a virtual clock, so a component change can silently alter rendered media.
