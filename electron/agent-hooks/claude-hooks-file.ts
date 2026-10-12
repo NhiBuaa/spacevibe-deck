@@ -22,6 +22,11 @@
  *   `TERM_PROGRAM` (trust audit §4.2).
  * - `PermissionRequest` — fires WHEN a tool call needs a decision, before the
  *   ~6 s `permission_prompt` delay.
+ * - `UserPromptSubmit`, `PostToolUse *`, `PostToolUseFailure *` — a turn began
+ *   or went on after a tool call: the explicit `working` mark, and the one that
+ *   replaces a `requested` once the user approved. They carry the whole prompt
+ *   and the whole tool response, so the script never forwards their stdin: it
+ *   posts a small body of its own (see `BOUNDED_EVENTS`).
  * `SubagentStop` and `TeammateIdle` are deliberately NOT installed (Superset
  * #6641: a sub-agent's stop is not the row's state).
  *
@@ -46,14 +51,83 @@ export const CLAUDE_HOOK_EVENTS = [
   "SessionEnd",
   "Notification",
   "PermissionRequest",
+  "UserPromptSubmit",
+  "PostToolUse",
+  "PostToolUseFailure",
 ] as const;
 
 export const NOTIFICATION_MATCHER = "permission_prompt|idle_prompt";
+
+/**
+ * The matcher each event is registered with; an event absent here has none.
+ * Shared by the `--settings` document and the user-settings registration, so
+ * the two cannot drift.
+ */
+export const CLAUDE_HOOK_MATCHERS: Readonly<Record<string, string>> = {
+  Notification: NOTIFICATION_MATCHER,
+  PostToolUse: "*",
+  PostToolUseFailure: "*",
+};
+
+/** Events whose stdin is too big to forward; the script posts a bounded body instead. */
+const BOUNDED_EVENTS = ["UserPromptSubmit", "PostToolUse", "PostToolUseFailure"];
+/** How much of stdin the scanner reads. Every key it needs precedes the first nested value. */
+const BOUNDED_PREFIX_BYTES = 64 * 1024;
+/** Tool names longer than this (an MCP name is the longest in practice) are left out. */
+const TOOL_NAME_MAX = 64;
 
 /** POSIX single-quoting: the only escape a `'…'` string needs is `'` itself. */
 export function shellQuote(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`;
 }
+
+/**
+ * A POSIX `awk` scanner that reads only the string values at nesting depth 1 of
+ * a JSON object. A tool argument named `agent_id` sits deeper, so it can never
+ * read as the top-level one that marks a subagent. A string with an escape or
+ * past 200 bytes is read as `?`, which no check below accepts. It prints a
+ * body only for a payload with a safe event and session id and no top-level
+ * `agent_id`.
+ */
+const BOUNDED_BODY_AWK = String.raw`
+function keep(k, v) {
+  if (k == "agent_id") { if (v != "") subagent = 1 }
+  else if (k == "hook_event_name") ev = v
+  else if (k == "session_id") sid = v
+  else if (k == "tool_name") tool = v
+}
+{
+  n = length($0)
+  for (i = 1; i <= n; i++) {
+    c = substr($0, i, 1)
+    if (instr) {
+      if (esc) esc = 0
+      else if (c == "\\") { esc = 1; bad = 1 }
+      else if (c == "\"") {
+        instr = 0
+        if (depth == 1) {
+          if (bad) buf = "?"
+          if (colon) keep(key, buf); else lastkey = buf
+        }
+      } else if (depth == 1) {
+        if (length(buf) < 200) buf = buf c; else bad = 1
+      }
+    }
+    else if (c == "\"") { instr = 1; buf = ""; bad = 0 }
+    else if (c == "{" || c == "[") depth++
+    else if (c == "}" || c == "]") { if (--depth == 0) exit }
+    else if (depth == 1 && c == ":") { key = lastkey; colon = 1 }
+    else if (depth == 1 && c == ",") colon = 0
+  }
+}
+END {
+  if (subagent || ev !~ /^[A-Za-z]+$/ || length(ev) > 64) exit
+  if (sid !~ /^[A-Za-z0-9._-]+$/ || length(sid) > 128) exit
+  out = "{\"hook_event_name\":\"" ev "\",\"session_id\":\"" sid "\""
+  if (tool ~ /^[A-Za-z0-9_.:-]+$/ && length(tool) <= ${TOOL_NAME_MAX}) out = out ",\"tool_name\":\"" tool "\""
+  printf "%s}", out
+}
+`;
 
 /**
  * The script. `$1` is the event name, passed so the fallback below fires for
@@ -74,6 +148,18 @@ export function hookScriptSource(): string {
     'if [ -z "${DECK_HOOK_PORT-}" ] || [ -z "${DECK_PANE_ID-}" ] || [ -z "${DECK_HOOK_TOKEN-}" ]; then',
     "  exit 0",
     "fi",
+    // The three turn events carry the whole prompt or tool response: post a body built from a
+    // bounded prefix of stdin instead, then drain the rest so Claude never sees a broken pipe.
+    `case "$EVENT" in ${BOUNDED_EVENTS.join("|")})`,
+    `  BODY=$(head -c ${BOUNDED_PREFIX_BYTES} | LC_ALL=C awk '${BOUNDED_BODY_AWK}')`,
+    "  cat >/dev/null",
+    '  [ -n "$BODY" ] && printf \'%s\' "$BODY" | curl -s -m 2 -o /dev/null --data-binary @- \\',
+    '    -H "Content-Type: application/json" \\',
+    '    -H "X-Deck-Pane: $DECK_PANE_ID" \\',
+    '    -H "X-Deck-Token: $DECK_HOOK_TOKEN" \\',
+    '    "http://127.0.0.1:$DECK_HOOK_PORT/hook"',
+    "  exit 0 ;;",
+    "esac",
     "if ! curl -s -m 2 -o /dev/null --data-binary @- \\",
     '    -H "Content-Type: application/json" \\',
     '    -H "X-Deck-Pane: $DECK_PANE_ID" \\',
@@ -93,22 +179,13 @@ export function hookScriptSource(): string {
 /** The settings document Claude loads through `--settings`. */
 export function claudeHooksDocument(scriptPath: string): Record<string, unknown> {
   const command = (event: string) => `${shellQuote(scriptPath)} ${event}`;
-  const entry = (event: string, matcher?: string) => [
+  const entry = (event: string) => [
     {
-      ...(matcher === undefined ? {} : { matcher }),
+      ...(event in CLAUDE_HOOK_MATCHERS ? { matcher: CLAUDE_HOOK_MATCHERS[event] } : {}),
       hooks: [{ type: "command", command: command(event) }],
     },
   ];
-  return {
-    hooks: {
-      SessionStart: entry("SessionStart"),
-      Stop: entry("Stop"),
-      StopFailure: entry("StopFailure"),
-      SessionEnd: entry("SessionEnd"),
-      Notification: entry("Notification", NOTIFICATION_MATCHER),
-      PermissionRequest: entry("PermissionRequest"),
-    },
-  };
+  return { hooks: Object.fromEntries(CLAUDE_HOOK_EVENTS.map((event) => [event, entry(event)])) };
 }
 
 export interface ClaudeHooksFiles {

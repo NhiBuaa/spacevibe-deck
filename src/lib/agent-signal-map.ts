@@ -13,6 +13,8 @@
  *                         the matcher, so an unmatched kind reaching here is
  *                         still refused
  * - `PermissionRequest` → requested — fires when a tool call needs a decision
+ * - `UserPromptSubmit`, `PostToolUse`, `PostToolUseFailure`
+ *                       → working — a turn began or went on after a tool call
  * - `SessionEnd`        → nothing for state: the process table makes `ended`
  *                         within a poll, and a session end is not a failure
  * - anything else (`SubagentStop`, `TeammateIdle`, …) → nothing
@@ -66,6 +68,10 @@ function claudeKind(event: HookEvent): ContractKind | null {
       return "error";
     case "PermissionRequest":
       return "requested";
+    case "UserPromptSubmit":
+    case "PostToolUse":
+    case "PostToolUseFailure":
+      return "working";
     case "Notification":
       return event.detail !== null && NOTIFICATION_KINDS.has(event.detail) ? "requested" : null;
     default:

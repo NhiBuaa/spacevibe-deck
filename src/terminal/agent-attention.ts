@@ -551,6 +551,10 @@ export function createAgentAttentionTracker(
       return false;
     }
     if (transition.source === "output-heuristic") {
+      // A fresh hook phase outranks the heuristic: its silence resync would otherwise latch an
+      // inferred `completed` mid-turn. `tick` hollows a silent contract phase, after which the
+      // heuristic applies again.
+      if (s.phaseFromContract && s.phaseConfidence === "explicit") return false;
       if (s.agentLabel === "codex" && !s.inputSinceLaunch) return false;
       const evidenceStartedAt = transition.evidenceStartedAt ?? transition.observedAt;
       if (evidenceStartedAt < s.gateOpenedAt) {
@@ -638,6 +642,11 @@ export function createAgentAttentionTracker(
         };
         if (next.attention === "completed") {
           next = { ...next, attention: "none", source: null, confidence: "explicit" };
+        }
+        // Work resuming answers a `requested` this same source raised (the tool was approved);
+        // a registry-raised one is the registry poll's to clear, and warning/error stay.
+        if (next.attention === "requested" && next.source === signal.source) {
+          next = { ...next, attention: "none", source: null, confidence: "explicit", detail: null };
         }
         return next;
       }
@@ -1124,8 +1133,12 @@ export function createAgentAttentionTracker(
       return state?.isAgent === true && state.agentLabel === agent;
     },
     releaseCodexLifecycle() {
+      // The phase stays as last said, but the contract no longer speaks for it: the heuristic
+      // (refused while a fresh contract phase stands) takes over again.
       for (const [id, state] of panes) {
-        if (state.codexLifecycle !== null) panes.set(id, { ...state, codexLifecycle: null });
+        if (state.codexLifecycle !== null) {
+          panes.set(id, { ...state, codexLifecycle: null, phaseFromContract: false });
+        }
       }
     },
     prune(live) {

@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { homedir } from "node:os";
 import { writeFileAtomically } from "../fs/write";
-import { CLAUDE_HOOK_EVENTS, NOTIFICATION_MATCHER, shellQuote } from "./claude-hooks-file";
+import { CLAUDE_HOOK_EVENTS, CLAUDE_HOOK_MATCHERS, shellQuote } from "./claude-hooks-file";
 
 type Document = Record<string, unknown>;
 
@@ -72,7 +72,7 @@ export function reconcileClaudeHooks(
             [
               ...(cleaned[event] ?? []),
               {
-                ...(event === "Notification" ? { matcher: NOTIFICATION_MATCHER } : {}),
+                ...(event in CLAUDE_HOOK_MATCHERS ? { matcher: CLAUDE_HOOK_MATCHERS[event] } : {}),
                 hooks: [{ type: "command", command: managedHookCommand(scriptPath, event) }],
               },
             ],

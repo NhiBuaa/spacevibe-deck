@@ -1,0 +1,134 @@
+import { afterEach, describe, expect, it } from "vitest";
+import { hookScriptSource } from "./claude-hooks-file";
+import { cleanupHookHarness, runHookScript, startListener } from "./hook-script-harness";
+
+afterEach(cleanupHookHarness);
+
+const SESSION = "11111111-2222-3333-4444-555555555555";
+
+/** Claude's key order: everything the script reads precedes the first nested value. */
+function payload(event: string, extra: Record<string, unknown> = {}, head: object = {}) {
+  return JSON.stringify({
+    session_id: SESSION,
+    transcript_path: "/home/dev/.claude/projects/x/s.jsonl",
+    cwd: "/home/dev/project",
+    prompt_id: "p-1",
+    permission_mode: "default",
+    ...head,
+    effort: { level: "high" },
+    hook_event_name: event,
+    ...extra,
+  });
+}
+
+const BASH = { tool_name: "Bash", tool_input: { command: "echo hi" } };
+
+async function run(event: string, stdin: string, shellFlags: string[] = []) {
+  const { posts, port } = await startListener();
+  const env = { DECK_PANE_ID: "7", DECK_HOOK_TOKEN: "secret", DECK_HOOK_PORT: String(port) };
+  const code = await runHookScript(hookScriptSource(), { env, event, stdin, shellFlags });
+  return { code, posts };
+}
+
+describe.skipIf(process.platform === "win32")("claude hook script — bounded events", () => {
+  it("posts a small body for a PostToolUse with a 1 MiB tool_response", async () => {
+    const stdin = payload("PostToolUse", {
+      ...BASH,
+      tool_response: { stdout: "x".repeat(1 << 20), stderr: "", interrupted: false },
+    });
+    const { code, posts } = await run("PostToolUse", stdin);
+    expect(code).toBe(0);
+    expect(posts).toHaveLength(1);
+    expect(posts[0].url).toBe("/hook");
+    expect(posts[0].body.length).toBeLessThan(1024);
+    expect(posts[0].body).not.toContain("tool_response");
+    expect(JSON.parse(posts[0].body)).toEqual({
+      hook_event_name: "PostToolUse",
+      session_id: SESSION,
+      tool_name: "Bash",
+    });
+  });
+
+  it("posts a PostToolUseFailure the same way", async () => {
+    const stdin = payload("PostToolUseFailure", { ...BASH, error: "Exit code 1" });
+    const { posts } = await run("PostToolUseFailure", stdin);
+    expect(posts.map((post) => JSON.parse(post.body))).toEqual([
+      { hook_event_name: "PostToolUseFailure", session_id: SESSION, tool_name: "Bash" },
+    ]);
+  });
+
+  it("posts event and session only for a UserPromptSubmit with a 200 KiB prompt", async () => {
+    const prompt = "SECRET-PROMPT ".repeat(15_000);
+    const { posts } = await run("UserPromptSubmit", payload("UserPromptSubmit", { prompt }));
+    expect(posts).toHaveLength(1);
+    expect(posts[0].body).not.toContain("SECRET-PROMPT");
+    expect(JSON.parse(posts[0].body)).toEqual({
+      hook_event_name: "UserPromptSubmit",
+      session_id: SESSION,
+    });
+  });
+
+  it("posts nothing for a payload with no session_id or no event", async () => {
+    const noSession = JSON.stringify({ hook_event_name: "PostToolUse", tool_name: "Bash" });
+    const noEvent = JSON.stringify({ session_id: SESSION, tool_name: "Bash" });
+    expect((await run("PostToolUse", noSession)).posts).toEqual([]);
+    expect((await run("PostToolUse", noEvent)).posts).toEqual([]);
+    expect((await run("PostToolUse", "not json")).posts).toEqual([]);
+  });
+
+  it("posts nothing from inside a subagent (top-level agent_id)", async () => {
+    const stdin = payload(
+      "PostToolUse",
+      { ...BASH, tool_response: {} },
+      { agent_id: "ad901b04391a0b8e0", agent_type: "general-purpose" },
+    );
+    const { code, posts } = await run("PostToolUse", stdin);
+    expect(code).toBe(0);
+    expect(posts).toEqual([]);
+  });
+
+  it("still posts a main-loop event whose tool_input holds an agent_id", async () => {
+    const stdin = payload("PostToolUse", {
+      tool_name: "Agent",
+      tool_input: { agent_id: "x", prompt: 'a "agent_id":"y" string' },
+      tool_response: { agent_id: "z" },
+    });
+    const { posts } = await run("PostToolUse", stdin);
+    expect(posts.map((post) => JSON.parse(post.body).tool_name)).toEqual(["Agent"]);
+  });
+
+  it("is not fooled by an agent_id inside a prompt string", async () => {
+    const prompt = 'say ","agent_id":"x", and {"agent_id":"y"}';
+    const { posts } = await run("UserPromptSubmit", payload("UserPromptSubmit", { prompt }));
+    expect(posts).toHaveLength(1);
+  });
+
+  it("keeps an MCP tool name and leaves out one that is capped or escaped", async () => {
+    const tool = async (name: string) => {
+      const { posts } = await run("PostToolUse", payload("PostToolUse", { tool_name: name }));
+      return JSON.parse(posts[0].body).tool_name;
+    };
+    expect(await tool("mcp__srv__do.thing")).toBe("mcp__srv__do.thing");
+    expect(await tool("t".repeat(65))).toBeUndefined();
+    expect(await tool('bad"name')).toBeUndefined();
+    expect(await tool("é")).toBeUndefined();
+  });
+
+  it("reads a payload split across lines", async () => {
+    const stdin = payload("PostToolUse", BASH).replace(/,/g, ",\n");
+    const { posts } = await run("PostToolUse", stdin);
+    expect(posts).toHaveLength(1);
+  });
+
+  it("works under an inherited set -u", async () => {
+    const { posts } = await run("PostToolUse", payload("PostToolUse", BASH), ["-u"]);
+    expect(posts).toHaveLength(1);
+  });
+
+  it("forwards stdin untouched for an event it forwards today", async () => {
+    const stdin = payload("Stop", { last_assistant_message: "done" });
+    const { posts } = await run("Stop", stdin);
+    expect(posts).toHaveLength(1);
+    expect(posts[0].body).toBe(stdin);
+  });
+});

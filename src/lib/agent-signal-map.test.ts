@@ -60,6 +60,19 @@ describe("contractSignalOf — claude hooks", () => {
     });
   });
 
+  it("UserPromptSubmit, PostToolUse and PostToolUseFailure are work, with no detail or sentence", () => {
+    for (const event of ["UserPromptSubmit", "PostToolUse", "PostToolUseFailure"]) {
+      expect(contractSignalOf(claude(event, { detail: "Bash" }))).toEqual({
+        source: "hook",
+        kind: "working",
+        sessionId: SESSION,
+        detail: null,
+        message: null,
+        observedAt: 1000,
+      });
+    }
+  });
+
   it("SessionStart names the session; SessionEnd, SubagentStop and TeammateIdle say nothing", () => {
     expect(contractSignalOf(claude("SessionStart"))?.kind).toBe("session");
     expect(contractSignalOf(claude("SessionEnd"))).toBeNull();
