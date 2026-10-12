@@ -68,6 +68,7 @@ import { createHookServer } from "./agent-hooks/hook-server";
 import { createOpencodeClients } from "./agent-hooks/opencode-client";
 import { createClaudeIntegration } from "./agent-hooks/claude-integration";
 import { provisionAgentShell } from "./agent-shell/provision";
+import type { AgentShellPaths } from "./agent-shell/shell-bootstrap";
 
 // __dirname is `dist-electron/electron`, so the Vite output is two levels up.
 const RENDERER_DIR = path.join(__dirname, "..", "..", "dist");
@@ -168,6 +169,9 @@ const opencodeClients = createOpencodeClients({
 const claudeIntegration = createClaudeIntegration({ userData: app.getPath("userData") });
 const codexIntegration = createCodexIntegration({ userData: app.getPath("userData") });
 
+/** The wrappers and shell bootstrap, written at boot; null leaves panes on `$SHELL -l`. */
+let agentShell: AgentShellPaths | null = null;
+
 const pty = new PtyManager({
   emitToOwner: (paneId, event, payload) => coordinator.deliver(paneId, event, payload),
   register: (paneId, label) => coordinator.register(paneId, label),
@@ -181,6 +185,7 @@ const pty = new PtyManager({
   hookPort: () => hookServer.port(),
   hookScript: () => claudeIntegration.scriptPath(),
   codexHookScript: () => codexIntegration.scriptPath(),
+  agentShell: () => agentShell,
 });
 
 /** The label of the window that sent an IPC message. Every pane command needs
@@ -610,7 +615,7 @@ app.whenReady().then(async () => {
   // hook script. Registration failure keeps registry-based discovery available.
   await hookServer.listen();
   // Same reason: the wrappers must exist before any pane's shell asks for them.
-  await provisionAgentShell(app.getPath("userData"));
+  agentShell = await provisionAgentShell(app.getPath("userData"));
   // Read the stored rebinds BEFORE the first window exists. `createWindow`
   // rebuilds the menu itself, so resolving afterwards would install the
   // shipped accelerators first and correct them a moment later — a window in

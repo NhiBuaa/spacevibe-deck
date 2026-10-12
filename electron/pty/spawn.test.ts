@@ -3,12 +3,20 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ spawn: vi.fn(() => ({ ptsName: "/dev/ttys001" })) }));
+const mocks = vi.hoisted(() => ({
+  spawn: vi.fn(() => ({ ptsName: "/dev/ttys001" })),
+  shellLaunch: vi.fn(
+    (_bootstrap?: unknown): { executable: string; args: string[]; env?: object } => ({
+      executable: "/bin/zsh",
+      args: ["-l"],
+    }),
+  ),
+}));
 
 vi.mock("electron", () => ({ app: { getVersion: () => "test" } }));
 vi.mock("node-pty", () => ({ spawn: mocks.spawn }));
 vi.mock("../platform/macos", () => ({
-  shellLaunch: () => ({ executable: "/bin/zsh", args: ["-l"] }),
+  shellLaunch: (bootstrap?: unknown) => mocks.shellLaunch(bootstrap),
   userHome: () => "/Users/dev",
 }));
 vi.mock("../platform/windows", () => ({
@@ -59,6 +67,43 @@ describe("buildEnv — the pane's identity for its hooks (stage 2, 2026-09-03)",
     const env = buildEnv({}, "1.2.3");
     expect(env).not.toHaveProperty("DECK_PANE_ID");
     expect(env).not.toHaveProperty("DECK_HOOK_TOKEN");
+  });
+
+  it("never passes an inherited agent identity to a pane", () => {
+    const env = buildEnv(
+      { DECK_AGENT_ID: "claude", DECK_AGENT_NESTED: "1", PATH: "/bin" },
+      "1.2.3",
+      {
+        paneId: 7,
+        hookToken: "t",
+        hookPort: 1,
+      },
+    );
+    expect(env).not.toHaveProperty("DECK_AGENT_ID");
+    expect(env).not.toHaveProperty("DECK_AGENT_NESTED");
+    expect(buildEnv({ DECK_AGENT_ID: "codex" }, "1.2.3")).not.toHaveProperty("DECK_AGENT_ID");
+  });
+
+  it("hands the provisioned bootstrap to the shell launch and merges its env", () => {
+    const agentShell = { binDir: "/d/bin", zshDir: "/d/zsh", bashRcfile: "/d/bash/rcfile" };
+    mocks.shellLaunch.mockReturnValueOnce({
+      executable: "/bin/zsh",
+      args: ["-l"],
+      env: { ZDOTDIR: "/d/zsh" },
+    });
+    spawnShell(
+      { cols: 80, rows: 24, cwd: TEST_ROOT },
+      { paneId: 3, hookToken: "t", hookPort: 9, agentShell },
+    );
+    expect(mocks.shellLaunch).toHaveBeenLastCalledWith(agentShell);
+    const options = mocks.spawn.mock.calls[0]?.[2] as { env: Record<string, string> } | undefined;
+    expect(options?.env.ZDOTDIR).toBe("/d/zsh");
+    expect(options?.env.DECK_PANE_ID).toBe("3");
+  });
+
+  it("asks for a plain launch when no bootstrap was provisioned", () => {
+    spawnShell({ cols: 80, rows: 24, cwd: TEST_ROOT });
+    expect(mocks.shellLaunch).toHaveBeenLastCalledWith(null);
   });
 
   it("passes the pane into the spawned shell's environment", () => {

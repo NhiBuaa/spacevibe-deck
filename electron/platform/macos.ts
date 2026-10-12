@@ -19,6 +19,7 @@
  */
 import { execFile } from "node:child_process";
 import os from "node:os";
+import { bootstrapLaunch, type AgentShellPaths } from "../agent-shell/shell-bootstrap";
 
 /** SIGHUP, then SIGKILL after this. 500 ms, matching `KILL_GRACE` in
  * macos.rs — an earlier value of 2000 ms let a SIGHUP-ignoring TUI outlive its
@@ -28,12 +29,20 @@ export const KILL_GRACE_MS = 500;
 export interface ShellLaunch {
   readonly executable: string;
   readonly args: readonly string[];
+  /** Added to the pane's environment; only a bootstrapped launch has any. */
+  readonly env?: Readonly<Record<string, string>>;
 }
 
 /** `$SHELL -l`, falling back to zsh. A LOGIN shell: PATH, aliases and dotfiles
- * are a public promise on the landing page, not an implementation detail. */
-export function shellLaunch(): ShellLaunch {
-  return { executable: process.env.SHELL || "/bin/zsh", args: ["-l"] };
+ * are a public promise on the landing page, not an implementation detail.
+ *
+ * `bootstrap` is passed by pane spawns only: it routes zsh, bash and fish
+ * through Deck's wrappers (`agent-shell/shell-bootstrap.ts`). Every other
+ * caller — agent discovery, editors, `gh` — runs a plain shell. */
+export function shellLaunch(bootstrap?: AgentShellPaths | null): ShellLaunch {
+  const executable = process.env.SHELL || "/bin/zsh";
+  const bootstrapped = bootstrap ? bootstrapLaunch(executable, bootstrap) : null;
+  return bootstrapped ?? { executable, args: ["-l"] };
 }
 
 export function userHome(): string {

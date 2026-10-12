@@ -10,7 +10,7 @@ const ROOT = mkdtempSync(path.join(tmpdir(), "deck-provision-"));
 afterAll(() => rmSync(ROOT, { recursive: true, force: true }));
 
 describe("provisionAgentShell", () => {
-  it("writes the wrappers under agent-shell/bin", async () => {
+  it("writes the wrappers, the zsh dotfiles and the bash rcfile under agent-shell/", async () => {
     const userData = path.join(ROOT, "ok");
     const paths = await provisionAgentShell(userData);
     expect(paths).not.toBeNull();
@@ -20,6 +20,13 @@ describe("provisionAgentShell", () => {
       expect(readFileSync(file, "utf8")).toBe(agentWrapperSource(agent));
       expect(statSync(file).mode & 0o777).toBe(0o755);
     }
+    expect(readdirSync(paths!.zshDir).sort()).toEqual([
+      ".zlogin",
+      ".zprofile",
+      ".zshenv",
+      ".zshrc",
+    ]);
+    expect(readFileSync(paths!.bashRcfile, "utf8")).toContain(paths!.binDir);
   });
 
   it("is idempotent and leaves no temp files behind", async () => {
@@ -27,7 +34,10 @@ describe("provisionAgentShell", () => {
     await provisionAgentShell(userData);
     const again = await provisionAgentShell(userData);
     expect(again).not.toBeNull();
-    expect(readdirSync(again!.binDir).sort()).toEqual([...WRAPPED_AGENTS].sort());
+    const names = [again!.binDir, again!.zshDir, path.dirname(again!.bashRcfile)].flatMap((dir) =>
+      readdirSync(dir),
+    );
+    expect(names.filter((name) => name.endsWith(".tmp"))).toEqual([]);
   });
 
   it("answers null and logs when the directory cannot be created", async () => {

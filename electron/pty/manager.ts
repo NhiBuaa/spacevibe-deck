@@ -17,6 +17,7 @@ import { EVENTS } from "../ipc/channels";
 import { createStreamDecoder, OutputBatcher } from "./stream";
 import { PtySessionStore, type PtySession } from "./session-store";
 import { spawnShell, type SpawnOptions } from "./spawn";
+import type { AgentShellPaths } from "../agent-shell/shell-bootstrap";
 import { validateCwdCandidates, type ShellIntegrationEvent } from "../shell-integration";
 import * as macos from "../platform/macos";
 import type { PsRow } from "../platform/macos";
@@ -64,6 +65,8 @@ export interface PtyManagerDeps {
   readonly hookPort?: () => number | null;
   readonly hookScript?: () => string | null;
   readonly codexHookScript?: () => string | null;
+  /** Read per spawn: provisioning finishes at boot, before the first window. */
+  readonly agentShell?: () => AgentShellPaths | null;
 }
 
 export class PtyManager {
@@ -86,6 +89,7 @@ export class PtyManager {
       hookPort: this.deps.hookPort?.() ?? null,
       hookScript: this.deps.hookScript?.() ?? null,
       ...(this.deps.codexHookScript ? { codexHookScript: this.deps.codexHookScript() } : {}),
+      ...(this.deps.agentShell ? { agentShell: this.deps.agentShell() } : {}),
     });
     const decode = createStreamDecoder();
 

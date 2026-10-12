@@ -1,6 +1,6 @@
 /**
- * Write the agent wrappers under
- * `<userData>/agent-shell/bin` at boot (shell bootstrap and agent wrappers,
+ * Write the agent wrappers and shell bootstrap files under
+ * `<userData>/agent-shell/` at boot (shell bootstrap and agent wrappers,
  * slice 1 of the agent-status queue).
  *
  * Every file is written to a sibling temp file and renamed over its target. A
@@ -13,14 +13,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { WRAPPED_AGENTS, agentWrapperSource } from "./agent-wrappers";
+import { agentShellPaths, bashRcfile, zshDotfiles, type AgentShellPaths } from "./shell-bootstrap";
 
-export const AGENT_SHELL_DIR = "agent-shell";
 const SCRIPT_MODE = 0o755;
-
-export interface AgentShellPaths {
-  /** Directory holding the agent wrappers. */
-  readonly binDir: string;
-}
+const DOTFILE_MODE = 0o644;
 
 async function writeAtomic(file: string, text: string, mode: number): Promise<void> {
   await fs.mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
@@ -39,13 +35,17 @@ export async function provisionAgentShell(
   userDataDir: string,
   log: (message: string, error: unknown) => void = console.warn,
 ): Promise<AgentShellPaths | null> {
-  const paths: AgentShellPaths = { binDir: path.join(userDataDir, AGENT_SHELL_DIR, "bin") };
+  const paths = agentShellPaths(userDataDir);
   try {
-    await Promise.all(
-      WRAPPED_AGENTS.map((agent) =>
+    await Promise.all([
+      ...WRAPPED_AGENTS.map((agent) =>
         writeAtomic(path.join(paths.binDir, agent), agentWrapperSource(agent), SCRIPT_MODE),
       ),
-    );
+      ...Object.entries(zshDotfiles(paths)).map(([name, text]) =>
+        writeAtomic(path.join(paths.zshDir, name), text, DOTFILE_MODE),
+      ),
+      writeAtomic(paths.bashRcfile, bashRcfile(paths), DOTFILE_MODE),
+    ]);
     return paths;
   } catch (error) {
     log("Deck: the agent wrappers could not be written; panes start a plain login shell.", error);
