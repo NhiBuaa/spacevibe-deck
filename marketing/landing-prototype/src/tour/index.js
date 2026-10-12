@@ -22,6 +22,13 @@ const PROMPT = "❯ ";
 /** Anchor on the first feature chapter; the hero CTA and the footer link to it. */
 const FEATURES_ID = "features";
 
+/**
+ * Hidden until the loop is re-recorded on the current app (owner, 2026-10-12):
+ * the recording still shows the card-era rail under a 2.10 hero. The module,
+ * its styles and its assets stay so the switch can come back on.
+ */
+const SHOW_DEMO_LOOP = false;
+
 /** Staggered reveal for the closing band's blocks. */
 function mountFinaleReveal(section) {
   const targets = [...section.querySelectorAll("[data-reveal]")];
@@ -297,7 +304,7 @@ export function renderTour(copy) {
   return {
     markup: `
       <section class="tour">
-        ${renderDemoLoop(copy)}
+        ${SHOW_DEMO_LOOP ? renderDemoLoop(copy) : ""}
         ${renderChapters(copy, { featuresId: FEATURES_ID })}
         ${renderFinale(copy)}
         ${renderFooter(copy)}
@@ -314,7 +321,7 @@ export function renderTour(copy) {
 
       const disposeReveal = mountFinaleReveal(section);
       const disposeProofTerm = mountProofTerm(section, reduceMotion);
-      const disposeDemoLoop = mountDemoLoop(section);
+      const disposeDemoLoop = SHOW_DEMO_LOOP ? mountDemoLoop(section) : () => {};
 
       return () => {
         disposeDemoLoop();
