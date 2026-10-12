@@ -24,31 +24,29 @@
 
   /* Signal colour: white. The page runs a single achromatic light language —
      the type and the chrome are grey-white — so the one thing allowed to shout
-     does it with brightness, not hue. The painting below is the single
-     exception, and it is the only warm surface on the page by design. */
+     does it with brightness, not hue. The gold light behind the hero window
+     and the paintings under the chapters are the exceptions, and the only warm
+     surfaces on the page by design. */
   --accent: #ffffff;
   --accent-rgb: 255 255 255;
 
   /* ---- the plates ----
-     Six public-domain oil sketches, one per surface that carries a window.
-     They were ONE painting until 2026-08-19, varied only by crop, which read
-     exactly as what it was: the same picture six times.
+     Public-domain oil sketches that sit behind a window. They were ONE
+     painting until 2026-08-19, varied only by crop, which read exactly as what
+     it was: the same picture six times.
 
-     All six are light, all six are quiet, and none has a subject that competes
-     with the product standing on it — the hero's is the only one at full
-     strength (see .hero-desk__art); the panels' are dimmed to two thirds.
+     All of them are light and quiet, and none has a subject that competes with
+     the product standing on it. The hero stopped using one on 2026-10-12 (its
+     window stands on a light of its own now), and Caspar David Friedrich's
+     Morning Mist in the Mountains (mist.webp) left with it.
 
-     · mist       Caspar David Friedrich, Morning Mist in the Mountains (c.1808)
      · plateau    Frederic Edwin Church, mountain plateau with hut (Ecuador)
      · cloudstudy John Constable, Cloud Study (1822)
      · clouds     Frederic Edwin Church, Clouds, Hudson Valley (1866)
      · valley     Frederic Edwin Church, deep valley with sunset-lit clouds
      · jamaica    Frederic Edwin Church, sky at sunset, Jamaica
 
-     Panel plates are encoded at 1200px and 30–60 kB each: they render at half
-     the hero's size and two thirds of its brightness, so the detail the hero
-     plate pays for would be invisible. */
-  --plate-image: url("/landing-prototype/assets/plates/mist.webp");
+     Plates are encoded at 1200px and 30–60 kB each. */
   --plate-plateau: url("/landing-prototype/assets/plates/plateau.webp");
   --plate-cloudstudy: url("/landing-prototype/assets/plates/cloudstudy.webp");
   --plate-clouds: url("/landing-prototype/assets/plates/clouds.webp");

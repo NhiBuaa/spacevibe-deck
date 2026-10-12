@@ -18,10 +18,11 @@ import { mountTopbarDownload, renderTopbar } from "./topbar.js";
 
 /**
  * The hero (2026-10-10): the copy column on the dark ground, then the window
- * standing on the painting below it — the desk the page has always had. The
- * owner kept that order over a spread with the product beside the copy: whole
- * and at one scale, the window reads as the app, and a cut or magnified one
- * read as a broken layout.
+ * standing on a light of its own, with no painting behind it (owner,
+ * 2026-10-12; the light is styles/hero.css, 2026-10-13). The owner kept that
+ * order over a spread with the product beside the copy: whole and at one
+ * scale, the window reads as the app, and a cut or magnified one read as a
+ * broken layout.
  *
  * The window is Deck 2.10 in the middle of a working day (2026-10-12): the
  * tree rail across four projects, the focused space's three agents on the
@@ -100,8 +101,6 @@ export function renderHero(copy) {
 
           <div class="hero-stage">
             <div class="hero-desk">
-              <div class="hero-desk__art" aria-hidden="true"></div>
-
               <figure class="a-appwin a-appwin--tree hero-window" role="img" aria-label="${STAGE_ARIA_LABEL}">
                 <div class="a-appwin__body">
                   ${renderTreeRail(sessionRail, sessionUsage)}

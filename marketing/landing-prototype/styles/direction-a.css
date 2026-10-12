@@ -9,9 +9,9 @@
   --a-line: var(--frame-line);
   --a-line-strong: rgb(255 255 255 / 21%);
   /* Signal, aliased to the page-wide token — white, not violet. The chrome is
-     achromatic end to end and the painting below is the one warm surface; a
-     coloured CTA competing with it read as a leftover from a different
-     design. */
+     achromatic end to end and the hero window's gold light is the one warm
+     surface above the fold; a coloured CTA competing with it read as a
+     leftover from a different design. */
   --a-accent: var(--accent);
   --a-accent-rgb: var(--accent-rgb);
   --a-ease-lock: cubic-bezier(0.22, 0.78, 0.18, 1);
@@ -25,12 +25,12 @@
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  min-height: 100svh;
   overflow: clip;
   color: var(--a-ink);
-  /* Neutral grey-white ground. The painting beside the copy carries every
-     bit of colour temperature above the fold, so the field it stands in stays
-     achromatic — the warmth has to read as coming from the picture. */
+  /* Neutral grey-white ground. The window's gold light carries every bit of
+     colour temperature above the fold, so the field it stands in stays
+     achromatic. The hero is as tall as its content and no taller (owner,
+     2026-10-13): stretched to a screen it left a dark band under the window. */
   background:
     radial-gradient(120% 74% at 50% 0%, rgb(255 255 255 / 5%), transparent 62%),
     linear-gradient(180deg, #0b0d0c 0%, #090b0a 100%);
@@ -93,7 +93,6 @@
   width: var(--frame-width);
   flex-direction: column;
   min-width: 0;
-  min-height: 100svh;
   margin-inline: auto;
   padding: 0;
   /* Closes the hero and opens the tour — the frame runs on either side of it. */
@@ -416,7 +415,6 @@
 @media (max-width: 47.5rem) {
   .direction-a {
     display: block;
-    min-height: 100svh;
   }
 
   .a-brand-icon {
@@ -434,7 +432,6 @@
   }
 
   .a-main {
-    min-height: auto;
     padding: 0;
   }
 

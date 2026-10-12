@@ -13,7 +13,9 @@
 >   David Friedrich's _Morning Mist in the Mountains_ (c. 1808, public domain),
 >   declared once as `--plate-image` in `tokens.css`. Two Frederic Church oil
 >   sketches (`plateau.webp`, `clouds.webp`) sit beside it as alternates pending
->   the owner's eye review; the losers get deleted when it closes.
+>   the owner's eye review; the losers get deleted when it closes. **Since
+>   2026-10-13 the hero has no painting:** `--plate-image` and `mist.webp` are
+>   gone, and the window stands on a lit stage (`styles/hero.css`).
 > - The scroll tour is GONE. Its 340svh track, sticky pin, chapter rail and
 >   `scroll-progress.js` are replaced by five stacked feature panels, each with
 >   its own purpose-built window mock (`src/tour/panel-scenes.js`).

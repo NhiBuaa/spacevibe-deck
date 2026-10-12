@@ -1,8 +1,7 @@
 /* ---- The hero (2026-10-10) ----
-   The copy column on the dark ground, then the desk: a band of painting with
-   the whole window standing on it, at one scale. The selectors that override
-   `.a-appwin` carry it too (`.a-appwin.hero-…`), so they do not depend on this
-   sheet loading after appwin.css. */
+   The copy column on the dark ground, then the whole window, at one scale. The
+   selectors that override `.a-appwin` carry it too (`.a-appwin.hero-…`), so they
+   do not depend on this sheet loading after appwin.css. */
 
 /* Centred over the centred window (owner, 2026-10-11). The install unit is
    centred as one block; inside it the command still reads from the left. */
@@ -36,15 +35,18 @@
 }
 
 /* ---- The desk ----
-   A public-domain oil painting standing in for the desktop wallpaper the
-   window sits on. It gives the window a plane to cast a shadow onto, and its
-   lit centre is what separates a near-black window from a near-black page. */
+   No painting: the window stands on the page ground under a light of its own
+   (owner, 2026-10-13, picked from five candidates). A white cone falls from
+   above and stops halfway down the window; the sides and the bottom share one
+   tight gold halo with no offset, so the bottom hugs the window like the
+   sides. The cone is `.hero-desk::before`, blurred and held behind the window
+   by the desk's own stacking context. */
 
 .hero-stage {
   position: relative;
-  /* The bottom pad keeps the painting from ending flush on the frame's rule,
-     where it read as sliced by the line rather than sitting above it. */
-  padding: 0 var(--a-cell-pad) clamp(2rem, 4.5vh, 3.5rem);
+  /* Room under the window for the halo to fall into before the first chapter
+     (owner, 2026-10-13: the glow pressed against the paper without it). */
+  padding: 0 var(--a-cell-pad) clamp(3rem, 7vh, 4.5rem);
 }
 
 .hero-desk {
@@ -52,70 +54,48 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  overflow: hidden;
-  /* Deeper at the top: the rim above the window is the one place the painting
-     gets to be a picture rather than a border, and it is where Pause sits.
-     The bottom rim is what the window's shadow falls onto. */
-  padding: clamp(3.25rem, 7.2vw, 7rem) clamp(1.5rem, 3.6vw, 3.4rem) clamp(1.4rem, 3.2vw, 2.8rem);
-  border: 1px solid rgb(255 255 255 / 16%);
-  border-bottom: none;
-  border-radius: 18px 18px 0 0;
-  background: var(--a-surface-1);
+  /* Wider than the 56rem `.a-appwin` is capped at (owner, 2026-10-13); the cap
+     comes off the window just below. */
+  width: 100%;
+  max-width: 68rem;
+  margin-inline: auto;
+  /* The cone's top spread lives in this band. */
+  padding-top: 3.25rem;
   isolation: isolate;
 }
 
-/* The hero plate (`--plate-image`, tokens.css), barely graded: the one lit
-   plane above the fold. */
-.hero-desk__art {
+.hero-desk::before {
   position: absolute;
-  z-index: -1;
-  inset: 0;
-  background: var(--plate-image) 50% 50% / cover no-repeat;
-  filter: saturate(0.88) brightness(0.98) contrast(1.02);
-}
-
-/* Fall-off at the rim, so a flat rectangle of photograph does not read as a
-   screenshot pasted onto the page. */
-.hero-desk::after {
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  background: radial-gradient(
-    128% 116% at 50% 34%,
-    transparent 0 58%,
-    rgb(10 12 11 / 16%) 88%,
-    rgb(10 12 11 / 30%) 100%
-  );
+  z-index: 0;
+  inset: -16% -12% 50%;
+  background:
+    radial-gradient(46% 62% at 50% 22%, rgb(255 255 255 / 28%), transparent 76%),
+    radial-gradient(60% 50% at 50% 70%, color-mix(in srgb, var(--sg-yellow) 22%, transparent), transparent 72%);
   content: "";
+  filter: blur(56px);
   pointer-events: none;
 }
 
-/* A near-black window on a lit plate needs a real cast shadow and a dark
-   hairline, or it reads as a hole cut in the painting. */
+/* A near-black window on a near-black page: a light hairline marks its edge
+   and the gold halo does the work the painting's cast shadow used to. */
 .a-appwin.hero-window {
-  border-color: rgb(0 0 0 / 42%);
+  max-width: none;
+  border-color: rgb(255 255 255 / 18%);
   border-radius: 11px;
   box-shadow:
-    0 3rem 5.5rem -1.2rem rgb(0 0 0 / 62%),
-    0 0.9rem 1.8rem -0.7rem rgb(0 0 0 / 45%);
+    inset 0 1px 0 rgb(255 255 255 / 10%),
+    0 0 3.5rem 0.4rem color-mix(in srgb, var(--sg-yellow) 26%, transparent),
+    0 0 1.2rem 0 color-mix(in srgb, var(--sg-yellow) 14%, transparent);
 }
 
 .hero-desk .hero-pause {
-  top: 1rem;
-  right: 1rem;
+  top: 0;
+  right: 0;
 }
 
 @media (prefers-reduced-motion: no-preference) {
   .hero-window {
     animation: hero-lift 760ms var(--hero-enter) 260ms both;
-  }
-}
-
-/* Below this width the desk's side padding eats the window's own width
-   instead, so it drops to a rim. */
-@media (max-width: 60rem) {
-  .hero-desk {
-    padding-inline: 1.1rem;
   }
 }
 
@@ -130,20 +110,12 @@
     justify-content: center;
   }
 
-  /* Still a rim of painting on every side for the shadow to fall on; the top
-     one stays deep enough to hold Pause clear of the window. */
   .hero-desk {
-    padding: 3rem 0.85rem 0.85rem;
-    border-radius: 12px 12px 0 0;
+    padding-top: 2.75rem;
   }
 
   .a-appwin.hero-window {
     border-radius: 7px;
-  }
-
-  .hero-desk .hero-pause {
-    top: 0.5rem;
-    right: 0.6rem;
   }
 
   /* appwin-tree.css floors the rail's type at 7-8.5px; the beat plays in the
