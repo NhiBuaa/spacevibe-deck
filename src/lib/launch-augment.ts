@@ -15,9 +15,16 @@
  * Per agent, v1:
  * - **claude** — unchanged. User-level guarded hooks and the session registry
  *   cover both launcher and manual invocations.
- * - **codex** — `-c tui.notification_condition=always`, so Codex's BEL rings
- *   for `approval-requested` and `agent-turn-complete` whether or not the
- *   pane is focused (spec §10.6's default: the mark is worth the beep).
+ * - **codex** — where a wrapper runs (the pane shell was bootstrapped), nothing:
+ *   the wrapper adds the hook-trust bypass and `--no-daemon` itself. Without
+ *   one, on a POSIX host whose Codex accepts the bypass, the same flags are
+ *   inserted right after `codex` (CX2). Otherwise
+ *   `-c tui.notification_condition=always`, so Codex's BEL rings for
+ *   `approval-requested` and `agent-turn-complete` whether or not the pane is
+ *   focused (spec §10.6's default: the mark is worth the beep). A daemon
+ *   command (`agents`, `app-server`, `remote-control`, `--remote`) is launched
+ *   with the pane's `DECK_*` credentials emptied, so the shared daemon never
+ *   keeps them.
  * - **opencode** — `--port <n>` with the port main reserved for the pane, so
  *   its server can be subscribed to.
  *
@@ -25,7 +32,8 @@
  * is skipped and the row stays inferred for that half. Typed VISIBLY
  * (spec §10.3): the user sees exactly what Deck runs.
  */
-import { commandAgentId } from "./launch-profile";
+import { CODEX_BYPASS_FLAG, CODEX_NO_DAEMON_FLAG, classifyCodexArgs } from "./codex-launch-form";
+import { commandAgentId, commandFlags } from "./launch-profile";
 
 export interface SignalAdapters {
   readonly claude: boolean;
@@ -42,6 +50,14 @@ export interface AugmentContext {
   readonly sessionId: string | null;
   /** The port main reserved for an opencode pane, or null. */
   readonly opencodePort: number | null;
+  /** The host registers hooks at all (false on Windows). */
+  readonly hooksSupported: boolean;
+  /** Pane shells start through Deck's bootstrap, so the agent wrappers run. */
+  readonly shellBootstrap: boolean;
+  /** The installed Codex accepts `--dangerously-bypass-hook-trust`. */
+  readonly codexBypassHookTrust: boolean;
+  /** The installed Codex lists `--no-daemon`. */
+  readonly codexNoDaemon: boolean;
 }
 
 export interface Augmented {
@@ -73,14 +89,46 @@ function hasConfigKey(command: string, key: string): boolean {
   );
 }
 
+/** The empty assignments that keep a daemon command from inheriting the pane's credentials. */
+const CLEARED_PANE_CREDENTIALS = "DECK_PANE_ID= DECK_HOOK_TOKEN= DECK_HOOK_PORT=";
+
+/** Codex's flags for a composed command where no wrapper runs: after the `codex` word. */
+function insertCodexFlags(command: string, flags: readonly string[]): string {
+  const rest = commandFlags(command);
+  const head = command.trim().split(/\s+/)[0] ?? "";
+  return [head, ...flags, ...(rest === "" ? [] : [rest])].join(" ");
+}
+
 export function augmentLaunchCommand(command: string, context: AugmentContext): Augmented {
   const agent = commandAgentId(command);
   const extra: string[] = [];
   const sessionId: string | null = null;
 
-  if (agent === "codex" && context.adapters.codex) {
-    if (!hasConfigKey(command, "tui.notification_condition")) {
-      extra.push("-c", "tui.notification_condition=always");
+  if (agent === "codex") {
+    const form = classifyCodexArgs(tokens(command).slice(1));
+    // Only a POSIX host registers hooks; Windows keeps today's behaviour. With a
+    // bootstrapped shell the wrapper does the work (and the daemon strip) itself.
+    const posix = context.platform !== "windows" && context.hooksSupported;
+    const unwrapped = posix && !context.shellBootstrap;
+    if (unwrapped && form.daemon && !form.infoOnly) {
+      return { command: `${CLEARED_PANE_CREDENTIALS} ${command.trim()}`, sessionId };
+    }
+    if (context.adapters.codex) {
+      if (posix && context.codexBypassHookTrust) {
+        if (unwrapped && !form.infoOnly) {
+          const flags = [
+            ...(form.interactive && !form.remote && !form.hasNoDaemon && context.codexNoDaemon
+              ? [CODEX_NO_DAEMON_FLAG]
+              : []),
+            "--enable",
+            "hooks",
+            ...(form.hasBypass ? [] : [CODEX_BYPASS_FLAG]),
+          ];
+          return { command: insertCodexFlags(command, flags), sessionId };
+        }
+      } else if (!hasConfigKey(command, "tui.notification_condition")) {
+        extra.push("-c", "tui.notification_condition=always");
+      }
     }
   } else if (agent === "opencode" && context.adapters.opencode) {
     if (context.opencodePort !== null && !hasFlag(command, "--port")) {

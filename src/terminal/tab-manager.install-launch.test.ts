@@ -147,6 +147,9 @@ describe("install launch override", () => {
         claudeSettingsPath: "/settings",
         hookPort: 1,
         hooksSupported: true,
+        shellBootstrap: false,
+        codexBypassHookTrust: false,
+        codexNoDaemon: false,
       }),
     });
     await tm.openQuickAgent(null, "/repo");

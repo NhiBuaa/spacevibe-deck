@@ -44,6 +44,35 @@ describe("agent-signals-host launch config", () => {
     });
   });
 
+  it("reads the bootstrap and Codex flag answers, and defaults each to false", async () => {
+    const { host } = await facadeAnswering({
+      hookPort: 1,
+      shellBootstrap: true,
+      codexBypassHookTrust: true,
+      codexNoDaemon: true,
+    });
+    await expect(host.agentSignalConfig()).resolves.toMatchObject({
+      shellBootstrap: true,
+      codexBypassHookTrust: true,
+      codexNoDaemon: true,
+    });
+    const { host: bare } = await facadeAnswering({
+      hookPort: 1,
+      shellBootstrap: "yes",
+      codexBypassHookTrust: 1,
+    });
+    await expect(bare.agentSignalConfig()).resolves.toMatchObject({
+      shellBootstrap: false,
+      codexBypassHookTrust: false,
+      codexNoDaemon: false,
+    });
+    expect(bare.NO_SIGNAL_CONFIG).toMatchObject({
+      shellBootstrap: false,
+      codexBypassHookTrust: false,
+      codexNoDaemon: false,
+    });
+  });
+
   it("reads an explicit hooksSupported: true", async () => {
     const { host } = await facadeAnswering({ hookPort: 1, hooksSupported: true });
 

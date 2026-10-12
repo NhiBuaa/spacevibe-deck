@@ -19,6 +19,12 @@ export const available: boolean =
 export interface AgentSignalConfig {
   readonly claudeSettingsPath: string | null;
   readonly hookPort: number | null;
+  /** Pane shells start through Deck's bootstrap, so the agent wrappers run. False when unknown. */
+  readonly shellBootstrap: boolean;
+  /** The installed Codex accepts `--dangerously-bypass-hook-trust`. False when unknown. */
+  readonly codexBypassHookTrust: boolean;
+  /** The installed Codex lists `--no-daemon`. False when unknown. */
+  readonly codexNoDaemon: boolean;
   /**
    * Whether the host registers agent hooks at all (false on Windows, which
    * ships no hook script). TRUE when the host does not say — a host that
@@ -31,6 +37,9 @@ export interface AgentSignalConfig {
 export const NO_SIGNAL_CONFIG: AgentSignalConfig = Object.freeze({
   claudeSettingsPath: null,
   hookPort: null,
+  shellBootstrap: false,
+  codexBypassHookTrust: false,
+  codexNoDaemon: false,
   hooksSupported: true,
 });
 
@@ -56,6 +65,9 @@ export async function agentSignalConfig(): Promise<AgentSignalConfig> {
         node.hookPort > 0
           ? node.hookPort
           : null,
+      shellBootstrap: node.shellBootstrap === true,
+      codexBypassHookTrust: node.codexBypassHookTrust === true,
+      codexNoDaemon: node.codexNoDaemon === true,
       hooksSupported:
         typeof node.hooksSupported === "boolean"
           ? node.hooksSupported

@@ -14,6 +14,8 @@
  * variables to ignore events from the inner agent.
  */
 
+import { codexWrapperBranch } from "./codex-wrapper-branch";
+
 export const WRAPPED_AGENTS = ["claude", "codex", "opencode"] as const;
 export type WrappedAgent = (typeof WRAPPED_AGENTS)[number];
 
@@ -28,8 +30,16 @@ export const WRAPPER_DIR_SUFFIX = "/agent-shell/bin";
 export const WRAPPER_MARKER = "SpaceVibe Deck agent wrapper";
 const MARKER_PROBE_BYTES = 120;
 
+export interface WrapperOptions {
+  /**
+   * The file whose existence means Codex Signals is on. Only the Codex wrapper
+   * reads it; without it the Codex wrapper adds no flags.
+   */
+  readonly codexSignalsMarker?: string;
+}
+
 /** POSIX `sh` source of the wrapper for `agent`. */
-export function agentWrapperSource(agent: WrappedAgent): string {
+export function agentWrapperSource(agent: WrappedAgent, options: WrapperOptions = {}): string {
   return [
     "#!/bin/sh",
     `# ${WRAPPER_MARKER} (${agent}) - runs the real CLI after naming it for Deck's hooks.`,
@@ -81,6 +91,9 @@ export function agentWrapperSource(agent: WrappedAgent): string {
     "  DECK_AGENT_NESTED=1",
     "  export DECK_AGENT_NESTED",
     "fi",
+    ...(agent === "codex" && options.codexSignalsMarker !== undefined
+      ? codexWrapperBranch(options.codexSignalsMarker)
+      : []),
     '[ -n "$noglob_before" ] || set +f',
     'exec "$real" "$@"',
     "",

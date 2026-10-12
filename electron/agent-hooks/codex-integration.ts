@@ -4,6 +4,7 @@ import { AGENT_HOOKS_DIR } from "./claude-hooks-file";
 import { codexHooksPath, syncCodexHooks } from "./codex-hooks";
 import { BOUNDED_BODY_AWK, BOUNDED_PREFIX_BYTES } from "./bounded-body-awk";
 import { hooksSupported } from "./hooks-supported";
+import { codexSignalsMarkerPath } from "../agent-shell/shell-bootstrap";
 import { storedSignalAdapterOn } from "../../src/settings/signal-adapter-choice";
 
 /** The most process levels the script climbs from its parent to find Codex's own process. */
@@ -82,6 +83,7 @@ interface IntegrationDeps {
 export function createCodexIntegration(deps: IntegrationDeps) {
   const script = path.join(deps.userData, AGENT_HOOKS_DIR, "deck-codex-hook.sh");
   const hooks = deps.hooksPath ?? codexHooksPath();
+  const marker = codexSignalsMarkerPath(deps.userData);
   const supported = deps.supported ?? hooksSupported();
   let ready = false;
   let enabled = false;
@@ -102,7 +104,14 @@ export function createCodexIntegration(deps: IntegrationDeps) {
           await fs.writeFile(script, codexHookScript(), { mode: 0o700 });
           await fs.chmod(script, 0o700);
           ready = true;
+          // The Codex wrapper adds its flags only while the marker exists: drop it before the
+          // hooks go away, create it after they are registered.
+          if (!requested) await fs.rm(marker, { force: true });
           await (deps.syncHooks ?? syncCodexHooks)(hooks, script, requested);
+          if (requested) {
+            await fs.mkdir(path.dirname(marker), { recursive: true, mode: 0o700 });
+            await fs.writeFile(marker, "", { mode: 0o600 });
+          }
           enabled = requested && desired;
           applied = requested;
         })

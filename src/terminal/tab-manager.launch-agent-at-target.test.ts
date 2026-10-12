@@ -245,6 +245,9 @@ describe("explicit agent launch target", () => {
           claudeSettingsPath: "/settings",
           hookPort: 1,
           hooksSupported: true,
+          shellBootstrap: false,
+          codexBypassHookTrust: false,
+          codexNoDaemon: false,
         }),
         opencodeAttach: () =>
           new Promise<number>((done) => {
@@ -365,6 +368,9 @@ describe("explicit agent launch target", () => {
         claudeSettingsPath: "/settings",
         hookPort: 1,
         hooksSupported: true,
+        shellBootstrap: false,
+        codexBypassHookTrust: false,
+        codexNoDaemon: false,
       }),
       opencodeAttach: attach,
     });

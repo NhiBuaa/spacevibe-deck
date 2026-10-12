@@ -30,6 +30,9 @@ function harness(infoByPane: Map<number, PaneProcessInfo>, over: { attach?: numb
       claudeSettingsPath: SETTINGS_PATH,
       hookPort: 45999,
       hooksSupported: true,
+      shellBootstrap: false,
+      codexBypassHookTrust: false,
+      codexNoDaemon: false,
     }),
     opencodeAttach,
     hookEvents: async (next) => {
@@ -361,6 +364,50 @@ describe("createTabManager — arm-time augmentation (stage 2)", () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(second.pty.writes.find((write) => write.id === 1)?.data).toBe("claude\r");
     second.tm.dispose();
+  });
+
+  it("asks main again before a Codex launch, so a later probe answer is followed", async () => {
+    signalsOn("codex");
+    const answer = {
+      claudeSettingsPath: null,
+      hookPort: 45999,
+      hooksSupported: true,
+      shellBootstrap: false,
+      codexBypassHookTrust: false,
+      codexNoDaemon: false,
+    };
+    const signalConfig = vi.fn(async () => ({ ...answer }));
+    const launch = async () => {
+      const { tm, pty } = setupControllable(
+        new Map<number, PaneProcessInfo>([[1, processInfo(1, "/repo", "codex", "agent", "codex")]]),
+        { signalConfig, hookEvents: async () => () => {} },
+      );
+      await tm.init();
+      await tm.materialize({
+        layout: null,
+        cwds: ["/repo"],
+        workspacePath: "/repo",
+        agent: "codex",
+        launchCommand: "codex resume",
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      pty.emitOutput(1, "$ ");
+      await vi.advanceTimersByTimeAsync(0);
+      const typed = pty.writes.find((write) => write.id === 1)?.data;
+      tm.dispose();
+      return typed;
+    };
+    // An old Codex, as the first probe saw it.
+    expect(await launch()).toBe("codex resume -c tui.notification_condition=always\r");
+    // Upgraded while Deck ran: main re-probed, and the next launch follows it.
+    answer.codexBypassHookTrust = true;
+    answer.codexNoDaemon = true;
+    expect(await launch()).toBe(
+      "codex --no-daemon --enable hooks --dangerously-bypass-hook-trust resume\r",
+    );
+    // A bootstrapped shell: the wrapper adds the flags, the typed command is the user's.
+    answer.shellBootstrap = true;
+    expect(await launch()).toBe("codex resume\r");
   });
 
   it("a host with no adapters arms the user's command unchanged", async () => {

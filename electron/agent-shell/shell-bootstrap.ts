@@ -39,6 +39,11 @@ export interface BootstrapLaunch {
   readonly env: Readonly<Record<string, string>>;
 }
 
+/** Exists while Codex Signals is on; the Codex wrapper reads it at exec time (CX2). */
+export function codexSignalsMarkerPath(userDataDir: string): string {
+  return path.join(userDataDir, AGENT_SHELL_DIR, "codex-signals-on");
+}
+
 export function agentShellPaths(userDataDir: string): AgentShellPaths {
   const root = path.join(userDataDir, AGENT_SHELL_DIR);
   return {

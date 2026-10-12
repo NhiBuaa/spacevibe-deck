@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { WRAPPED_AGENTS, agentWrapperSource } from "./agent-wrappers";
 import { provisionAgentShell } from "./provision";
+import { codexSignalsMarkerPath } from "./shell-bootstrap";
 
 const ROOT = mkdtempSync(path.join(tmpdir(), "deck-provision-"));
 
@@ -17,7 +18,9 @@ describe("provisionAgentShell", () => {
     expect(paths?.binDir).toBe(path.join(userData, "agent-shell", "bin"));
     for (const agent of WRAPPED_AGENTS) {
       const file = path.join(paths!.binDir, agent);
-      expect(readFileSync(file, "utf8")).toBe(agentWrapperSource(agent));
+      expect(readFileSync(file, "utf8")).toBe(
+        agentWrapperSource(agent, { codexSignalsMarker: codexSignalsMarkerPath(userData) }),
+      );
       // POSIX only: Windows has no permission bits and reports 0o666 whatever was asked.
       if (process.platform !== "win32") expect(statSync(file).mode & 0o777).toBe(0o755);
     }

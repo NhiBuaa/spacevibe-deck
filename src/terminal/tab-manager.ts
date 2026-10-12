@@ -48,6 +48,7 @@ import { createAgentRegistrySync } from "./agent-registry-sync";
 import { agentRegistry as fetchAgentRegistry } from "../host/agent-registry-host";
 import { UNAVAILABLE_REGISTRY } from "../lib/agent-registry";
 import { augmentLaunchCommand, needsOpencodePort } from "../lib/launch-augment";
+import { commandAgentId } from "../lib/launch-profile";
 import {
   agentSignalConfig as fetchSignalConfig,
   available as signalsHostAvailable,
@@ -389,12 +390,22 @@ export function createTabManager(
     if (opencodeAttach !== null && needsOpencodePort(command, adapters)) {
       opencodePort = await opencodeAttach(id).catch(() => null);
     }
+    // What the installed Codex accepts can change while Deck runs (an upgrade, or
+    // the switch flipping, which makes main re-probe), so a Codex launch asks again
+    // instead of trusting the answer fetched at start.
+    if (signalConfigFetch !== null && commandAgentId(command) === "codex" && adapters.codex) {
+      signalConfig = await signalConfigFetch().catch(() => signalConfig);
+    }
     const augmented = augmentLaunchCommand(command, {
       adapters,
       platform,
       claudeSettingsPath: signalConfig.claudeSettingsPath,
       sessionId: null,
       opencodePort,
+      hooksSupported: signalConfig.hooksSupported,
+      shellBootstrap: signalConfig.shellBootstrap,
+      codexBypassHookTrust: signalConfig.codexBypassHookTrust,
+      codexNoDaemon: signalConfig.codexNoDaemon,
     });
     return { id, command: augmented.command };
   }

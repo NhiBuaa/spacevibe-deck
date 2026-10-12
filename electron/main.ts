@@ -10,7 +10,7 @@ initCrashReporting();
 // main process" dialog.
 for (const stream of [process.stdout, process.stderr]) stream.on("error", () => {});
 
-import { createCodexIntegration } from "./agent-hooks/codex-integration";
+import { codexSignalsEnabled, createCodexIntegration } from "./agent-hooks/codex-integration";
 /**
  * Electron main process — the host.
  *
@@ -68,7 +68,9 @@ import { createHookServer } from "./agent-hooks/hook-server";
 import { createOpencodeClients } from "./agent-hooks/opencode-client";
 import { createClaudeIntegration } from "./agent-hooks/claude-integration";
 import { provisionAgentShell } from "./agent-shell/provision";
-import type { AgentShellPaths } from "./agent-shell/shell-bootstrap";
+import { bootstrapLaunch, type AgentShellPaths } from "./agent-shell/shell-bootstrap";
+import { createCodexCapabilities } from "./agent-shell/codex-capabilities";
+import { hooksSupported } from "./agent-hooks/hooks-supported";
 
 // __dirname is `dist-electron/electron`, so the Vite output is two levels up.
 const RENDERER_DIR = path.join(__dirname, "..", "..", "dist");
@@ -172,6 +174,24 @@ const codexIntegration = createCodexIntegration({ userData: app.getPath("userDat
 
 /** The wrappers and shell bootstrap, written at boot; null leaves panes on `$SHELL -l`. */
 let agentShell: AgentShellPaths | null = null;
+
+/** What the installed Codex accepts; re-probed whenever the integrations sync. */
+const codexCapabilities = createCodexCapabilities();
+
+let probedWithCodexSignals: boolean | null = null;
+
+/**
+ * Register or remove both hook sets. Codex is re-probed at boot and whenever its switch
+ * flips, without holding the caller up: discovery starts a login shell.
+ */
+async function syncAgentIntegrations(settings: unknown): Promise<void> {
+  const codexOn = codexSignalsEnabled(settings);
+  if (hooksSupported() && probedWithCodexSignals !== codexOn) {
+    probedWithCodexSignals = codexOn;
+    void codexCapabilities.refresh();
+  }
+  await Promise.all([claudeIntegration.sync(settings), codexIntegration.sync(settings)]);
+}
 
 const pty = new PtyManager({
   emitToOwner: (paneId, event, payload) => coordinator.deliver(paneId, event, payload),
@@ -418,12 +438,23 @@ registerServices({ labelOf, setRecording: menuState.setRecording });
 
 // ------------------------------------------------- Agent-signal adapters
 registerAgentSignals({
-  config: () => ({
-    // POSIX only: the hook script is `sh` + `curl`. Windows keeps the
-    // fallback (spec §8) until a PowerShell script exists.
-    claudeSettingsPath: null,
-    hookPort: hookServer.port(),
-  }),
+  config: async () => {
+    // A probe started by a Signals change must land before a launch reads the answer.
+    await codexCapabilities.settled();
+    const codex = codexCapabilities.current();
+    return {
+      // POSIX only: the hook script is `sh` + `curl`. Windows keeps the
+      // fallback (spec §8) until a PowerShell script exists.
+      claudeSettingsPath: null,
+      hookPort: hookServer.port(),
+      shellBootstrap:
+        hooksSupported() &&
+        agentShell !== null &&
+        bootstrapLaunch(process.env.SHELL || "/bin/zsh", agentShell) !== null,
+      codexBypassHookTrust: codex.bypassHookTrust,
+      codexNoDaemon: codex.noDaemon,
+    };
+  },
   opencode: opencodeClients,
   assertOwner: (paneId, label) => coordinator.assertAccess(paneId, label),
   labelOf,
@@ -446,7 +477,7 @@ registerSettingsIpc({
   emitTo,
   adoptMenuKeymap: menuState.adoptMenuKeymap,
   syncAgentSettings: async (settings) => {
-    await Promise.all([claudeIntegration.sync(settings), codexIntegration.sync(settings)]);
+    await syncAgentIntegrations(settings);
   },
 });
 
@@ -626,7 +657,7 @@ app.whenReady().then(async () => {
     .then(async (store) => {
       const settings = store.get("settings");
       menuState.adoptMenuKeymap(settings);
-      await Promise.all([claudeIntegration.sync(settings), codexIntegration.sync(settings)]);
+      await syncAgentIntegrations(settings);
     })
     .catch((error: unknown) => {
       // Defaults are already installed; an unreadable settings file must not

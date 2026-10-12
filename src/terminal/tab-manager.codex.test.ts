@@ -34,6 +34,9 @@ async function setup(manual = false) {
       claudeSettingsPath: null,
       hookPort: 45999,
       hooksSupported: true,
+      shellBootstrap: false,
+      codexBypassHookTrust: false,
+      codexNoDaemon: false,
     }),
     hookEvents: async (handler) => {
       receive = handler;

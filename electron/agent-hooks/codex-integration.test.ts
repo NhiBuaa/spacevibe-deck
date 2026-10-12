@@ -9,6 +9,7 @@ import { parseHookBody } from "./hook-request";
 import { parseHookEvent, contractSignalOf } from "../../src/lib/agent-signal-map";
 import { createAgentAttentionTracker } from "../../src/terminal/agent-attention";
 import { buildEnv } from "../pty/spawn";
+import { codexSignalsMarkerPath } from "../agent-shell/shell-bootstrap";
 import { SIGNAL_ADAPTERS_REVISION } from "../../src/settings/signal-adapter-choice";
 import { writeFakePs } from "./hook-script-harness";
 
@@ -79,6 +80,53 @@ describe("Codex integration default hook support", () => {
 
   it("registers nothing on win32", async () => {
     expect(await syncOn("win32")).not.toHaveBeenCalled();
+  });
+});
+
+describe("Codex runtime marker (CX2)", () => {
+  const exists = (file: string) =>
+    fs.access(file).then(
+      () => true,
+      () => false,
+    );
+
+  it("exists exactly while Codex Signals is on", async () => {
+    const deps = await setup();
+    const marker = codexSignalsMarkerPath(deps.userData);
+    const integration = createCodexIntegration({ ...deps, supported: true });
+    expect(await exists(marker)).toBe(false);
+    await integration.sync(on);
+    expect(await exists(marker)).toBe(true);
+    await integration.sync(off);
+    expect(await exists(marker)).toBe(false);
+    await integration.sync(on);
+    expect(await exists(marker)).toBe(true);
+  });
+
+  it("is removed at boot when a crash left it behind and the switch is off", async () => {
+    const deps = await setup();
+    const marker = codexSignalsMarkerPath(deps.userData);
+    await fs.mkdir(path.dirname(marker), { recursive: true });
+    await fs.writeFile(marker, "");
+    await createCodexIntegration({ ...deps, supported: true }).sync(off);
+    expect(await exists(marker)).toBe(false);
+  });
+
+  it("is not created where hooks are unsupported, or when registration fails", async () => {
+    const deps = await setup();
+    const marker = codexSignalsMarkerPath(deps.userData);
+    await createCodexIntegration({ ...deps, supported: false }).sync(on);
+    expect(await exists(marker)).toBe(false);
+    const failing = createCodexIntegration({
+      ...deps,
+      supported: true,
+      syncHooks: async () => {
+        throw new Error("denied");
+      },
+      log: () => {},
+    });
+    await failing.sync(on);
+    expect(await exists(marker)).toBe(false);
   });
 });
 

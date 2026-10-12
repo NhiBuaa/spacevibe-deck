@@ -17,6 +17,10 @@ function context(over: Partial<AugmentContext> = {}): AugmentContext {
     claudeSettingsPath: SETTINGS,
     sessionId: UUID,
     opencodePort: 45123,
+    hooksSupported: true,
+    shellBootstrap: false,
+    codexBypassHookTrust: false,
+    codexNoDaemon: false,
     ...over,
   };
 }
@@ -85,5 +89,93 @@ describe("shellQuote", () => {
   it("wraps in single quotes and escapes an embedded one", () => {
     expect(shellQuote("/a b/c")).toBe("'/a b/c'");
     expect(shellQuote("it's")).toBe("'it'\\''s'");
+  });
+});
+
+describe("augmentLaunchCommand — codex without a wrapper (CX2)", () => {
+  const bypass = { codexBypassHookTrust: true, codexNoDaemon: true };
+  const flags = "--no-daemon --enable hooks --dangerously-bypass-hook-trust";
+  const augment = (command: string, over: Partial<AugmentContext> = {}) =>
+    augmentLaunchCommand(command, context({ ...bypass, ...over })).command;
+
+  it("inserts the flags right after codex and drops the notification condition", () => {
+    expect(augment("codex")).toBe(`codex ${flags}`);
+    expect(augment("codex --full-auto")).toBe(`codex ${flags} --full-auto`);
+    expect(augment("codex resume --last")).toBe(`codex ${flags} resume --last`);
+    expect(augment("codex fork --last")).toBe(`codex ${flags} fork --last`);
+  });
+
+  it("leaves --no-daemon off every non-interactive and remote form", () => {
+    const base = "--enable hooks --dangerously-bypass-hook-trust";
+    expect(augment("codex exec say hi")).toBe(`codex ${base} exec say hi`);
+    expect(augment("codex review")).toBe(`codex ${base} review`);
+  });
+
+  it("omits --no-daemon when this Codex does not list it", () => {
+    expect(augment("codex resume", { codexNoDaemon: false })).toBe(
+      "codex --enable hooks --dangerously-bypass-hook-trust resume",
+    );
+  });
+
+  it("does not double what the user typed", () => {
+    expect(augment("codex --dangerously-bypass-hook-trust --no-daemon")).toBe(
+      "codex --enable hooks --dangerously-bypass-hook-trust --no-daemon",
+    );
+    expect(augment("codex -- --dangerously-bypass-hook-trust")).toBe(
+      `codex ${flags} -- --dangerously-bypass-hook-trust`,
+    );
+  });
+
+  it("adds nothing to an information flag", () => {
+    expect(augment("codex --version")).toBe("codex --version");
+    expect(augment("codex exec --help")).toBe("codex exec --help");
+  });
+
+  it("adds nothing when the shell is bootstrapped: the wrapper does it", () => {
+    for (const command of ["codex", "codex resume", "codex exec go", "codex agents"]) {
+      expect(augment(command, { shellBootstrap: true })).toBe(command);
+    }
+  });
+
+  it("keeps today's notification condition when the bypass is not accepted", () => {
+    for (const shellBootstrap of [false, true]) {
+      expect(augment("codex --full-auto", { codexBypassHookTrust: false, shellBootstrap })).toBe(
+        "codex --full-auto -c tui.notification_condition=always",
+      );
+    }
+  });
+
+  it("adds nothing while the Codex adapter is off", () => {
+    const adapters = { ...ALL_ON, codex: false };
+    expect(augment("codex resume", { adapters })).toBe("codex resume");
+  });
+
+  it("leaves Windows and hook-less hosts exactly as they were", () => {
+    for (const over of [{ platform: "windows" as const }, { hooksSupported: false }]) {
+      expect(augment("codex --full-auto", over)).toBe(
+        "codex --full-auto -c tui.notification_condition=always",
+      );
+      expect(augment("codex agents", over)).toBe(
+        "codex agents -c tui.notification_condition=always",
+      );
+    }
+  });
+
+  it.each([
+    ["codex agents"],
+    ["codex app-server --listen ws://x"],
+    ["codex remote-control start"],
+    ["codex --remote ws://h:1"],
+    ["codex resume --remote=ws://h:1"],
+  ])("clears the pane's credentials for %s, adding nothing else", (command) => {
+    const cleared = `DECK_PANE_ID= DECK_HOOK_TOKEN= DECK_HOOK_PORT= ${command}`;
+    expect(augment(command)).toBe(cleared);
+    // Whatever the adapter, and whether or not this Codex accepts the bypass.
+    expect(augment(command, { adapters: { ...ALL_ON, codex: false } })).toBe(cleared);
+    expect(augment(command, { codexBypassHookTrust: false })).toBe(cleared);
+  });
+
+  it("never clears credentials for a launch that stays in-process", () => {
+    expect(augment("codex exec go")).not.toContain("DECK_PANE_ID=");
   });
 });

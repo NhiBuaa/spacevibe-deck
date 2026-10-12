@@ -13,7 +13,13 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { WRAPPED_AGENTS, agentWrapperSource } from "./agent-wrappers";
-import { agentShellPaths, bashRcfile, zshDotfiles, type AgentShellPaths } from "./shell-bootstrap";
+import {
+  agentShellPaths,
+  bashRcfile,
+  codexSignalsMarkerPath,
+  zshDotfiles,
+  type AgentShellPaths,
+} from "./shell-bootstrap";
 
 const SCRIPT_MODE = 0o755;
 const DOTFILE_MODE = 0o644;
@@ -39,7 +45,11 @@ export async function provisionAgentShell(
   try {
     await Promise.all([
       ...WRAPPED_AGENTS.map((agent) =>
-        writeAtomic(path.join(paths.binDir, agent), agentWrapperSource(agent), SCRIPT_MODE),
+        writeAtomic(
+          path.join(paths.binDir, agent),
+          agentWrapperSource(agent, { codexSignalsMarker: codexSignalsMarkerPath(userDataDir) }),
+          SCRIPT_MODE,
+        ),
       ),
       ...Object.entries(zshDotfiles(paths)).map(([name, text]) =>
         writeAtomic(path.join(paths.zshDir, name), text, DOTFILE_MODE),

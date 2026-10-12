@@ -15,6 +15,12 @@ export interface LaunchSignalConfig {
   readonly claudeSettingsPath: string | null;
   /** The hook endpoint's port, or null when the listener could not bind. */
   readonly hookPort: number | null;
+  /** Pane shells start through Deck's bootstrap, so the agent wrappers are on PATH (slice 1). */
+  readonly shellBootstrap: boolean;
+  /** The installed Codex lists `--dangerously-bypass-hook-trust` (CX2). */
+  readonly codexBypassHookTrust: boolean;
+  /** The installed Codex lists `--no-daemon`. */
+  readonly codexNoDaemon: boolean;
 }
 
 export interface AgentSignalConfig extends LaunchSignalConfig {
@@ -23,7 +29,8 @@ export interface AgentSignalConfig extends LaunchSignalConfig {
 }
 
 export interface RegisterAgentSignalsDeps {
-  readonly config: () => LaunchSignalConfig;
+  /** May wait for a Codex probe still in flight, so a launch never reads a stale answer. */
+  readonly config: () => LaunchSignalConfig | Promise<LaunchSignalConfig>;
   /** Test seam; defaults to the platform answer both hook integrations use. */
   readonly hooksSupported?: () => boolean;
   readonly opencode: OpencodeClients;
@@ -33,8 +40,8 @@ export interface RegisterAgentSignalsDeps {
 }
 
 export function registerAgentSignals(deps: RegisterAgentSignalsDeps): void {
-  ipcMain.handle(CHANNELS.agentSignalConfig, (): AgentSignalConfig => ({
-    ...deps.config(),
+  ipcMain.handle(CHANNELS.agentSignalConfig, async (): Promise<AgentSignalConfig> => ({
+    ...(await deps.config()),
     hooksSupported: (deps.hooksSupported ?? hooksSupported)(),
   }));
   // A pane may only be attached by the window that owns it: the port is typed
