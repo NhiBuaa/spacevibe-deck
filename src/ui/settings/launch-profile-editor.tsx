@@ -134,20 +134,20 @@ function EnabledToggle({
 const ADAPTER_AGENTS: ReadonlySet<string> = new Set(["claude", "codex", "opencode"]);
 
 /**
- * The adapters that work ONLY through an installed hook script, so the host's
- * "no hooks here" answer speaks for them and for nothing else. Codex is
- * excluded although it also has a hook script: its always-ring launch flag
- * (`launch-augment.ts`) is applied on every Electron host, Windows included,
- * so its switch still does something there and must keep working. opencode's
- * adapter is a pinned server port, no hook script at all.
+ * The adapters that work ONLY through an installed hook script or plugin, so
+ * the host's "no hooks here" answer speaks for them and for nothing else.
+ * opencode's plugin is loaded through the POSIX shell wrappers, so Windows has
+ * none. Codex is excluded although it also has a hook script: its always-ring
+ * launch flag (`launch-augment.ts`) is applied on every Electron host, Windows
+ * included, so its switch still does something there and must keep working.
  */
-const HOOK_ONLY_ADAPTER_AGENTS: ReadonlySet<string> = new Set(["claude"]);
+const HOOK_ONLY_ADAPTER_AGENTS: ReadonlySet<string> = new Set(["claude", "opencode"]);
 
 /**
  * The per-agent adapter switch (agent-signal contract layer, stage 2; spec
  * §10.4): whether a launch of this agent is augmented so the CLI reports to
  * Deck — Claude's guarded user-level hooks, Codex's always-ring
- * notification flag, opencode's pinned server port. Off, the agent is read
+ * notification flag, opencode's plugin. Off, the agent is read
  * off the process table and output timing, and its marks are drawn hollow.
  * This setting stays inside the agent details, separate from availability.
  *

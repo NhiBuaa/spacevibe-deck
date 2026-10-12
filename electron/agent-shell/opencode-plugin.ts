@@ -17,7 +17,7 @@
  *
  * Two differences from Superset:
  * - Deck's generation check refuses a non-`SessionStart` post for a session other than the
- *   pane's current one, so a root that replaces another one posts `SessionStart` first.
+ *   pane's current one, so every `Start` is preceded by a `SessionStart` for its session.
  * - The event hook returns before the post finishes. opencode never waits on Deck, and a
  *   failed post is dropped.
  *
@@ -76,13 +76,11 @@ export const DeckSignalsPlugin = async ({ client }) => {
 
   let state = "idle"; // "idle" | "busy"
   let root = null; // the pane's root session
-  let announced = null; // the session Deck was last told about with SessionStart
 
-  const announce = async (id) => {
-    if (announced === id) return;
-    announced = id;
-    await post("SessionStart", id);
-  };
+  // Deck drops a post for a session it has not been told is current, and it can miss a post
+  // (Signals switched off for a while), so every turn names its session first. Repeating it
+  // for the current session is accepted.
+  const announce = (id) => post("SessionStart", id);
 
   // A session is a child (subagent) when it has a parent. Unknown counts as a child, so a
   // failed lookup can never make a subagent speak for the pane.
@@ -133,6 +131,8 @@ export const DeckSignalsPlugin = async ({ client }) => {
     "permission.asked",
     "question.asked",
     "permission.replied",
+    "question.replied",
+    "question.rejected",
     "session.status",
     "session.busy",
     "session.idle",
@@ -157,7 +157,6 @@ export const DeckSignalsPlugin = async ({ client }) => {
       if (id !== root) return;
       root = null;
       state = "idle";
-      announced = null;
       await post("SessionEnd", id);
       return;
     }
@@ -168,6 +167,8 @@ export const DeckSignalsPlugin = async ({ client }) => {
       case "question.asked":
         return handleAsk(id);
       case "permission.replied":
+      case "question.replied":
+      case "question.rejected":
         if (id === root) await post("PermissionReplied", id);
         return;
       case "session.status":

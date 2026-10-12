@@ -169,10 +169,10 @@ describe("opencode plugin — root session events", () => {
     const hooks = await load();
     expect(
       await feed(hooks, [created("ses_a"), status("ses_a", "busy"), status("ses_a", "idle")]),
-    ).toEqual(["SessionStart:ses_a", "Start:ses_a", "Stop:ses_a"]);
+    ).toEqual(["SessionStart:ses_a", "SessionStart:ses_a", "Start:ses_a", "Stop:ses_a"]);
   });
 
-  it("names a resumed session (no session.created) before its Start, and dedupes edges", async () => {
+  it("names the session before every Start, and dedupes repeated edges", async () => {
     const hooks = await load();
     expect(
       await feed(hooks, [
@@ -182,7 +182,13 @@ describe("opencode plugin — root session events", () => {
         { type: "session.idle", properties: { sessionID: "ses_a" } },
         status("ses_a", "busy"),
       ]),
-    ).toEqual(["SessionStart:ses_a", "Start:ses_a", "Stop:ses_a", "Start:ses_a"]);
+    ).toEqual([
+      "SessionStart:ses_a",
+      "Start:ses_a",
+      "Stop:ses_a",
+      "SessionStart:ses_a",
+      "Start:ses_a",
+    ]);
   });
 
   it("posts nothing for a child session, however it is learned to be one", async () => {
@@ -216,6 +222,28 @@ describe("opencode plugin — root session events", () => {
       "PermissionRequest:ses_a",
       "PermissionReplied:ses_a",
       "PermissionRequest:ses_a",
+    ]);
+  });
+
+  it("ends an ask when a question is answered or dismissed, root only", async () => {
+    const hooks = await load({}, [...ROOTS, { id: "ses_child", parentID: "ses_a" }]);
+    expect(
+      await feed(hooks, [
+        status("ses_a", "busy"),
+        ask("question.asked", "ses_a"),
+        ask("question.replied", "ses_a"),
+        ask("question.asked", "ses_a"),
+        ask("question.rejected", "ses_a"),
+        ask("question.replied", "ses_child"),
+        ask("question.rejected", "ses_b"),
+      ]),
+    ).toEqual([
+      "SessionStart:ses_a",
+      "Start:ses_a",
+      "PermissionRequest:ses_a",
+      "PermissionReplied:ses_a",
+      "PermissionRequest:ses_a",
+      "PermissionReplied:ses_a",
     ]);
   });
 
@@ -291,6 +319,26 @@ describe("opencode plugin — root switch (SUB1)", () => {
       "SessionStart:ses_a",
       "Start:ses_a",
     ]);
+  });
+
+  it("re-announces the current session at every turn, so a missed SessionStart cannot strand it", async () => {
+    const hooks = await load();
+    const sent = await feed(hooks, [
+      status("ses_a", "busy"),
+      status("ses_a", "idle"),
+      status("ses_b", "busy"),
+      status("ses_b", "idle"),
+      status("ses_b", "busy"),
+      status("ses_b", "idle"),
+    ]);
+    // Whatever subset of these posts Deck received, a Start is never the first post it sees
+    // for its session: the SessionStart for that session comes immediately before it.
+    sent.forEach((post, index) => {
+      if (post.startsWith("Start:")) {
+        expect(sent[index - 1]).toBe(`SessionStart:${post.slice("Start:".length)}`);
+      }
+    });
+    expect(sent.filter((post) => post.startsWith("Start:"))).toHaveLength(3);
   });
 
   it("ignores another root's events while the current root is busy", async () => {

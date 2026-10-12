@@ -407,10 +407,11 @@ runs independently of the switch. Without hooks, API failures cannot produce the
   are launched with `DECK_PANE_ID`, `DECK_HOOK_TOKEN` and `DECK_HOOK_PORT` unset (`env -u`, which csh and fish accept too).
 - **opencode reports through a plugin the wrapper loads.** Deck writes
   [`opencode-plugin.ts`](../../electron/agent-shell/opencode-plugin.ts) under
-  `<userData>/agent-shell/opencode/plugin/` with the wrappers. While a runtime marker exists
+  `<userData>/agent-shell/opencode/plugin/deck-signals.js` with the wrappers. While a runtime marker exists
   (owned by [`opencode-integration.ts`](../../electron/agent-hooks/opencode-integration.ts):
   created when Signals turns on, removed first when it turns off) the opencode wrapper exports
-  `OPENCODE_CONFIG_DIR` pointing at that directory, and opencode loads the plugin from there.
+  `OPENCODE_CONFIG_DIR` pointing at `<userData>/agent-shell/opencode/`, and opencode loads
+  `plugin/deck-signals.js` from there.
   Nothing is written to the user's opencode config, and Deck adds no `--port` and opens no
   opencode server.
   - *Root only.* Only the pane's root session speaks. A session with a parent is a subagent,
@@ -419,9 +420,11 @@ runs independently of the switch. Without hooks, API failures cannot produce the
     inert, and the renderer drops an opencode post for a pane known to run another agent.
   - *Wire.* The plugin posts seven events to a third endpoint path, `/hook/opencode`:
     `SessionStart`, `SessionEnd`, `Start` and `Stop` (the busy and idle edges), `Failed` (with
-    a capped message), `PermissionRequest` and `PermissionReplied`. It announces a root with
-    `SessionStart` first, because the generation check refuses a later event from a session
-    that is not the pane's current one.
+    a capped message), `PermissionRequest` and `PermissionReplied`. Every `Start` is
+    preceded by a `SessionStart` for its session, because the generation check refuses an event
+    from a session that is not the pane's current one and a post can be missed while Signals is
+    off. A question answered or dismissed (`question.replied`, `question.rejected`) posts
+    `PermissionReplied` like a permission reply.
   - *Proxy-proof loopback.* The post is written on a raw `node:net` socket to `127.0.0.1`,
     not `fetch` or `node:http`: both honour `HTTP_PROXY` inside opencode, which would send the
     pane's token to the user's proxy. It runs in opencode's process, so it stays small and
