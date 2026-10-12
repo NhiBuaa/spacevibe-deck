@@ -26,9 +26,8 @@ space and session. The strip shows the current project's spaces; reach another p
 the Agent Rail. The numbers count those spaces first, then open documents and the browser tab.
 A sideways two-finger swipe over the terminals also moves one space.
 
-The **Overview** button on the toolbar opens Mission Control, as ⌘⇧O does. Hover a space at
-the top to see its panes, click a pane to go straight to it, or press Esc to go back
-unchanged. Nothing stops or restarts while it is open.
+⌘⇧O opens Mission Control. Hover a space at the top to see its panes, click a pane to go
+straight to it, or press Esc to go back unchanged. Nothing stops or restarts while it is open.
 
 ## Panes
 
