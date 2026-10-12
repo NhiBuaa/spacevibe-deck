@@ -5,7 +5,7 @@ import {
   tooltipTriggerProps,
   useTooltipVisibility,
 } from "./controls/action-tooltip";
-import { CHROME_ICON, DeckIcon } from "./controls/deck-icon";
+import { DeckIcon, ROW_ICON } from "./controls/deck-icon";
 import { createNewPaneDragController, type NewPaneDropDeps } from "./new-pane-drag";
 
 /**
@@ -103,7 +103,7 @@ function CreateButton({
           onPress(event.currentTarget);
         }}
       >
-        <DeckIcon icon={icon} size={CHROME_ICON} />
+        <DeckIcon icon={icon} size={ROW_ICON} />
         {!column && <span>{verb}</span>}
       </button>
       {!column && tooltip.anchor !== null && (

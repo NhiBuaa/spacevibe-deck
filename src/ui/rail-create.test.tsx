@@ -7,7 +7,7 @@ vi.mock("../host/worktree-host", () => ({ addWorktree: vi.fn(), available: true 
 vi.mock("../host/dialog-host", () => ({ open: vi.fn() }));
 vi.mock("./rail-add-folder", () => ({ rememberOnRail: vi.fn(), addFolderToRail: vi.fn() }));
 vi.mock("./worktree-card-row", () => ({ whereOf: () => "repo · main" }));
-vi.mock("./controls/deck-icon", () => ({ CHROME_ICON: 13, DeckIcon: () => <span /> }));
+vi.mock("./controls/deck-icon", () => ({ ROW_ICON: 14, DeckIcon: () => <span /> }));
 
 import type { RailStreamGroup } from "./agent-rail-model";
 import { RailCreate } from "./rail-create";

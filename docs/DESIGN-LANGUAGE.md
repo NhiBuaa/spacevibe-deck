@@ -1063,7 +1063,7 @@ shadow.
 - **DL-27.13** Retired. Replaced by DL-27.28.
 - **DL-27.14** On Electron the identity row (`toggle → logo → Deck`) is followed by a create row
   outside the scrolling list: three equal 24px buttons reading `Worktree`, `Folder`, `Agent`
-  ([`rail-create-row.tsx`](../src/ui/rail-create-row.tsx)), in `--type-body` with `CHROME_ICON`
+  ([`rail-create-row.tsx`](../src/ui/rail-create-row.tsx)), in `--type-body` with `ROW_ICON`
   and DL-23 tooltips that name the target. `Worktree` and `Folder` carry a `--hair` outline.
   `Agent` is the primary verb: last in DOM order so focus follows the eye, drawing `Plus` on the
   launcher's filled skin (`--text-primary` ground, `--bg` label). `Agent` opens the launch page
