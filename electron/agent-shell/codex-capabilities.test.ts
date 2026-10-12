@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createCodexCapabilities, parseCodexHelp } from "./codex-capabilities";
+import { PROBE_RETRY_MS, createCodexCapabilities, parseCodexHelp } from "./codex-capabilities";
 
 const HELP_0_162 = `Options:
       --dangerously-bypass-hook-trust
@@ -130,14 +130,79 @@ describe("createCodexCapabilities", () => {
       expect(discover).toHaveBeenCalledTimes(2);
     });
 
-    it("does nothing before a first probe, or when no Codex was found", async () => {
-      const discover = vi.fn(async () => null);
+    it("does nothing before a first probe", async () => {
+      const discover = vi.fn(async () => "/bin/codex");
       const caps = createCodexCapabilities({ discover });
       await caps.revalidate();
-      await caps.refresh();
-      await caps.revalidate();
-      expect(discover).toHaveBeenCalledTimes(1);
-      expect(caps.current()).toEqual({ bypassHookTrust: false, noDaemon: false });
+      expect(discover).not.toHaveBeenCalled();
+    });
+
+    describe("after a probe that found nothing", () => {
+      function flaky() {
+        let clock = 1_000;
+        let fail = true;
+        const discover = vi.fn(async () => "/bin/codex");
+        const caps = createCodexCapabilities({
+          discover,
+          identity: async () => "v1",
+          help: async () => {
+            if (fail) throw new Error("timeout under load");
+            return HELP_0_162;
+          },
+          log: () => {},
+          now: () => clock,
+        });
+        return {
+          caps,
+          discover,
+          recover: () => (fail = false),
+          wait: (ms: number) => (clock += ms),
+        };
+      }
+
+      it("recovers from a timeout once the retry interval has passed", async () => {
+        const { caps, discover, recover, wait } = flaky();
+        await caps.refresh();
+        expect(caps.current()).toEqual({ bypassHookTrust: false, noDaemon: false });
+        recover();
+        // Too soon: the failed answer stands and nothing is spawned again.
+        wait(PROBE_RETRY_MS - 1);
+        await caps.revalidate();
+        expect(discover).toHaveBeenCalledTimes(1);
+        expect(caps.current().bypassHookTrust).toBe(false);
+        wait(1);
+        await caps.revalidate();
+        expect(discover).toHaveBeenCalledTimes(2);
+        expect(caps.current()).toEqual({ bypassHookTrust: true, noDaemon: true });
+      });
+
+      it("keeps retrying, but never more than once per interval", async () => {
+        const { caps, discover, wait } = flaky();
+        await caps.refresh();
+        for (let i = 0; i < 3; i += 1) {
+          await caps.revalidate();
+          await caps.revalidate();
+          wait(PROBE_RETRY_MS);
+        }
+        // The first refresh, then one retry for each of the two later intervals.
+        expect(discover).toHaveBeenCalledTimes(3);
+      });
+
+      it("notices a Codex installed after a probe found none", async () => {
+        let installed: string | null = null;
+        let clock = 0;
+        const caps = createCodexCapabilities({
+          discover: async () => installed,
+          identity: async () => "v1",
+          help: async () => HELP_0_162,
+          now: () => clock,
+        });
+        await caps.refresh();
+        installed = "/bin/codex";
+        clock += PROBE_RETRY_MS;
+        await caps.revalidate();
+        expect(caps.current().bypassHookTrust).toBe(true);
+      });
     });
   });
 });

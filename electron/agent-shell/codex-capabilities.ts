@@ -53,7 +53,16 @@ interface CapabilitiesDeps {
   /** Identity of the binary on disk; throws when it is gone. Test seam. */
   readonly identity?: (binary: string) => Promise<string>;
   readonly log?: (message: string, error: unknown) => void;
+  /** Clock for the retry interval, in milliseconds. Test seam. */
+  readonly now?: () => number;
 }
+
+/**
+ * How long a probe that found nothing (it failed, or no Codex was installed) is trusted. A
+ * slow machine can time out the login shell discovery runs; without a retry, composed launches
+ * would go without the flags until the switch flipped or Deck restarted.
+ */
+export const PROBE_RETRY_MS = 30_000;
 
 /** Path-resolved modification time and size: an upgrade or downgrade changes at least one. */
 async function fileIdentity(binary: string): Promise<string> {
@@ -65,6 +74,8 @@ export function createCodexCapabilities(deps: CapabilitiesDeps = {}) {
   let current = NONE;
   let queue: Promise<void> = Promise.resolve();
   let probed: { readonly binary: string; readonly identity: string } | null = null;
+  let lastAttemptAt: number | null = null;
+  const now = deps.now ?? Date.now;
   const identityOf = deps.identity ?? fileIdentity;
   const log = deps.log ?? console.warn;
 
@@ -76,6 +87,7 @@ export function createCodexCapabilities(deps: CapabilitiesDeps = {}) {
 
   async function discoverAndProbe(): Promise<void> {
     probed = null;
+    lastAttemptAt = now();
     const binary = await (deps.discover ?? discoverCodex)();
     if (binary === null) current = NONE;
     else await probe(binary);
@@ -103,11 +115,17 @@ export function createCodexCapabilities(deps: CapabilitiesDeps = {}) {
     /**
      * Re-probe when the binary last probed changed on disk (an upgrade or downgrade while Deck
      * runs) or is gone, and do nothing otherwise: it is one `stat`, cheap enough for every
-     * launch. A Codex installed after the last `refresh` waits for the next one.
+     * launch. When the last attempt found nothing it is retried, at most once per
+     * `PROBE_RETRY_MS`, so a timeout under load or a Codex installed later is picked up.
      */
     revalidate: (): Promise<void> =>
       enqueue(async () => {
-        if (probed === null) return;
+        if (probed === null) {
+          if (lastAttemptAt !== null && now() - lastAttemptAt >= PROBE_RETRY_MS) {
+            await discoverAndProbe();
+          }
+          return;
+        }
         const known = probed;
         let identity: string;
         try {
