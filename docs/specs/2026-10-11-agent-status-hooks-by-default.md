@@ -261,9 +261,9 @@ Run in order; the first row not Done is the next work. Each slice gets its own p
 
 | Slice | Requirements | Plan | Status |
 | --- | --- | --- | --- |
-| 1. Shell bootstrap, wrappers, nesting | WRAP1, NEST1 | [shell-bootstrap-wrappers](../plans/2026-10-11-shell-bootstrap-wrappers.md) | In progress — 2026-10-12 |
+| 1. Shell bootstrap, wrappers, nesting | WRAP1, NEST1 | [shell-bootstrap-wrappers](../plans/2026-10-11-shell-bootstrap-wrappers.md) | Done 2026-10-12 — `8aeb71fc`..`47841c81`, changelog `04167317` |
 | 2. Claude on by default | DEF1 (claude), CL1, INT1, DOC1 | [claude-signals-default](../plans/2026-10-12-claude-signals-default.md) | Planned — Codex review READY 2026-10-12 |
-| 3. Codex on by default | DEF1 (codex), CX1, CX2, SUB1 (codex), DOC1 | [codex-signals-default](../plans/2026-10-12-codex-signals-default.md) | Blocked — needs the owner's choice on Codex's shared daemon (plan, "Open precondition") |
+| 3. Codex on by default | DEF1 (codex), CX1, CX2, SUB1 (codex), DOC1 | [codex-signals-default](../plans/2026-10-12-codex-signals-default.md) | Blocked — Codex review READY except the owner's choice on Codex's shared daemon (plan, "Open precondition") |
 | 4. opencode plugin, on by default | DEF1 (opencode), OC1, SUB1 (opencode), DOC1 | [opencode-signals-plugin](../plans/2026-10-12-opencode-signals-plugin.md) | Planned — Codex review READY 2026-10-12 |
 
 ## Risks
