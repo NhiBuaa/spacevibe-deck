@@ -68,7 +68,7 @@ describe("hookScriptSource", () => {
   });
 
   it("does nothing without a port, and falls back to an OSC 777 on a failed Notification post only", () => {
-    expect(script).toContain('if [ -z "$DECK_HOOK_PORT" ]');
+    expect(script).toContain('if [ -z "${DECK_HOOK_PORT-}" ]');
     expect(script).toContain('if [ "$EVENT" = "Notification" ]; then');
     expect(script).toContain('{"terminalSequence":"\\u001b]777;notify;Deck;needs input\\u0007"}');
   });

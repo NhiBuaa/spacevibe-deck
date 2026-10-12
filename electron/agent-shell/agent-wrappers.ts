@@ -39,7 +39,8 @@ export function agentWrapperSource(agent: WrappedAgent): string {
     'real=""',
     "old_ifs=$IFS",
     "IFS=:",
-    "for dir in $PATH; do",
+    // `${VAR-}` throughout: a user who exports `set -u` must not break the CLI.
+    "for dir in ${PATH-}; do",
     '  [ -z "$dir" ] && continue',
     // Normalize `bin/`, `bin//` and `bin/.` so they cannot evade the skip below.
     "  while :; do",
@@ -69,7 +70,7 @@ export function agentWrapperSource(agent: WrappedAgent): string {
     `  echo "deck: ${agent} not found on PATH" >&2`,
     "  exit 127",
     "fi",
-    'if [ -z "$DECK_AGENT_ID" ]; then',
+    'if [ -z "${DECK_AGENT_ID-}" ]; then',
     `  DECK_AGENT_ID=${agent}`,
     "  export DECK_AGENT_ID",
     "  unset DECK_AGENT_NESTED",

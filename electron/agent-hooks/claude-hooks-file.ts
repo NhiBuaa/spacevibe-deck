@@ -67,10 +67,11 @@ export function hookScriptSource(): string {
     "# Written by Deck; edits are overwritten at the next launch. Exits 0 on every path.",
     // A nested agent (another CLI run by this pane's agent) is not the pane's occupant: its
     // hooks must not rotate the generation or draw its marks on the outer agent's row.
-    '[ -n "$DECK_AGENT_NESTED" ] && exit 0',
-    '[ -n "$DECK_AGENT_ID" ] && [ "$DECK_AGENT_ID" != claude ] && exit 0',
-    'EVENT="$1"',
-    'if [ -z "$DECK_HOOK_PORT" ] || [ -z "$DECK_PANE_ID" ] || [ -z "$DECK_HOOK_TOKEN" ]; then',
+    // `${VAR-}`: an inherited `set -u` (SHELLOPTS) must not kill the hook on an unset variable.
+    '[ -n "${DECK_AGENT_NESTED-}" ] && exit 0',
+    '[ -n "${DECK_AGENT_ID-}" ] && [ "${DECK_AGENT_ID-}" != claude ] && exit 0',
+    'EVENT="${1-}"',
+    'if [ -z "${DECK_HOOK_PORT-}" ] || [ -z "${DECK_PANE_ID-}" ] || [ -z "${DECK_HOOK_TOKEN-}" ]; then',
     "  exit 0",
     "fi",
     "if ! curl -s -m 2 -o /dev/null --data-binary @- \\",

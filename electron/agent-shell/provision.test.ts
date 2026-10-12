@@ -18,7 +18,8 @@ describe("provisionAgentShell", () => {
     for (const agent of WRAPPED_AGENTS) {
       const file = path.join(paths!.binDir, agent);
       expect(readFileSync(file, "utf8")).toBe(agentWrapperSource(agent));
-      expect(statSync(file).mode & 0o777).toBe(0o755);
+      // POSIX only: Windows has no permission bits and reports 0o666 whatever was asked.
+      if (process.platform !== "win32") expect(statSync(file).mode & 0o777).toBe(0o755);
     }
     expect(readdirSync(paths!.zshDir).sort()).toEqual([
       ".zlogin",

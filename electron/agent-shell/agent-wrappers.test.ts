@@ -32,9 +32,18 @@ interface Run {
 }
 
 /** Run `claude` through the dev wrapper with an explicit, minimal environment. */
-function run(env: Record<string, string>, args: string[] = [], timeout = 5000): Promise<Run> {
+function run(
+  env: Record<string, string>,
+  args: string[] = [],
+  timeout = 5000,
+  shellFlags: string[] = [],
+): Promise<Run> {
   return new Promise((resolve, reject) => {
-    const child = spawn(path.join(DEV_BIN, "claude"), args, { env, timeout });
+    const wrapper = path.join(DEV_BIN, "claude");
+    const child =
+      shellFlags.length === 0
+        ? spawn(wrapper, args, { env, timeout })
+        : spawn("/bin/sh", [...shellFlags, wrapper, ...args], { env, timeout });
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (chunk: Buffer) => (stdout += chunk));
@@ -62,6 +71,16 @@ describe.skipIf(process.platform === "win32")("agent wrapper", () => {
     const result = await run({ PATH }, ["--flag", "two words"]);
     expect(result.code).toBe(0);
     expect(result.stdout.trim()).toBe(`pid=${result.pid} id=claude nested= args=--flag two words`);
+  });
+
+  // `sh -u` is the user's exported `set -u`; the fake agent is not run under it.
+  it("still execs the real binary under nounset, nested or not", async () => {
+    const top = await run({ PATH }, [], 3000, ["-u"]);
+    expect(top.code).toBe(0);
+    expect(top.stdout).toContain("id=claude nested= ");
+    const nested = await run({ PATH, DECK_AGENT_ID: "codex" }, [], 3000, ["-u"]);
+    expect(nested.code).toBe(0);
+    expect(nested.stdout).toContain("id=codex nested=1");
   });
 
   it("skips every directory ending in /agent-shell/bin", async () => {

@@ -35,13 +35,13 @@ async function listener() {
  * Run a script under `/bin/sh` with a minimal env. It never inherits the shell's: that one
  * carries a live Deck's DECK_PANE_ID / DECK_HOOK_TOKEN / DECK_HOOK_PORT.
  */
-async function runScript(source: string, env: Record<string, string>) {
+async function runScript(source: string, env: Record<string, string>, shellFlags: string[] = []) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "deck-nesting-test-"));
   scratch.push(dir);
   const file = path.join(dir, "hook.sh");
   await fs.writeFile(file, source, { mode: 0o700 });
   return new Promise<number | null>((resolve, reject) => {
-    const child = spawn("/bin/sh", [file, "Stop"], {
+    const child = spawn("/bin/sh", [...shellFlags, file, "Stop"], {
       env: { PATH: "/usr/bin:/bin", ...env },
       stdio: ["pipe", "ignore", "ignore"],
     });
@@ -84,6 +84,25 @@ describe.skipIf(process.platform === "win32").each(cases)(
       const env = { ...paneEnv(port), DECK_AGENT_ID: agent, DECK_AGENT_NESTED: "1" };
       expect(await runScript(source, env)).toBe(0);
       expect(posts).toEqual([]);
+    });
+
+    // `sh -u` is `set -u`; SHELLOPTS is how a user's exported `set -u` reaches a child sh.
+    describe.each([
+      ["sh -u", { flags: ["-u"], env: {} }],
+      ["SHELLOPTS=nounset", { flags: [], env: { SHELLOPTS: "nounset" } }],
+    ])("under %s", (_label, { flags, env: extra }) => {
+      it("still posts exactly once from a plain pane env", async () => {
+        const { posts, port } = await listener();
+        expect(await runScript(source, { ...paneEnv(port), ...extra }, flags)).toBe(0);
+        expect(posts).toEqual([endpoint]);
+      });
+
+      it("still sends nothing from a nested agent", async () => {
+        const { posts, port } = await listener();
+        const env = { ...paneEnv(port), ...extra, DECK_AGENT_ID: agent, DECK_AGENT_NESTED: "1" };
+        expect(await runScript(source, env, flags)).toBe(0);
+        expect(posts).toEqual([]);
+      });
     });
 
     it("sends nothing when the pane's identity is another agent", async () => {
