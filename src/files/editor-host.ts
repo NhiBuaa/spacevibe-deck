@@ -289,8 +289,11 @@ export function loadMonaco(): Promise<MonacoApi> {
       import("monaco-editor/languages/definitions/hcl/register.js"),
       // The codicon font and its `.codicon` rules. Without them the diff's `+` /
       // `−` signs and its unfold chevrons draw no glyph, and the fold and find
-      // icons of the file editor stay blank.
-      import("monaco-editor/features/codicon/register.js"),
+      // icons of the file editor stay blank. Blank icons are all a failed load
+      // costs, so it warns rather than failing the editor with it.
+      import("monaco-editor/features/codicon/register.js").catch((error: unknown) => {
+        console.warn("Deck: Monaco's codicon font failed to load", error);
+      }),
     ]);
     return monaco;
   })();

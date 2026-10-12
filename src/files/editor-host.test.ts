@@ -1,5 +1,5 @@
 /* oxlint-disable jest/valid-expect, vitest/valid-expect -- vitest expect() takes a failure message as its second argument */
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { DEFAULT_SETTINGS } from "../settings/settings-schema";
 import { resolveTheme } from "../settings/themes";
@@ -50,6 +50,55 @@ describe("the codicon font", () => {
     const source = readFileSync("src/files/editor-host.ts", "utf8");
     const specifiers = [...source.matchAll(/import\("([^"]+)"\)/g)].map((match) => match[1]);
     expect(specifiers).toContain("monaco-editor/features/codicon/register.js");
+  });
+});
+
+describe("loadMonaco's failures", () => {
+  const CODICON = "monaco-editor/features/codicon/register.js";
+  const LANGUAGE = "monaco-editor/languages/definitions/typescript/register.js";
+  const specifiers = [
+    ...readFileSync("src/files/editor-host.ts", "utf8").matchAll(/import\("([^"]+)"\)/g),
+  ].map((match) => match[1]);
+
+  /** A fresh `editor-host` whose every Monaco chunk is a stub, and whose
+   * `failing` chunk throws on its first `failures` loads. */
+  async function loaderWith(failing: string, failures: number) {
+    vi.resetModules();
+    let left = failures;
+    for (const specifier of specifiers) {
+      vi.doMock(specifier, () => {
+        if (specifier === failing && left > 0) {
+          left -= 1;
+          throw new Error(`${specifier} did not load`);
+        }
+        if (specifier.endsWith("?worker")) return { default: class {} };
+        return specifier.endsWith("editor.api") ? { stub: "editor.api" } : {};
+      });
+    }
+    return import("./editor-host");
+  }
+
+  afterEach(() => {
+    for (const specifier of specifiers) vi.doUnmock(specifier);
+    vi.resetModules();
+    vi.restoreAllMocks();
+    delete (globalThis as { MonacoEnvironment?: unknown }).MonacoEnvironment;
+  });
+
+  it("loads the editor without the codicon font, and says so", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { loadMonaco } = await loaderWith(CODICON, 1);
+    await expect(loadMonaco()).resolves.toMatchObject({ stub: "editor.api" });
+    expect(warn).toHaveBeenCalledWith(
+      "Deck: Monaco's codicon font failed to load",
+      expect.any(Error),
+    );
+  });
+
+  it("still fails on any other chunk, and retries it on the next call", async () => {
+    const { loadMonaco } = await loaderWith(LANGUAGE, 1);
+    await expect(loadMonaco()).rejects.toBeInstanceOf(Error);
+    await expect(loadMonaco()).resolves.toMatchObject({ stub: "editor.api" });
   });
 });
 
