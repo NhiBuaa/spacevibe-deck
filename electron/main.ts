@@ -11,6 +11,7 @@ initCrashReporting();
 for (const stream of [process.stdout, process.stderr]) stream.on("error", () => {});
 
 import { codexSignalsEnabled, createCodexIntegration } from "./agent-hooks/codex-integration";
+import { createOpencodeIntegration } from "./agent-hooks/opencode-integration";
 /**
  * Electron main process — the host.
  *
@@ -161,8 +162,13 @@ const hookServer = createHookServer({
   tokenFor: (paneId) => pty.hookTokenOf(paneId),
   ttyFor: (paneId) => pty.ttyNameOf(paneId),
   emitToOwner: (paneId, payload) => {
-    const enabled =
-      payload.agent === "codex" ? codexIntegration.enabled() : claudeIntegration.enabled();
+    const integration =
+      payload.agent === "codex"
+        ? codexIntegration
+        : payload.agent === "opencode"
+          ? opencodeIntegration
+          : claudeIntegration;
+    const enabled = integration.enabled();
     if (enabled) coordinator.deliver(paneId, EVENTS.hookEvent, payload);
   },
 });
@@ -171,6 +177,7 @@ const opencodeClients = createOpencodeClients({
 });
 const claudeIntegration = createClaudeIntegration({ userData: app.getPath("userData") });
 const codexIntegration = createCodexIntegration({ userData: app.getPath("userData") });
+const opencodeIntegration = createOpencodeIntegration({ userData: app.getPath("userData") });
 
 /** The wrappers and shell bootstrap, written at boot; null leaves panes on `$SHELL -l`. */
 let agentShell: AgentShellPaths | null = null;
@@ -181,7 +188,7 @@ const codexCapabilities = createCodexCapabilities();
 let probedWithCodexSignals: boolean | null = null;
 
 /**
- * Register or remove both hook sets. Codex is re-probed at boot and whenever its switch
+ * Register or remove both hook sets, and follow the opencode switch. Codex is re-probed at boot and whenever its switch
  * flips, without holding the caller up: discovery starts a login shell.
  */
 async function syncAgentIntegrations(settings: unknown): Promise<void> {
@@ -190,7 +197,11 @@ async function syncAgentIntegrations(settings: unknown): Promise<void> {
     probedWithCodexSignals = codexOn;
     void codexCapabilities.refresh();
   }
-  await Promise.all([claudeIntegration.sync(settings), codexIntegration.sync(settings)]);
+  await Promise.all([
+    claudeIntegration.sync(settings),
+    codexIntegration.sync(settings),
+    opencodeIntegration.sync(settings),
+  ]);
 }
 
 const pty = new PtyManager({

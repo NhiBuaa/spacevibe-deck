@@ -12,11 +12,14 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
-import { WRAPPED_AGENTS, agentWrapperSource } from "./agent-wrappers";
+import { WRAPPED_AGENTS, agentWrapperSource, type WrapperOptions } from "./agent-wrappers";
+import { OPENCODE_PLUGIN_FILE, opencodePluginSource } from "./opencode-plugin";
 import {
   agentShellPaths,
   bashRcfile,
   codexSignalsMarkerPath,
+  opencodeConfigDir,
+  opencodeSignalsMarkerPath,
   zshDotfiles,
   type AgentShellPaths,
 } from "./shell-bootstrap";
@@ -37,6 +40,15 @@ async function writeAtomic(file: string, text: string, mode: number): Promise<vo
   }
 }
 
+/** The options every install's wrappers are rendered with. */
+export function wrapperOptions(userDataDir: string): WrapperOptions {
+  return {
+    codexSignalsMarker: codexSignalsMarkerPath(userDataDir),
+    opencodeSignalsMarker: opencodeSignalsMarkerPath(userDataDir),
+    opencodeConfigDir: opencodeConfigDir(userDataDir),
+  };
+}
+
 export async function provisionAgentShell(
   userDataDir: string,
   log: (message: string, error: unknown) => void = console.warn,
@@ -47,9 +59,14 @@ export async function provisionAgentShell(
       ...WRAPPED_AGENTS.map((agent) =>
         writeAtomic(
           path.join(paths.binDir, agent),
-          agentWrapperSource(agent, { codexSignalsMarker: codexSignalsMarkerPath(userDataDir) }),
+          agentWrapperSource(agent, wrapperOptions(userDataDir)),
           SCRIPT_MODE,
         ),
+      ),
+      writeAtomic(
+        path.join(opencodeConfigDir(userDataDir), "plugin", OPENCODE_PLUGIN_FILE),
+        opencodePluginSource(),
+        DOTFILE_MODE,
       ),
       ...Object.entries(zshDotfiles(paths)).map(([name, text]) =>
         writeAtomic(path.join(paths.zshDir, name), text, DOTFILE_MODE),

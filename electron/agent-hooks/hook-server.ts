@@ -15,9 +15,8 @@
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import {
-  HOOK_MAX_BODY_BYTES,
-  CODEX_HOOK_PATH,
-  CODEX_HOOK_MAX_BODY_BYTES,
+  hookAgentOfUrl,
+  hookMaxBodyBytes,
   nextPaneSession,
   parseHookBody,
   validateHookHead,
@@ -61,7 +60,7 @@ export interface HookServer {
 }
 
 /** The agents that post to the endpoint; each keeps its own generation on a pane. */
-const HOOK_AGENTS = ["claude", "codex"] as const;
+const HOOK_AGENTS = ["claude", "codex", "opencode"] as const;
 const generationKey = (paneId: number, agent: string) => `${paneId}:${agent}`;
 
 export function createHookServer(deps: HookServerDeps): HookServer {
@@ -109,8 +108,9 @@ export function createHookServer(deps: HookServerDeps): HookServer {
       request.resume();
       return;
     }
-    const codex = request.url?.split("?")[0] === CODEX_HOOK_PATH;
-    const limit = codex ? CODEX_HOOK_MAX_BODY_BYTES : HOOK_MAX_BODY_BYTES;
+    // The head check passed, so the path is one the endpoint serves.
+    const agent = hookAgentOfUrl(request.url) ?? "claude";
+    const limit = hookMaxBodyBytes(agent);
     const chunks: Buffer[] = [];
     let received = 0;
     let refused = false;
@@ -133,11 +133,7 @@ export function createHookServer(deps: HookServerDeps): HookServer {
       if (refused) {
         return;
       }
-      const post = parseHookBody(
-        head.paneId,
-        Buffer.concat(chunks).toString("utf8"),
-        codex ? "codex" : "claude",
-      );
+      const post = parseHookBody(head.paneId, Buffer.concat(chunks).toString("utf8"), agent);
       if (post === null) {
         response.statusCode = 400;
         response.end();

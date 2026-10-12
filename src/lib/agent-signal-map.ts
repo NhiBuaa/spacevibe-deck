@@ -28,6 +28,13 @@
  * - `Stop`                              → completed; `Interrupt` → interrupted
  * - `SessionEnd` and anything else      → nothing
  *
+ * opencode (Deck's plugin, `source: "hook"`; the plugin posts for the pane's root session only):
+ * - `SessionStart`      → the occupant's session (no state)
+ * - `Start`             → working; `Stop` → completed
+ * - `Failed`            → error, with the capped message as its detail
+ * - `PermissionRequest` → requested; `PermissionReplied` → the ask was answered
+ * - `SessionEnd`        → nothing
+ *
  * opencode (its server's events, `source: "server"`):
  * - `session.status` (busy/retry) → working; (idle) → completed
  * - `session.idle`                → completed
@@ -108,6 +115,25 @@ function codexKind(event: HookEvent): ContractKind | null {
   }
 }
 
+function opencodeHookKind(event: HookEvent): ContractKind | null {
+  switch (event.event) {
+    case "SessionStart":
+      return "session";
+    case "Start":
+      return "working";
+    case "Stop":
+      return "completed";
+    case "Failed":
+      return "error";
+    case "PermissionRequest":
+      return "requested";
+    case "PermissionReplied":
+      return "answered";
+    default:
+      return null;
+  }
+}
+
 function opencodeKind(event: HookEvent): ContractKind | null {
   switch (event.event) {
     case "session.status":
@@ -136,9 +162,11 @@ export function contractSignalOf(event: HookEvent): ContractSignal | null {
       ? claudeKind(event)
       : event.source === "hook" && event.agent === "codex"
         ? codexKind(event)
-        : event.source === "server" && event.agent === "opencode"
-          ? opencodeKind(event)
-          : null;
+        : event.source === "hook" && event.agent === "opencode"
+          ? opencodeHookKind(event)
+          : event.source === "server" && event.agent === "opencode"
+            ? opencodeKind(event)
+            : null;
   if (kind === null) {
     return null;
   }
@@ -162,6 +190,7 @@ export function contractSignalOf(event: HookEvent): ContractSignal | null {
         : null;
   return {
     ...(event.agent === "codex" ? { agent: "codex", turnId: event.turnId } : {}),
+    ...(event.agent === "opencode" && event.source === "hook" ? { agent: "opencode" } : {}),
     source: event.source,
     kind,
     sessionId: event.sessionId,

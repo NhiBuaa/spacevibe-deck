@@ -456,6 +456,7 @@ export function createTabManager(
     if (ownerOf(event.paneId) === undefined) {
       return;
     }
+    if (event.agent === "opencode" && !settings.value.agentSignalAdapters.opencode) return;
     const signal = contractSignalOf(event);
     if (signal === null) {
       return;

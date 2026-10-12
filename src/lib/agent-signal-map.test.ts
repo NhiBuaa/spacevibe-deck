@@ -114,6 +114,38 @@ describe("contractSignalOf — codex hooks", () => {
   });
 });
 
+describe("contractSignalOf — opencode plugin", () => {
+  const plugin = (event: string, over: Partial<HookEvent> = {}) =>
+    claude(event, { agent: "opencode", sessionId: "ses_abc", ...over });
+
+  it("maps the seven wire names", () => {
+    expect(contractSignalOf(plugin("SessionStart"))).toMatchObject({
+      agent: "opencode",
+      source: "hook",
+      kind: "session",
+      sessionId: "ses_abc",
+    });
+    expect(contractSignalOf(plugin("Start"))?.kind).toBe("working");
+    expect(contractSignalOf(plugin("Stop"))?.kind).toBe("completed");
+    expect(contractSignalOf(plugin("Failed", { detail: "Rate limited" }))).toMatchObject({
+      kind: "error",
+      detail: "Rate limited",
+    });
+    expect(contractSignalOf(plugin("PermissionRequest"))).toMatchObject({
+      kind: "requested",
+      detail: "permission prompt",
+    });
+    expect(contractSignalOf(plugin("PermissionReplied"))?.kind).toBe("answered");
+    expect(contractSignalOf(plugin("SessionEnd"))).toBeNull();
+  });
+
+  it("keeps agent opencode on the signal, and ignores a name that is not one of the seven", () => {
+    expect(contractSignalOf(plugin("Stop"))?.agent).toBe("opencode");
+    expect(contractSignalOf(plugin("session.status"))).toBeNull();
+    expect(contractSignalOf(plugin("UserPromptSubmit"))).toBeNull();
+  });
+});
+
 describe("contractSignalOf — opencode server", () => {
   it("maps status, idle, error and both permission spellings", () => {
     expect(contractSignalOf(opencode("session.status"))?.kind).toBe("working");

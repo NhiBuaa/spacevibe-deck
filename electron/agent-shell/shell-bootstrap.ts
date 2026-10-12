@@ -44,6 +44,16 @@ export function codexSignalsMarkerPath(userDataDir: string): string {
   return path.join(userDataDir, AGENT_SHELL_DIR, "codex-signals-on");
 }
 
+/** Exists while opencode Signals is on; the opencode wrapper reads it at exec time (OC1). */
+export function opencodeSignalsMarkerPath(userDataDir: string): string {
+  return path.join(userDataDir, AGENT_SHELL_DIR, "opencode-signals-on");
+}
+
+/** What the opencode wrapper exports as `OPENCODE_CONFIG_DIR`; Deck's plugin lives in `plugin/`. */
+export function opencodeConfigDir(userDataDir: string): string {
+  return path.join(userDataDir, AGENT_SHELL_DIR, "opencode");
+}
+
 export function agentShellPaths(userDataDir: string): AgentShellPaths {
   const root = path.join(userDataDir, AGENT_SHELL_DIR);
   return {

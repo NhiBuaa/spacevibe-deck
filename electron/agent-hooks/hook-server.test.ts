@@ -85,3 +85,54 @@ describe("hook server — generation per pane and agent", () => {
     expect(events.map((e) => e.event)).toEqual(["PostToolUse"]);
   });
 });
+
+describe("hook server — opencode", () => {
+  async function opencode() {
+    const { events, server } = await start();
+    const port = server.port();
+    const sendTo =
+      (path: string) =>
+      (event: string, sessionId: string, token = TOKEN) =>
+        fetch(`http://127.0.0.1:${port}${path}`, {
+          method: "POST",
+          headers: { "x-deck-pane": "7", "x-deck-token": token },
+          body: JSON.stringify({ hook_event_name: event, session_id: sessionId }),
+        }).then((response) => response.status);
+    return { events, post: sendTo("/hook/opencode"), claude: sendTo("/hook") };
+  }
+
+  it("emits agent opencode from a hook, and refuses a wrong token", async () => {
+    const { events, post } = await opencode();
+    expect(await post("Start", "ses_a", "wrong")).toBe(403);
+    expect(await post("Start", "ses_a")).toBe(204);
+    expect(events.map((e) => [e.agent, e.source, e.event, e.sessionId])).toEqual([
+      ["opencode", "hook", "Start", "ses_a"],
+    ]);
+  });
+
+  it("drops a post for a session that is not the current one, until SessionStart names it", async () => {
+    const { events, post } = await opencode();
+    await post("SessionStart", "ses_a");
+    await post("Start", "ses_b");
+    await post("SessionStart", "ses_b");
+    await post("Start", "ses_b");
+    await post("Stop", "ses_a");
+    await post("SessionStart", "ses_a");
+    await post("Start", "ses_a");
+    expect(events.map((e) => `${e.event}:${e.sessionId}`)).toEqual([
+      "SessionStart:ses_a",
+      "SessionStart:ses_b",
+      "Start:ses_b",
+      "SessionStart:ses_a",
+      "Start:ses_a",
+    ]);
+  });
+
+  it("keeps opencode's occupant apart from Claude's on the same pane", async () => {
+    const { events, post, claude } = await opencode();
+    await post("SessionStart", "ses_a");
+    await claude("SessionStart", "claude-1");
+    await post("Stop", "ses_a");
+    expect(events.map((e) => e.agent)).toEqual(["opencode", "claude", "opencode"]);
+  });
+});

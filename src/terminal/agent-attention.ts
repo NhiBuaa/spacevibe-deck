@@ -1028,6 +1028,15 @@ export function createAgentAttentionTracker(
       ) {
         return null;
       }
+      // Deck's opencode plugin runs inside whatever opencode the pane started; a signal on a pane
+      // known to run another agent came from a nested run.
+      if (
+        signal.agent === "opencode" &&
+        prev.agentLabel !== null &&
+        prev.agentLabel !== "opencode"
+      ) {
+        return null;
+      }
       if (signal.agent === "codex") {
         if (prev.agentLabel !== "codex") return null;
         if (signal.kind === "session") {

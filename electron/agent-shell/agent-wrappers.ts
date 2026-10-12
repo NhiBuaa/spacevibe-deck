@@ -14,6 +14,7 @@
  * variables to ignore events from the inner agent.
  */
 
+import { shellQuote } from "../agent-hooks/claude-hooks-file";
 import { codexWrapperBranch } from "./codex-wrapper-branch";
 
 export const WRAPPED_AGENTS = ["claude", "codex", "opencode"] as const;
@@ -36,6 +37,26 @@ export interface WrapperOptions {
    * reads it; without it the Codex wrapper adds no flags.
    */
   readonly codexSignalsMarker?: string;
+  /**
+   * The file whose existence means opencode Signals is on, and the config directory holding
+   * Deck's plugin. Only the opencode wrapper reads them; without either it adds nothing.
+   */
+  readonly opencodeSignalsMarker?: string;
+  readonly opencodeConfigDir?: string;
+}
+
+/**
+ * While opencode Signals is on, a top-level opencode loads Deck's plugin through
+ * `OPENCODE_CONFIG_DIR`. A value the user exported is replaced (RISK5); a nested run (an
+ * agent's tool call) keeps whatever the outer opencode gave it.
+ */
+function opencodeWrapperBranch(markerPath: string, configDir: string): string[] {
+  return [
+    `if [ -z "\${DECK_AGENT_NESTED-}" ] && [ -e ${shellQuote(markerPath)} ]; then`,
+    `  OPENCODE_CONFIG_DIR=${shellQuote(configDir)}`,
+    "  export OPENCODE_CONFIG_DIR",
+    "fi",
+  ];
 }
 
 /** POSIX `sh` source of the wrapper for `agent`. */
@@ -93,6 +114,11 @@ export function agentWrapperSource(agent: WrappedAgent, options: WrapperOptions 
     "fi",
     ...(agent === "codex" && options.codexSignalsMarker !== undefined
       ? codexWrapperBranch(options.codexSignalsMarker)
+      : []),
+    ...(agent === "opencode" &&
+    options.opencodeSignalsMarker !== undefined &&
+    options.opencodeConfigDir !== undefined
+      ? opencodeWrapperBranch(options.opencodeSignalsMarker, options.opencodeConfigDir)
       : []),
     '[ -n "$noglob_before" ] || set +f',
     'exec "$real" "$@"',

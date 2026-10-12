@@ -6,8 +6,8 @@
  * `validateHookRequest` and nothing else decides whether it reaches the
  * tracker. The rules, each with the failure it closes:
  *
- * - **POST to `/hook`, and only that.** Anything else is a 404: the endpoint
- *   has one job and answers no other question about the process.
+ * - **POST to `/hook`, `/hook/codex` or `/hook/opencode`, and only those.** Anything else is
+ *   a 404: the endpoint has one job and answers no other question about the process.
  * - **`X-Deck-Pane` names a LIVE pane** and **`X-Deck-Token` matches that
  *   pane's token** under a constant-time compare. The pane env carries both
  *   (`DECK_PANE_ID`, `DECK_HOOK_TOKEN`); a post that knows neither is not
@@ -29,6 +29,7 @@ import { timingSafeEqual } from "node:crypto";
 
 export const HOOK_PATH = "/hook";
 export const CODEX_HOOK_PATH = "/hook/codex";
+export const OPENCODE_HOOK_PATH = "/hook/opencode";
 export const HOOK_MAX_BODY_BYTES = 64 * 1024;
 /** Only `Stop` forwards stdin; every other Codex event posts a bounded body of its own. */
 export const CODEX_HOOK_MAX_BODY_BYTES = 8 * 1024 * 1024;
@@ -49,6 +50,19 @@ const CODEX_EVENTS = [
   "Interrupt",
 ];
 const CODEX_SESSION_EVENTS = ["SessionStart", "SessionEnd"];
+/**
+ * The seven events Deck's opencode plugin posts (OC1). `Start`/`Stop` are the busy and idle
+ * edges of the pane's root session; `PermissionReplied` ends an ask.
+ */
+const OPENCODE_EVENTS = [
+  "SessionStart",
+  "SessionEnd",
+  "Start",
+  "Stop",
+  "Failed",
+  "PermissionRequest",
+  "PermissionReplied",
+];
 
 const SESSION_ID_SAFE = /^[A-Za-z0-9._-]{1,128}$/;
 /** Event names are CLI identifiers: letters only, bounded. */
@@ -63,7 +77,7 @@ export interface HookRequestHead {
 
 /** What survives validation: the fields the renderer's map reads, and nothing else. */
 export interface HookPost {
-  readonly agent?: "codex";
+  readonly agent?: "codex" | "opencode";
   readonly turnId?: string;
   readonly paneId: number;
   readonly event: string;
@@ -71,8 +85,32 @@ export interface HookPost {
   readonly cwd: string | null;
   /** `last_assistant_message` on `Stop`, first line, capped. */
   readonly message: string | null;
-  /** `notification_type` / matcher on `Notification`, `tool_name` on `PermissionRequest`. */
+  /**
+   * `notification_type` / matcher on `Notification`, `tool_name` on `PermissionRequest`; the
+   * capped error message on opencode's `Failed`.
+   */
   readonly detail: string | null;
+}
+
+export type HookAgent = "claude" | "codex" | "opencode";
+
+/** The agent a request path belongs to; null for a path the endpoint does not serve. */
+export function hookAgentOfUrl(url: string | undefined): HookAgent | null {
+  switch ((url ?? "").split("?")[0]) {
+    case HOOK_PATH:
+      return "claude";
+    case CODEX_HOOK_PATH:
+      return "codex";
+    case OPENCODE_HOOK_PATH:
+      return "opencode";
+    default:
+      return null;
+  }
+}
+
+/** Only a Codex `Stop` forwards stdin; every other agent's post is small. */
+export function hookMaxBodyBytes(agent: HookAgent): number {
+  return agent === "codex" ? CODEX_HOOK_MAX_BODY_BYTES : HOOK_MAX_BODY_BYTES;
 }
 
 export type HookRefusal =
@@ -93,9 +131,8 @@ export function validateHookHead(
   tokenFor: (paneId: number) => string | null,
   ttyFor: (paneId: number) => string | null,
 ): HookRefusal {
-  const url = head.url ?? "";
-  const pathOnly = url.split("?")[0];
-  if (pathOnly !== HOOK_PATH && pathOnly !== CODEX_HOOK_PATH) {
+  const agent = hookAgentOfUrl(head.url);
+  if (agent === null) {
     return { ok: false, status: 404, reason: "unknown path" };
   }
   if (head.method !== "POST") {
@@ -117,7 +154,7 @@ export function validateHookHead(
   // the HOSTING process's environment, so a daemon started from a pane carries that pane's
   // token. The script reports the tty of the `codex` process it runs under; a daemon has none
   // (`??`), and another pane's codex has another tty.
-  if (pathOnly === CODEX_HOOK_PATH) {
+  if (agent === "codex") {
     const tty = ttyFor(paneId) ?? "";
     const offered = headerValue(head.headers, HEADER_TTY)?.trim() ?? "";
     if (tty === "" || offered !== tty) {
@@ -125,11 +162,7 @@ export function validateHookHead(
     }
   }
   const length = headerValue(head.headers, "content-length");
-  if (
-    length !== undefined &&
-    Number(length) >
-      (pathOnly === CODEX_HOOK_PATH ? CODEX_HOOK_MAX_BODY_BYTES : HOOK_MAX_BODY_BYTES)
-  ) {
+  if (length !== undefined && Number(length) > hookMaxBodyBytes(agent)) {
     return { ok: false, status: 413, reason: "body too large" };
   }
   return { ok: true, paneId };
@@ -167,12 +200,9 @@ function optionalText(value: unknown): string | null {
 export function parseHookBody(
   paneId: number,
   body: string,
-  agent: "claude" | "codex" = "claude",
+  agent: HookAgent = "claude",
 ): HookPost | null {
-  if (
-    Buffer.byteLength(body, "utf8") >
-    (agent === "codex" ? CODEX_HOOK_MAX_BODY_BYTES : HOOK_MAX_BODY_BYTES)
-  ) {
+  if (Buffer.byteLength(body, "utf8") > hookMaxBodyBytes(agent)) {
     return null;
   }
   let parsed: unknown;
@@ -205,6 +235,19 @@ export function parseHookBody(
       (typeof node.turn_id !== "string" || !SESSION_ID_SAFE.test(node.turn_id))
     )
       return null;
+  }
+  if (agent === "opencode") {
+    // The plugin sends the event, the session and, for `Failed`, a message: nothing else is read.
+    if (!OPENCODE_EVENTS.includes(event)) return null;
+    return {
+      agent,
+      paneId,
+      event,
+      sessionId,
+      cwd: null,
+      message: null,
+      detail: event === "Failed" ? optionalText(node.message) : null,
+    };
   }
   const detail =
     optionalText(node.notification_type) ??
