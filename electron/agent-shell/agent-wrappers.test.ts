@@ -1,9 +1,9 @@
 import { spawn } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { WRAPPED_AGENTS, agentWrapperSource } from "./agent-wrappers";
+import { WRAPPED_AGENTS, WRAPPER_MARKER, agentWrapperSource } from "./agent-wrappers";
 
 const ROOT = mkdtempSync(path.join(tmpdir(), "deck-wrappers-"));
 const DEV_BIN = path.join(ROOT, "dev", "agent-shell", "bin");
@@ -92,6 +92,35 @@ describe.skipIf(process.platform === "win32")("agent wrapper", () => {
     expect(missing.code).toBe(127);
     const found = await run({ PATH: [spelling, REAL_BIN].join(":") }, [], 3000);
     expect(found.stdout).toContain("id=claude");
+  });
+
+  // Neither install's directory can be recognised by its name, so only the
+  // wrapper's content (and `-ef` for itself) stands between them and a loop.
+  describe("two installs whose directories evade the name check", () => {
+    const OTHER_BIN = path.join(ROOT, "other", "agent-shell", "bin");
+    const LINK = path.join(ROOT, "linked");
+    const spellings = [`${DEV_BIN}/../bin`, `${OTHER_BIN}/../bin`, LINK];
+
+    beforeAll(() => {
+      install(OTHER_BIN, "claude", agentWrapperSource("claude"));
+      symlinkSync(OTHER_BIN, LINK);
+    });
+
+    it("runs the real binary behind them", async () => {
+      const result = await run({ PATH: [...spellings, REAL_BIN, SYSTEM_PATH].join(":") }, [], 3000);
+      expect(result.code).toBe(0);
+      expect(result.stdout).toContain("id=claude");
+    });
+
+    it("exits 127 instead of bouncing between them when there is none", async () => {
+      const result = await run({ PATH: [...spellings, SYSTEM_PATH].join(":") }, [], 3000);
+      expect(result.code).toBe(127);
+      expect(result.stderr).toContain("deck: claude not found on PATH");
+    });
+  });
+
+  it("carries the marker the loop check looks for", () => {
+    expect(agentWrapperSource("codex").split("\n")[1]).toContain(WRAPPER_MARKER);
   });
 
   it("exits 127 with a message when there is no real binary", async () => {

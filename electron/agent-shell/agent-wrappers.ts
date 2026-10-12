@@ -20,11 +20,19 @@ export type WrappedAgent = (typeof WRAPPED_AGENTS)[number];
 /** Every install's wrapper directory ends like this, dev and release alike. */
 export const WRAPPER_DIR_SUFFIX = "/agent-shell/bin";
 
+/**
+ * Line 2 of every wrapper. The wrapper also looks for it in each candidate, so
+ * two installs whose directories it cannot recognise by name (`bin/../bin`, a
+ * symlink) still never exec one another.
+ */
+export const WRAPPER_MARKER = "SpaceVibe Deck agent wrapper";
+const MARKER_PROBE_BYTES = 120;
+
 /** POSIX `sh` source of the wrapper for `agent`. */
 export function agentWrapperSource(agent: WrappedAgent): string {
   return [
     "#!/bin/sh",
-    `# SpaceVibe Deck agent wrapper (${agent}) - runs the real CLI after naming it for Deck's hooks.`,
+    `# ${WRAPPER_MARKER} (${agent}) - runs the real CLI after naming it for Deck's hooks.`,
     "# Written by Deck; edits are overwritten at the next launch.",
     // `set -f` keeps a glob character in a PATH entry from expanding below.
     "set -f",
@@ -45,11 +53,14 @@ export function agentWrapperSource(agent: WrappedAgent): string {
     '  case "$dir" in',
     `    *${WRAPPER_DIR_SUFFIX}) continue ;;`,
     "  esac",
-    // Whatever spelling reached this script (`bin/../bin`), it is never its own target.
-    `  if [ -x "$dir/${agent}" ] && [ ! -d "$dir/${agent}" ] && ! [ "$dir/${agent}" -ef "$0" ]; then`,
-    `    real="$dir/${agent}"`,
-    "    break",
-    "  fi",
+    `  candidate="$dir/${agent}"`,
+    '  [ -x "$candidate" ] && [ ! -d "$candidate" ] || continue',
+    // Cheap check first: never this very script, however its directory is spelled.
+    '  [ "$candidate" -ef "$0" ] && continue',
+    // Then any other install's wrapper, recognised by its content.
+    `  head -c ${MARKER_PROBE_BYTES} "$candidate" 2>/dev/null | grep -q '${WRAPPER_MARKER}' && continue`,
+    '  real="$candidate"',
+    "  break",
     "done",
     "IFS=$old_ifs",
     'if [ -z "$real" ]; then',
