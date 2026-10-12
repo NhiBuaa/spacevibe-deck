@@ -87,7 +87,7 @@ export const messages = {
     panelWorktreeTitle: "Open an agent straight into a branch.",
     panelWorktreeBody:
       "⌘T opens Quick Launch on the checkout you are in. Pick the project and branch, then press an agent to split beside your pane, or + for a new space.",
-    panelSurfacesTitle: "Files, the browser and usage sit beside your terminals.",
+    panelSurfacesTitle: "Files, usage and session history sit beside your terminals.",
     panelSurfacesBody:
       "⌘⇧B opens the Explorer: a file opens beside your terminals, Markdown rendered, ⌘⇧V for source, ⌘S to save. Changes shows what the checkout changed since the last commit.",
     panelUsageTitle: "What the agents cost, read off your own disk.",
