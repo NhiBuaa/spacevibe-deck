@@ -36,7 +36,15 @@ describe("classifyCodexArgs", () => {
     expect(form("--", "agents").daemon).toBe(false);
   });
 
-  it.each([["agents"], ["app-server"], ["remote-control"]])("%s is a daemon command", (name) => {
+  it.each([
+    ["agents"],
+    ["app-server"],
+    ["remote-control"],
+    ["queue"],
+    ["archive"],
+    ["unarchive"],
+    ["delete"],
+  ])("%s is a daemon command", (name) => {
     expect(form(name).daemon).toBe(true);
     expect(form(name, "--help").daemon).toBe(true);
   });

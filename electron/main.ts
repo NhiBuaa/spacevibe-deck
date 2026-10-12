@@ -439,8 +439,10 @@ registerServices({ labelOf, setRecording: menuState.setRecording });
 // ------------------------------------------------- Agent-signal adapters
 registerAgentSignals({
   config: async () => {
-    // A probe started by a Signals change must land before a launch reads the answer.
+    // A probe started by a Signals change must land before a launch reads the answer, and a
+    // Codex upgraded or downgraded since the last probe is probed again.
     await codexCapabilities.settled();
+    await codexCapabilities.revalidate();
     const codex = codexCapabilities.current();
     return {
       // POSIX only: the hook script is `sh` + `curl`. Windows keeps the

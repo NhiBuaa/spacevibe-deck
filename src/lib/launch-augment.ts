@@ -89,8 +89,11 @@ function hasConfigKey(command: string, key: string): boolean {
   );
 }
 
-/** The empty assignments that keep a daemon command from inheriting the pane's credentials. */
-const CLEARED_PANE_CREDENTIALS = "DECK_PANE_ID= DECK_HOOK_TOKEN= DECK_HOOK_PORT=";
+/**
+ * Unsets the pane's credentials for a daemon command. `env -u` works in sh, csh and fish
+ * alike, which a `NAME= command` prefix does not (csh rejects it), and exists in BSD and GNU env.
+ */
+const CLEARED_PANE_CREDENTIALS = "env -u DECK_PANE_ID -u DECK_HOOK_TOKEN -u DECK_HOOK_PORT";
 
 /** Codex's flags for a composed command where no wrapper runs: after the `codex` word. */
 function insertCodexFlags(command: string, flags: readonly string[]): string {

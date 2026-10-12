@@ -75,11 +75,21 @@ export const CODEX_NON_TUI_SUBCOMMANDS: readonly string[] = [
   "help",
 ];
 
-/** Subcommands that start or reach the shared daemon. */
+/**
+ * Subcommands that start or reach the shared daemon. `queue`, `archive`, `unarchive` and
+ * `delete` open a session through the daemon Codex finds running; a config override that
+ * excludes the daemon (the bypass among them, `config_exclusion` in `daemon_startup.rs`)
+ * makes them write through a separate embedded server instead, and `queue` refuses that.
+ * They get no flags.
+ */
 export const CODEX_DAEMON_SUBCOMMANDS: readonly string[] = [
   "agents",
   "app-server",
   "remote-control",
+  "queue",
+  "archive",
+  "unarchive",
+  "delete",
 ];
 
 export const CODEX_BYPASS_FLAG = "--dangerously-bypass-hook-trust";

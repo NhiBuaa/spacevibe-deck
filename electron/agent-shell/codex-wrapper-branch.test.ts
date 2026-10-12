@@ -152,6 +152,10 @@ describe.skipIf(process.platform === "win32")("codex wrapper — CX2 flags", () 
     ["agents", ["agents"]],
     ["app-server", ["app-server", "--listen", "ws://x"]],
     ["remote-control", ["remote-control", "start"]],
+    ["queue", ["queue", "--thread", "abc", "--message", "hello"]],
+    ["archive", ["archive", "abc"]],
+    ["unarchive", ["unarchive", "abc"]],
+    ["delete", ["delete", "abc", "--force"]],
     ["--remote", ["--remote", "ws://h:1"]],
     ["resume --remote", ["resume", "--remote=ws://h:1"]],
   ])("%s runs without the pane's credentials, Signals on or off", async (_name, args) => {

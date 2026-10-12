@@ -112,6 +112,23 @@ describe("Codex runtime marker (CX2)", () => {
     expect(await exists(marker)).toBe(false);
   });
 
+  it("is removed first when turning off, even if the script cannot be written", async () => {
+    const deps = await setup();
+    const marker = codexSignalsMarkerPath(deps.userData);
+    const log = vi.fn();
+    const integration = createCodexIntegration({ ...deps, supported: true, log });
+    await integration.sync(on);
+    expect(await exists(marker)).toBe(true);
+    // The script path becomes a directory, so rewriting it fails (as a full disk would).
+    const script = path.join(deps.userData, "agent-hooks", "deck-codex-hook.sh");
+    await fs.rm(script);
+    await fs.mkdir(script);
+    await integration.sync(off);
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(integration.enabled()).toBe(false);
+    expect(await exists(marker)).toBe(false);
+  });
+
   it("is not created where hooks are unsupported, or when registration fails", async () => {
     const deps = await setup();
     const marker = codexSignalsMarkerPath(deps.userData);

@@ -100,13 +100,14 @@ export function createCodexIntegration(deps: IntegrationDeps) {
       const pending = queue
         .then(async () => {
           if (!supported || applied === requested) return;
+          // The Codex wrapper adds its flags only while the marker exists. Turning off drops it
+          // FIRST, before anything that can fail (a full disk must not leave the flags on);
+          // turning on creates it last, once the hooks are registered.
+          if (!requested) await fs.rm(marker, { force: true });
           await fs.mkdir(path.dirname(script), { recursive: true, mode: 0o700 });
           await fs.writeFile(script, codexHookScript(), { mode: 0o700 });
           await fs.chmod(script, 0o700);
           ready = true;
-          // The Codex wrapper adds its flags only while the marker exists: drop it before the
-          // hooks go away, create it after they are registered.
-          if (!requested) await fs.rm(marker, { force: true });
           await (deps.syncHooks ?? syncCodexHooks)(hooks, script, requested);
           if (requested) {
             await fs.mkdir(path.dirname(marker), { recursive: true, mode: 0o700 });

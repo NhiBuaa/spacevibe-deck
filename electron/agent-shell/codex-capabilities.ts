@@ -5,6 +5,7 @@
  * through `agent_signal_config`. The wrapper probes for itself at exec time.
  */
 import { execFile } from "node:child_process";
+import { stat } from "node:fs/promises";
 import { discoverAgents } from "../agents";
 import { CODEX_BYPASS_FLAG, CODEX_NO_DAEMON_FLAG } from "../../src/lib/codex-launch-form";
 import { WRAPPER_DIR_SUFFIX } from "./agent-wrappers";
@@ -49,28 +50,73 @@ function readHelp(binary: string): Promise<string> {
 interface CapabilitiesDeps {
   readonly discover?: () => Promise<string | null>;
   readonly help?: (binary: string) => Promise<string>;
+  /** Identity of the binary on disk; throws when it is gone. Test seam. */
+  readonly identity?: (binary: string) => Promise<string>;
   readonly log?: (message: string, error: unknown) => void;
+}
+
+/** Path-resolved modification time and size: an upgrade or downgrade changes at least one. */
+async function fileIdentity(binary: string): Promise<string> {
+  const info = await stat(binary);
+  return `${info.mtimeMs}:${info.size}:${info.ino}`;
 }
 
 export function createCodexCapabilities(deps: CapabilitiesDeps = {}) {
   let current = NONE;
   let queue: Promise<void> = Promise.resolve();
+  let probed: { readonly binary: string; readonly identity: string } | null = null;
+  const identityOf = deps.identity ?? fileIdentity;
+  const log = deps.log ?? console.warn;
+
+  async function probe(binary: string): Promise<void> {
+    const identity = await identityOf(binary);
+    current = parseCodexHelp(await (deps.help ?? readHelp)(binary));
+    probed = { binary, identity };
+  }
+
+  async function discoverAndProbe(): Promise<void> {
+    probed = null;
+    const binary = await (deps.discover ?? discoverCodex)();
+    if (binary === null) current = NONE;
+    else await probe(binary);
+  }
+
+  function enqueue(work: () => Promise<void>): Promise<void> {
+    queue = queue.then(async () => {
+      try {
+        await work();
+      } catch (error) {
+        current = NONE;
+        probed = null;
+        log("Deck: the Codex flags could not be probed.", error);
+      }
+    });
+    return queue;
+  }
+
   return {
     current: (): CodexCapabilities => current,
     /** Resolves once every probe requested so far has finished. */
     settled: (): Promise<void> => queue,
-    /** Re-probe the installed Codex. Never rejects: a failure answers "accepts nothing". */
-    refresh(): Promise<void> {
-      queue = queue.then(async () => {
+    /** Rediscover and re-probe the installed Codex. Never rejects: a failure answers "accepts nothing". */
+    refresh: (): Promise<void> => enqueue(discoverAndProbe),
+    /**
+     * Re-probe when the binary last probed changed on disk (an upgrade or downgrade while Deck
+     * runs) or is gone, and do nothing otherwise: it is one `stat`, cheap enough for every
+     * launch. A Codex installed after the last `refresh` waits for the next one.
+     */
+    revalidate: (): Promise<void> =>
+      enqueue(async () => {
+        if (probed === null) return;
+        const known = probed;
+        let identity: string;
         try {
-          const binary = await (deps.discover ?? discoverCodex)();
-          current = binary === null ? NONE : parseCodexHelp(await (deps.help ?? readHelp)(binary));
-        } catch (error) {
-          current = NONE;
-          (deps.log ?? console.warn)("Deck: the Codex flags could not be probed.", error);
+          identity = await identityOf(known.binary);
+        } catch {
+          await discoverAndProbe();
+          return;
         }
-      });
-      return queue;
-    },
+        if (identity !== known.identity) await probe(known.binary);
+      }),
   };
 }

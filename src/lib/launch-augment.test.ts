@@ -167,8 +167,12 @@ describe("augmentLaunchCommand — codex without a wrapper (CX2)", () => {
     ["codex remote-control start"],
     ["codex --remote ws://h:1"],
     ["codex resume --remote=ws://h:1"],
+    ["codex queue --thread abc --message hello"],
+    ["codex archive abc"],
+    ["codex unarchive abc"],
+    ["codex delete abc"],
   ])("clears the pane's credentials for %s, adding nothing else", (command) => {
-    const cleared = `DECK_PANE_ID= DECK_HOOK_TOKEN= DECK_HOOK_PORT= ${command}`;
+    const cleared = `env -u DECK_PANE_ID -u DECK_HOOK_TOKEN -u DECK_HOOK_PORT ${command}`;
     expect(augment(command)).toBe(cleared);
     // Whatever the adapter, and whether or not this Codex accepts the bypass.
     expect(augment(command, { adapters: { ...ALL_ON, codex: false } })).toBe(cleared);
@@ -176,6 +180,6 @@ describe("augmentLaunchCommand — codex without a wrapper (CX2)", () => {
   });
 
   it("never clears credentials for a launch that stays in-process", () => {
-    expect(augment("codex exec go")).not.toContain("DECK_PANE_ID=");
+    expect(augment("codex exec go")).not.toContain("env -u");
   });
 });
