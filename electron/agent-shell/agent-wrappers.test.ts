@@ -106,14 +106,15 @@ describe.skipIf(process.platform === "win32")("agent wrapper", () => {
       symlinkSync(OTHER_BIN, LINK);
     });
 
+    // PATH holds no /usr/bin or /bin: the check must not need them.
     it("runs the real binary behind them", async () => {
-      const result = await run({ PATH: [...spellings, REAL_BIN, SYSTEM_PATH].join(":") }, [], 3000);
+      const result = await run({ PATH: [...spellings, REAL_BIN].join(":") }, [], 3000);
       expect(result.code).toBe(0);
       expect(result.stdout).toContain("id=claude");
     });
 
     it("exits 127 instead of bouncing between them when there is none", async () => {
-      const result = await run({ PATH: [...spellings, SYSTEM_PATH].join(":") }, [], 3000);
+      const result = await run({ PATH: [...spellings, EMPTY_BIN].join(":") }, [], 3000);
       expect(result.code).toBe(127);
       expect(result.stderr).toContain("deck: claude not found on PATH");
     });

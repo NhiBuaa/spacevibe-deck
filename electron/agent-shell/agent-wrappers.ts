@@ -57,8 +57,10 @@ export function agentWrapperSource(agent: WrappedAgent): string {
     '  [ -x "$candidate" ] && [ ! -d "$candidate" ] || continue',
     // Cheap check first: never this very script, however its directory is spelled.
     '  [ "$candidate" -ef "$0" ] && continue',
-    // Then any other install's wrapper, recognised by its content.
-    `  head -c ${MARKER_PROBE_BYTES} "$candidate" 2>/dev/null | grep -q '${WRAPPER_MARKER}' && continue`,
+    // Then any other install's wrapper, recognised by its content. `command -p`
+    // finds head and grep even when PATH has no /usr/bin; without them this
+    // check would pass every candidate and two installs could loop.
+    `  command -p head -c ${MARKER_PROBE_BYTES} "$candidate" 2>/dev/null | command -p grep -q '${WRAPPER_MARKER}' && continue`,
     '  real="$candidate"',
     "  break",
     "done",
