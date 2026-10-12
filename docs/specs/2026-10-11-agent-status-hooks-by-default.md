@@ -261,10 +261,10 @@ Run in order; the first row not Done is the next work. Each slice gets its own p
 
 | Slice | Requirements | Plan | Status |
 | --- | --- | --- | --- |
-| 1. Shell bootstrap, wrappers, nesting | WRAP1, NEST1 | [shell-bootstrap-wrappers](../plans/2026-10-11-shell-bootstrap-wrappers.md) | Planned — plan reviewed 2026-10-11, not started |
-| 2. Claude on by default | DEF1 (claude), CL1, INT1, DOC1 | — | Not started |
-| 3. Codex on by default | DEF1 (codex), CX1, CX2, SUB1 (codex), DOC1 | — | Not started |
-| 4. opencode plugin, on by default | DEF1 (opencode), OC1, SUB1 (opencode), DOC1 | — | Not started |
+| 1. Shell bootstrap, wrappers, nesting | WRAP1, NEST1 | [shell-bootstrap-wrappers](../plans/2026-10-11-shell-bootstrap-wrappers.md) | In progress — 2026-10-12 |
+| 2. Claude on by default | DEF1 (claude), CL1, INT1, DOC1 | [claude-signals-default](../plans/2026-10-12-claude-signals-default.md) | Planned — Codex review READY 2026-10-12 |
+| 3. Codex on by default | DEF1 (codex), CX1, CX2, SUB1 (codex), DOC1 | [codex-signals-default](../plans/2026-10-12-codex-signals-default.md) | Blocked — needs the owner's choice on Codex's shared daemon (plan, "Open precondition") |
+| 4. opencode plugin, on by default | DEF1 (opencode), OC1, SUB1 (opencode), DOC1 | [opencode-signals-plugin](../plans/2026-10-12-opencode-signals-plugin.md) | Planned — Codex review READY 2026-10-12 |
 
 ## Risks
 
@@ -323,6 +323,25 @@ Run in order; the first row not Done is the next work. Each slice gets its own p
   - the renderer lets a `session` signal past the generation check
     ([agent-attention.ts](../../src/terminal/agent-attention.ts), `noteContract`);
   - the registry poll restores the session id but not a latched `completed`.
+- NEST1 reproduced on `main` at `b4321751` (slice 1 task 0, 2026-10-12, Electron E2E with a
+  scratch `userData`, Claude 2.1.296, Codex 0.162.1, Claude and Codex Signals on). Claude,
+  launched from the launcher, ran `claude -p` and then `codex exec --ephemeral` from its Bash
+  tool:
+  - the pane received the nested Claude's `SessionStart`/`Stop`/`SessionEnd` and the nested
+    Codex's `SessionStart`/`UserPromptSubmit`/`Stop`, all on the outer pane;
+  - main then logged "dropped a Stop hook from a previous occupant of pane 1" and the same for
+    `Notification`: the outer Claude's own end of turn was refused, because the nested Codex
+    `SessionStart` had become the pane's occupant;
+  - a false `completed` during the outer turn was **not** observed (the rail stayed
+    working/explicit until the outer turn ended), and the journal's session id was the outer
+    one after the registry poll. The occupant eviction is the defect that reproduced.
+- Codex 0.162's shared app-server daemon (slice 1 task 0, 2026-10-12): an interactive `codex`
+  in a pane runs its session in `codex app-server --managed-daemon`
+  (`daemon_auto_start` is stable and on), and hooks run with that daemon's environment
+  (`codex-rs/hooks/src/registry.rs:79` @ `rust-v0.162.0`). A typed `codex` in a scratch pane
+  with Codex Signals on fired no hook into the pane; `codex --no-daemon` fired
+  `SessionStart`, `UserPromptSubmit` and `Stop` at once. `codex exec` runs in-process. Slice
+  3's plan carries this as an open precondition for the owner.
 - RISK1 check for slice 3: in a scratch repo trusted in Codex, add a `.codex/hooks.json`
   `SessionStart` hook that writes a file. Run `codex --dangerously-bypass-hook-trust exec
   --ephemeral` and see whether the file appears without a review.
