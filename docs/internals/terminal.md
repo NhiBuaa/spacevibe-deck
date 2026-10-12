@@ -305,10 +305,10 @@ to wear `asked`'s yellow as an inferred `completed`. `phaseConfidence` in
 [`agent-attention.ts`](../../src/terminal/agent-attention.ts) is the axis; each adapter is
 switchable under Settings → Agents through the `agentSignalAdapters` setting.
 
-**Claude Signals ships on; Codex and opencode ship off until their slices.** The per-agent
+**Claude Signals ships on; Codex and opencode ship off.** The per-agent
 Signals switch in [`settings-schema.ts`](../../src/settings/settings-schema.ts) is resolved by
 a revision ladder in [`signal-adapter-choice.ts`](../../src/settings/signal-adapter-choice.ts):
-each slice adds a rung that turns its agent on once for a settings file saved under an older
+each rung turns one agent on once for a settings file saved under an older
 revision and keeps every other stored value; from the current revision on, a stored value is
 the user's choice. Revision 2 could not tell a chosen "off" from the old default, so a
 revision-2 Claude "off" comes back on once. A file older than revision 2 still reads as the
