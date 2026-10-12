@@ -1,13 +1,11 @@
 /**
- * The muted demo loop, the feature panels, the closing band and the footer.
+ * The muted demo loop, the feature chapters, the closing band and the footer.
  *
- * Until 2026-08-19 this was a scroll tour: one ".a-appwin" pinned at viewport
- * centre, morphing through three chapters driven by scroll progress over a
- * 340svh track. It is a stack of panels now — a sentence one side, its own
- * window mock the other — which is the shape cursor.com uses and which needs
- * no pin, no progress maths and no chapter state. The section class stays
- * `.tour` because the closing band and footer below it are `.tour__*` and did
- * not change.
+ * The features were a scroll tour until 2026-08-19, then seven stacked panels
+ * each carrying its own app-window mock. Since 2026-10-12 they are three
+ * chapters of widgets (layout-chapters.js), so the hero holds the page's only
+ * app window. The section class stays `.tour` because the closing band and
+ * footer below it are `.tour__*` and did not change.
  */
 
 import { BRAND } from "../../../stage/brand.js";
@@ -16,12 +14,12 @@ import { mountDemoLoop, renderDemoLoop } from "../demo-loop.js";
 import { PROOF_TERM_STEPS } from "./stage-states.js";
 import { RELEASES_URL, REPO_URL, WINDOWS_FALLBACK_URL } from "../download-links.js";
 import { FEEDBACK_URL } from "../site-urls.js";
-import { SCENES } from "./panel-scenes.js";
+import { renderChapters } from "./layout-chapters.js";
 import { renderAppleIcon, renderWindowsIcon } from "../os-icons.js";
 
 const PROMPT = "❯ ";
 
-/** Anchor on the feature panel stack; the footer links to it. */
+/** Anchor on the first feature chapter; the hero CTA and the footer link to it. */
 const FEATURES_ID = "features";
 
 /** Staggered reveal for the closing band's blocks. */
@@ -158,76 +156,6 @@ function mountProofTerm(section, reduceMotion) {
     clearTimeout(timerId);
     observer.disconnect();
   };
-}
-
-/**
- * The panel stack, in scroll order. Each entry is one feature: the copy keys
- * it prints and the scene it draws.
- *
- * Nothing the 16-second reel already tells survives here. Its beats are
- * `Open board → three agents → ⌘⇧A → ⌘E`, and the last panel that still redrew
- * the pane grid was handing the reader a still of what they had just watched
- * move. What replaced it is seven things the page never said at all: what the
- * rail reads off a running agent, every agent on one board (1.1's headline),
- * opening one straight into a worktree, what survives a quit, the surfaces
- * that are not terminals, what the agents cost, and the catalog of commands
- * Deck will type.
- *
- * `shape` picks the panel's layout — `side` stands the mock beside the copy,
- * `wide` puts it under a full-width sentence — and `flip` moves the art to the
- * reader's left. Both are emitted as data attributes for tour.css to read;
- * nothing here styles anything, and no panel imports a scene module directly.
- */
-const PANELS = [
-  { key: "panelRail", scene: "rail", shape: "side", flip: true },
-  { key: "panelBoard", scene: "board", shape: "wide" },
-  { key: "panelWorktree", scene: "menu", shape: "side" },
-  { key: "panelRestore", scene: "restore", shape: "wide" },
-  { key: "panelSurfaces", scene: "surfaces", shape: "wide" },
-  { key: "panelUsage", scene: "usage", shape: "side" },
-  { key: "panelCatalog", scene: "catalog", shape: "side", flip: true },
-];
-
-/**
- * One feature panel: a sentence on one side, a window mock bleeding off the
- * other. Replaces the sticky scroll tour, which told its beats by morphing ONE
- * pinned window through them — panels say it in the page's own scroll, with no
- * pin, no progress maths and no chapter state.
- *
- * @param {{key: string, scene: string, shape: string, flip?: boolean}} panel
- * @param {number} index zero-based position in the stack
- * @param {Record<string, string>} copy
- */
-function renderPanel(panel, index, copy) {
-  const number = String(index + 1).padStart(2, "0");
-  const scene = SCENES[panel.scene]();
-
-  return `
-    <article
-      class="panel"
-      data-scene="${panel.scene}"
-      data-shape="${panel.shape}"
-      ${panel.flip ? "data-flip" : ""}
-      data-reveal
-      style="--reveal-delay: ${index * 50}ms"
-    >
-      <div class="panel__copy">
-        <span class="panel__num">${number}</span>
-        <h2 data-copy="${panel.key}Title">${copy[`${panel.key}Title`]}</h2>
-        <p data-copy="${panel.key}Body">${copy[`${panel.key}Body`]}</p>
-      </div>
-      <div class="panel__art">
-        <!-- Same idea as the hero desk: the mock stands ON something. Held
-             further back here — one picture at full strength per page — and
-             cropped to a different part of the canvas per panel so the planes
-             on one page are not copies of one frame. -->
-        <div class="panel__stage">
-          <div class="panel__stage-art" aria-hidden="true"></div>
-          ${scene}
-        </div>
-      </div>
-    </article>
-  `;
 }
 
 function renderFinale(copy) {
@@ -370,9 +298,7 @@ export function renderTour(copy) {
     markup: `
       <section class="tour">
         ${renderDemoLoop(copy)}
-        <div class="panels" id="${FEATURES_ID}">
-          ${PANELS.map((panel, index) => renderPanel(panel, index, copy)).join("")}
-        </div>
+        ${renderChapters(copy, { featuresId: FEATURES_ID })}
         ${renderFinale(copy)}
         ${renderFooter(copy)}
       </section>

@@ -35,7 +35,7 @@ const ACTIVE_VIEW = "Overview";
  * Usage tab is showing the whole recorded history, so that is the state the
  * figure above belongs to.
  */
-const RANGES = ["Today", "7 days", "30 days", "All"];
+export const RANGES = ["Today", "7 days", "30 days", "All"];
 const ACTIVE_RANGE = "All";
 
 /**
@@ -55,8 +55,8 @@ const ACTIVE_RANGE = "All";
  * shipped pricing table and moves when that table does.
  */
 const EYEBROW = "Raw token cost";
-const TOTAL = "$13,372.98";
-const FOOTNOTE = "* if billed at full API rate";
+export const TOTAL = "$13,372.98";
+export const FOOTNOTE = "* if billed at full API rate";
 const ESTIMATE = "estimated at API prices · pricing snapshot 2026-08-10";
 
 /**
@@ -80,7 +80,7 @@ const ESTIMATE = "estimated at API prices · pricing snapshot 2026-08-10";
  * (`src/lib/process-info.ts:22-33`): claude is the theme magenta, codex the
  * theme green.
  */
-const AGENTS = [
+export const AGENTS = [
   {
     id: "claude",
     label: "Claude Code",

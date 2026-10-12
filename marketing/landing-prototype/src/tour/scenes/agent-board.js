@@ -30,7 +30,7 @@ const PRIMARY = { kind: "role", text: "Primary" };
  * The sentences are the hero's, so the Board reads as the same afternoon the
  * top of the page shows. Every `id` is null: a panel mounts no stream.
  */
-const BOARD_PROJECTS = deepFreeze([
+export const BOARD_PROJECTS = deepFreeze([
   {
     project: "spacevibe-deck",
     checkouts: [

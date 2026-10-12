@@ -9,6 +9,9 @@ import "../styles/scenes.css";
 import "../styles/release-modal.css";
 import "../styles/hero-copy-column.css";
 import "../styles/hero.css";
+import "../styles/stat-band.css";
+import "../styles/widgets.css";
+import "../styles/layout-chapters.css";
 
 import { messages } from "./copy.js";
 import { upgradeReleaseLinks } from "./download-links.js";

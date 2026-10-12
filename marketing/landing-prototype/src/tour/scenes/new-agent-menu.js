@@ -26,7 +26,7 @@ import { INSTALLED, launchCommand } from "./catalog.js";
 import { frame, sceneAgentMark } from "./chrome.js";
 
 /** `subjectWhere` for the active card: nothing in it repeats, so nothing drops. */
-const WHERE = "spacevibe-deck · detach · feat/detach";
+export const WHERE = "spacevibe-deck · detach · feat/detach";
 
 /*
  * The rail behind the menu: the hero's project, both checkouts CLOSED, and

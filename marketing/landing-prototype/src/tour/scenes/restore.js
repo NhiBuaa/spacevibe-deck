@@ -16,7 +16,7 @@
 
 import { SCENE_RAIL, frame, sceneAgentMark } from "./chrome.js";
 
-const RESTORE_PANES = [
+export const RESTORE_PANES = [
   {
     agent: "claude",
     cmd: "claude --resume 0f3a91c2",
