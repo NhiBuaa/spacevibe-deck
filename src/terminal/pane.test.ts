@@ -153,7 +153,9 @@ describe("Pane interrupt keys (INT1)", () => {
     expect(isInterruptKey(key({ key: "Escape" }))).toBe(true);
     expect(isInterruptKey(key({ key: "c", ctrlKey: true }))).toBe(true);
     expect(isInterruptKey(key({ key: "c", metaKey: true }))).toBe(false);
+    expect(isInterruptKey(key({ key: "C", ctrlKey: true }))).toBe(true); // Caps Lock
     expect(isInterruptKey(key({ key: "C", ctrlKey: true, shiftKey: true }))).toBe(false);
+    expect(isInterruptKey(key({ key: "c", ctrlKey: true, shiftKey: true }))).toBe(false);
     expect(isInterruptKey(key({ key: "c" }))).toBe(false);
     expect(isInterruptKey(key({ key: "a", ctrlKey: true }))).toBe(false);
   });

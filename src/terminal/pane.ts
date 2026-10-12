@@ -39,9 +39,18 @@ export interface PaneEvents {
   onInterruptKey?(id: number): void;
 }
 
-/** Escape or Ctrl+C, the keys that interrupt an agent (Cmd+C and Ctrl+Shift+C are copies). */
-export function isInterruptKey(event: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey">): boolean {
-  return event.key === "Escape" || (event.ctrlKey && !event.metaKey && event.key === "c");
+/**
+ * Escape or Ctrl+C, the keys that interrupt an agent (Cmd+C and Ctrl+Shift+C are copies). Caps
+ * Lock makes Ctrl+C report `C`, which xterm still sends as \x03, so the letter is compared
+ * without case and Shift is what rules the copy chord out.
+ */
+export function isInterruptKey(
+  event: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "shiftKey">,
+): boolean {
+  return (
+    event.key === "Escape" ||
+    (event.ctrlKey && !event.metaKey && !event.shiftKey && event.key.toLowerCase() === "c")
+  );
 }
 
 /** Single-line selection snapshot for search probes across NFC/NFD forms. */

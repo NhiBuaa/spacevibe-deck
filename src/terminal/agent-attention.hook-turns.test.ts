@@ -229,4 +229,17 @@ describe("Claude turn hooks — an interrupt key clears explicit work (INT1)", (
     expect(heuristic("working")).toBeNull();
     expect(tracker.snapshot(1)?.phase).toBe("idle");
   });
+
+  it("ages the cleared phase, so the heuristic is not refused forever after a stale turn", () => {
+    const { tracker, send, heuristic, advance } = setup();
+    send("UserPromptSubmit");
+    advance(CONTRACT_FRESHNESS_MS + 1);
+    expect(tracker.tick(100_000 + CONTRACT_FRESHNESS_MS + 100)).toEqual([1]);
+    expect(tracker.noteInterrupt(1)).toMatchObject({ phase: "idle", phaseConfidence: "explicit" });
+    expect(heuristic("working")).toBeNull();
+    advance(CONTRACT_FRESHNESS_MS + 1);
+    expect(tracker.tick(100_000 + 2 * CONTRACT_FRESHNESS_MS + 200)).toEqual([1]);
+    expect(tracker.snapshot(1)?.phaseConfidence).toBe("inferred");
+    expect(heuristic("working")).toMatchObject({ phase: "working" });
+  });
 });

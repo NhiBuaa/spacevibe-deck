@@ -1094,6 +1094,9 @@ export function createAgentAttentionTracker(
         phase: "idle",
         phaseConfidence: "explicit",
         phaseFromContract: true,
+        // Stamped, so `tick` can age this explicit phase even when it had already hollowed the
+        // working one: an explicit contract phase with no clock would refuse the heuristic forever.
+        contractAt: now(),
         interruptible: false,
         hasRun: false,
         ...(asked ? { attention: "none", source: null, confidence: "explicit", detail: null } : {}),
