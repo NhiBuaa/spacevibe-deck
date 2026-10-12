@@ -43,6 +43,16 @@ cannot say when Codex waits for an approval.
      events.
    - opencode loads that directory after the global and `.opencode` configs
      ([opencode config docs](https://opencode.ai/docs/config/), checked 2026-10-11).
+4. **Interactive Codex in a pane runs with `--no-daemon`** (owner, 2026-10-12). Codex 0.162 hosts
+   an interactive session in a shared app-server daemon whose environment is not the pane's,
+   so env-scoped hooks never reach the pane ([Evidence](#evidence)).
+   - The wrapper and `launch-augment` add `--no-daemon` to bare `codex`, `resume` and `fork`
+     while Codex Signals is on, when the installed Codex accepts it. Deck's interactive Codex
+     sessions then do not appear in `codex agents` or remote control.
+   - Main also refuses a Codex hook whose hosting process has no tty, so a daemon carrying a
+     pane's credentials cannot post into that pane.
+   - Turned down: routing Codex hooks by session id (a new auth and routing design), and
+     shipping as specified with interactive Codex left inferred.
 
 ## How Superset does it (`desktop-v1.37.0`, the build installed on the owner's machine)
 
@@ -252,6 +262,7 @@ Where Deck departs from Superset, and why. Anything not listed here follows Supe
 | Host restart rediscovery, v1 fallback | manifest lookup per event | not adopted | Deck's hook server lives in main; a restart ends the panes too |
 | Subagent roster | tracked separately | dropped | no rail surface for it yet |
 | Project auto-trust, approval bypass default | on | not adopted | not part of status accuracy |
+| Codex shared app-server daemon | not handled; the wrapper adds no `--no-daemon` | `--no-daemon` on interactive launches; hooks from a tty-less host refused | the daemon runs hooks with its own env, so they never reach the pane (decision 4) |
 
 ## Delivery slices
 
@@ -263,7 +274,7 @@ Run in order; the first row not Done is the next work. Each slice gets its own p
 | --- | --- | --- | --- |
 | 1. Shell bootstrap, wrappers, nesting | WRAP1, NEST1 | [shell-bootstrap-wrappers](../plans/2026-10-11-shell-bootstrap-wrappers.md) | Done 2026-10-12 — `8aeb71fc`..`47841c81`, changelog `04167317` |
 | 2. Claude on by default | DEF1 (claude), CL1, INT1, DOC1 | [claude-signals-default](../plans/2026-10-12-claude-signals-default.md) | Done 2026-10-12 — `a2b10179`..`db78fdb7`, changelog `b60dd998` |
-| 3. Codex on by default | DEF1 (codex), CX1, CX2, SUB1 (codex), DOC1 | [codex-signals-default](../plans/2026-10-12-codex-signals-default.md) | Blocked — Codex review READY except the owner's choice on Codex's shared daemon (plan, "Open precondition") |
+| 3. Codex on by default | DEF1 (codex), CX1, CX2, SUB1 (codex), DOC1 | [codex-signals-default](../plans/2026-10-12-codex-signals-default.md) | In progress — owner chose `--no-daemon` 2026-10-12 (decision 4) |
 | 4. opencode plugin, on by default | DEF1 (opencode), OC1, SUB1 (opencode), DOC1 | [opencode-signals-plugin](../plans/2026-10-12-opencode-signals-plugin.md) | Planned — Codex review READY 2026-10-12 |
 
 ## Risks
