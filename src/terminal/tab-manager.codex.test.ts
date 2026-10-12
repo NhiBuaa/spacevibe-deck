@@ -154,7 +154,10 @@ describe("Codex card lifecycle", () => {
     try {
       emit("UserPromptSubmit");
       emit("Stop");
-      settings.value = DEFAULT_SETTINGS;
+      settings.value = {
+        ...DEFAULT_SETTINGS,
+        agentSignalAdapters: { ...DEFAULT_SETTINGS.agentSignalAdapters, codex: false },
+      };
       await vi.advanceTimersByTimeAsync(2000);
       await tm.injectIntoPane(1, "Actual prompt", { autoSend: false, expectedAgent: "codex" });
       await vi.advanceTimersByTimeAsync(400);

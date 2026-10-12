@@ -221,15 +221,21 @@ describe("createTabManager — arm-time augmentation (stage 2)", () => {
     }
   });
 
-  // The shipped defaults, for every agent that HAS an adapter: the pane types
-  // the command the user chose and nothing else, and main is not asked for a
-  // port it would then have to reserve.
-  for (const [agent, launchCommand] of [
-    ["claude", "claude --dangerously-skip-permissions"],
-    ["codex", "codex --full-auto"],
-    ["opencode", "opencode"],
+  // An adapter that is off, or has nothing to add: the pane types the command
+  // the user chose and nothing else, and main is not asked for a port it would
+  // then have to reserve. Claude is on by default but adds nothing to the command.
+  for (const [agent, launchCommand, codexOff] of [
+    ["claude", "claude --dangerously-skip-permissions", false],
+    ["codex", "codex --full-auto", true],
+    ["opencode", "opencode", false],
   ] as const) {
-    it(`types the user's ${agent} command unchanged with the shipped defaults`, async () => {
+    it(`types the user's ${agent} command unchanged ${codexOff ? "while its Signals are off" : "with the shipped defaults"}`, async () => {
+      if (codexOff) {
+        settings.value = {
+          ...settings.value,
+          agentSignalAdapters: { ...settings.value.agentSignalAdapters, [agent]: false },
+        };
+      }
       const infoByPane = new Map<number, PaneProcessInfo>([
         [1, processInfo(1, "/repo", agent, "agent", agent)],
       ]);

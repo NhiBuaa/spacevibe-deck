@@ -6,40 +6,58 @@ import {
   storedSignalAdapterOn,
 } from "./signal-adapter-choice";
 
-const CLAUDE_ONLY = { claude: true, codex: false, opencode: false };
+const DEFAULTS = { claude: true, codex: true, opencode: false };
 
 describe("resolveSignalAdapters", () => {
-  it("is Claude on, the rest off, for anything that is not a trusted settings file", () => {
-    expect(SIGNAL_ADAPTERS_REVISION).toBe(3);
-    expect(resolveSignalAdapters(undefined)).toEqual(CLAUDE_ONLY);
-    expect(resolveSignalAdapters({})).toEqual(CLAUDE_ONLY);
-    expect(resolveSignalAdapters(null)).toEqual(CLAUDE_ONLY);
-    expect(resolveSignalAdapters("settings")).toEqual(CLAUDE_ONLY);
+  it("is Claude and Codex on, opencode off, for anything that is not a trusted settings file", () => {
+    expect(SIGNAL_ADAPTERS_REVISION).toBe(4);
+    expect(resolveSignalAdapters(undefined)).toEqual(DEFAULTS);
+    expect(resolveSignalAdapters({})).toEqual(DEFAULTS);
+    expect(resolveSignalAdapters(null)).toEqual(DEFAULTS);
+    expect(resolveSignalAdapters("settings")).toEqual(DEFAULTS);
   });
 
   it("reads a 1.1.x file's stored trues as unchosen (DECK-102)", () => {
     const all = { claude: true, codex: true, opencode: true };
-    expect(resolveSignalAdapters({ agentSignalAdapters: all })).toEqual(CLAUDE_ONLY);
+    expect(resolveSignalAdapters({ agentSignalAdapters: all })).toEqual(DEFAULTS);
     expect(resolveSignalAdapters({ signalAdaptersRevision: 1, agentSignalAdapters: all })).toEqual(
-      CLAUDE_ONLY,
+      DEFAULTS,
     );
   });
 
-  it("switches Claude on once under revision 2 and keeps every other stored value", () => {
+  it("switches Claude and Codex on once under revision 2 and keeps opencode's stored value", () => {
     const stored = (agentSignalAdapters: unknown) => ({
       signalAdaptersRevision: 2,
       agentSignalAdapters,
     });
-    expect(resolveSignalAdapters(stored({ claude: false, codex: true }))).toEqual({
-      claude: true,
-      codex: true,
-      opencode: false,
-    });
+    expect(resolveSignalAdapters(stored({ claude: false, codex: false }))).toEqual(DEFAULTS);
     expect(resolveSignalAdapters(stored({ opencode: true }))).toEqual({
       claude: true,
-      codex: false,
+      codex: true,
       opencode: true,
     });
+  });
+
+  it("switches only Codex on under revision 3 and keeps Claude's and opencode's values", () => {
+    const stored = (agentSignalAdapters: unknown) => ({
+      signalAdaptersRevision: 3,
+      agentSignalAdapters,
+    });
+    expect(resolveSignalAdapters(stored({ claude: false, codex: false, opencode: true }))).toEqual({
+      claude: false,
+      codex: true,
+      opencode: true,
+    });
+    expect(resolveSignalAdapters(stored({ claude: true, codex: true }))).toEqual(DEFAULTS);
+  });
+
+  it("keeps a Codex switch the user turned off under revision 4", () => {
+    expect(
+      resolveSignalAdapters({
+        signalAdaptersRevision: 4,
+        agentSignalAdapters: { claude: true, codex: false, opencode: false },
+      }),
+    ).toEqual({ claude: true, codex: false, opencode: false });
   });
 
   it("keeps a stored choice under the current revision", () => {
@@ -67,26 +85,27 @@ describe("resolveSignalAdapters", () => {
           signalAdaptersRevision: SIGNAL_ADAPTERS_REVISION,
           agentSignalAdapters,
         }),
-      ).toEqual(CLAUDE_ONLY);
+      ).toEqual(DEFAULTS);
     }
   });
 });
 
 describe("storedSignalAdapterOn", () => {
-  it("registers Claude's hooks on a fresh install with no settings file", () => {
+  it("registers Claude's and Codex's hooks on a fresh install with no settings file", () => {
     expect(storedSignalAdapterOn(undefined, "claude")).toBe(true);
-    expect(storedSignalAdapterOn(undefined, "codex")).toBe(false);
+    expect(storedSignalAdapterOn(undefined, "codex")).toBe(true);
+    expect(storedSignalAdapterOn(undefined, "opencode")).toBe(false);
     expect(storedSignalAdapterOn(undefined, "toString")).toBe(false);
   });
 
-  it("follows the ladder for a revision-2 file", () => {
+  it("follows the ladder for a revision-3 file", () => {
     const stored = {
-      signalAdaptersRevision: 2,
-      agentSignalAdapters: { claude: false, codex: true },
+      signalAdaptersRevision: 3,
+      agentSignalAdapters: { claude: false, codex: false, opencode: true },
     };
-    expect(storedSignalAdapterOn(stored, "claude")).toBe(true);
+    expect(storedSignalAdapterOn(stored, "claude")).toBe(false);
     expect(storedSignalAdapterOn(stored, "codex")).toBe(true);
-    expect(storedSignalAdapterOn(stored, "opencode")).toBe(false);
+    expect(storedSignalAdapterOn(stored, "opencode")).toBe(true);
   });
 
   it("keeps a switch patch chosen once merged into a file saved before the revision", () => {

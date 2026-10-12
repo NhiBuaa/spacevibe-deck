@@ -145,9 +145,9 @@ export interface Settings {
    * server port. Switched per agent under Settings → Agents; off, that half of
    * the row is inferred and drawn so.
    *
-   * Claude's are ON by default (owner, 2026-10-11): Deck's shell wrappers add
-   * the flags, so the command line a user typed is no longer edited by Deck.
-   * Codex and opencode stay OFF until their own slices ship; the defaults and
+   * Claude's and Codex's are ON by default (owner, 2026-10-11): Deck's shell
+   * wrappers add the flags, so the command line a user typed is no longer
+   * edited by Deck. opencode stays OFF until its slice ships; the defaults and
    * the revision that switches each one on once live in signal-adapter-choice.ts.
    *
    * A pane still reads OSC 9;4, OSC 9/777 and BEL, and transcript tails still
