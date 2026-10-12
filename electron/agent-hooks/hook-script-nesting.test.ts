@@ -1,8 +1,14 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { hookScriptSource } from "./claude-hooks-file";
 import { codexHookScript } from "./codex-integration";
-import { cleanupHookHarness, runHookScript, startListener } from "./hook-script-harness";
+import {
+  cleanupHookHarness,
+  runHookScript,
+  startListener,
+  SCRIPT_TEST_TIMEOUT_MS,
+} from "./hook-script-harness";
 
+vi.setConfig({ testTimeout: SCRIPT_TEST_TIMEOUT_MS });
 afterEach(cleanupHookHarness);
 
 /** The posted URLs of a listener's recorded posts. */

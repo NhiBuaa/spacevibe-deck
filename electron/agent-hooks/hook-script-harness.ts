@@ -6,6 +6,13 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
+/**
+ * Each test spawns `sh`, `head`, `awk`, `curl` and sometimes `ps`, which takes about half a second
+ * on an idle machine and more than ten times that on one running a build and an Electron app
+ * (load average 170 was measured), well past vitest's 5 s default.
+ */
+export const SCRIPT_TEST_TIMEOUT_MS = 60_000;
+
 export interface Post {
   readonly url: string;
   readonly body: string;
@@ -17,22 +24,39 @@ const listeners: http.Server[] = [];
 
 /** Close the listeners and delete the scratch scripts; call from `afterEach`. */
 export async function cleanupHookHarness(): Promise<void> {
-  await Promise.all(listeners.splice(0).map((l) => new Promise((done) => l.close(done))));
+  await Promise.all(
+    listeners.splice(0).map(
+      (l) =>
+        new Promise((done) => {
+          l.close(done);
+          l.closeAllConnections();
+        }),
+    ),
+  );
   await Promise.all(scratch.splice(0).map((dir) => fs.rm(dir, { recursive: true })));
 }
 
-/** A listener that records the posts it gets; the scripts under test post to it. */
+/**
+ * A listener that records the posts it gets; the scripts under test post to it.
+ *
+ * It records only a POST that carries a pane header, which every Deck script sends. Anything
+ * else is answered and ignored: a running Deck's dev-server scanner finds any listening loopback
+ * port and probes it with `HEAD /` (`electron/dev-servers/protocol.ts`), which would otherwise
+ * land in a test's count whenever a Deck is open on the machine.
+ */
 export async function startListener() {
   const posts: Post[] = [];
   const server = http.createServer((request, response) => {
     const chunks: Buffer[] = [];
     request.on("data", (chunk: Buffer) => chunks.push(chunk));
     request.on("end", () => {
-      posts.push({
-        url: request.url ?? "",
-        body: Buffer.concat(chunks).toString("utf8"),
-        headers: request.headers,
-      });
+      if (request.method === "POST" && request.headers["x-deck-pane"] !== undefined) {
+        posts.push({
+          url: request.url ?? "",
+          body: Buffer.concat(chunks).toString("utf8"),
+          headers: request.headers,
+        });
+      }
       response.statusCode = 204;
       response.end();
     });

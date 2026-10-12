@@ -1,14 +1,17 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { codexHookScript } from "./codex-integration";
 import {
   cleanupHookHarness,
   runHookScript,
   startListener,
   writeFakePs,
+  SCRIPT_TEST_TIMEOUT_MS,
 } from "./hook-script-harness";
+
+vi.setConfig({ testTimeout: SCRIPT_TEST_TIMEOUT_MS });
 
 const scratch: string[] = [];
 afterEach(async () => {

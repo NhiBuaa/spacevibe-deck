@@ -1,7 +1,14 @@
-import { afterEach, describe, expect, it } from "vitest";
+import http from "node:http";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { hookScriptSource } from "./claude-hooks-file";
-import { cleanupHookHarness, runHookScript, startListener } from "./hook-script-harness";
+import {
+  cleanupHookHarness,
+  runHookScript,
+  startListener,
+  SCRIPT_TEST_TIMEOUT_MS,
+} from "./hook-script-harness";
 
+vi.setConfig({ testTimeout: SCRIPT_TEST_TIMEOUT_MS });
 afterEach(cleanupHookHarness);
 
 const SESSION = "11111111-2222-3333-4444-555555555555";
@@ -130,5 +137,18 @@ describe.skipIf(process.platform === "win32")("claude hook script — bounded ev
     const { posts } = await run("Stop", stdin);
     expect(posts).toHaveLength(1);
     expect(posts[0].body).toBe(stdin);
+  });
+
+  it("counts only Deck posts: a probe of its port, as a running Deck's dev-server scanner makes, is ignored", async () => {
+    const { posts, port } = await startListener();
+    await new Promise<void>((done) => {
+      http
+        .request({ host: "127.0.0.1", port, method: "HEAD", path: "/", agent: false }, (res) => {
+          res.resume();
+          res.on("end", done);
+        })
+        .end();
+    });
+    expect(posts).toEqual([]);
   });
 });
