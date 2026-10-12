@@ -5,7 +5,6 @@ import { renderInstallIcon } from "./os-icons.js";
 import { CHANGELOG_URL, FEEDBACK_URL, LANDING_URL } from "./site-urls.js";
 
 const PARTNER_MARK_SRC = "/landing-prototype/assets/partner-mark.svg";
-const DISCORD_URL = "https://discord.gg/eWWuzaweU";
 
 /** Where Download points before the release API answers, per platform. */
 const DOWNLOAD_FALLBACK = { mac: RELEASES_URL, win: WINDOWS_FALLBACK_URL };
@@ -20,14 +19,6 @@ function renderGithubIcon() {
         -.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07
         -.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13
         .16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/>
-    </svg>
-  `;
-}
-
-function renderDiscordIcon() {
-  return `
-    <svg class="a-discord-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
-      <path d="M19.5 5.34A17.4 17.4 0 0 0 15.44 4l-.5 1.03a16.2 16.2 0 0 0-5.88 0L8.56 4A17.4 17.4 0 0 0 4.5 5.34C1.93 9.18 1.23 12.93 1.58 16.63a16.6 16.6 0 0 0 4.98 2.5l1.2-1.64c-.66-.25-1.3-.56-1.9-.92l.47-.36c3.67 1.7 7.65 1.7 11.28 0l.48.36c-.6.36-1.24.67-1.9.92l1.2 1.64a16.5 16.5 0 0 0 4.98-2.5c.42-4.29-.72-8-2.87-11.29ZM8.52 14.36c-1.1 0-2-1.02-2-2.28s.88-2.28 2-2.28c1.12 0 2.02 1.03 2 2.28 0 1.26-.88 2.28-2 2.28Zm6.96 0c-1.1 0-2-1.02-2-2.28s.88-2.28 2-2.28c1.12 0 2.02 1.03 2 2.28 0 1.26-.88 2.28-2 2.28Z" />
     </svg>
   `;
 }
@@ -60,11 +51,6 @@ export function renderTopbar(copy) {
       <a class="a-topbar__changelog a-topbar__feedback" href="${FEEDBACK_URL}">
         <span class="a-topbar__dots" aria-hidden="true"><i></i><i></i><i></i></span>
         <span data-copy="navFeedback">${copy.navFeedback}</span>
-      </a>
-      <a class="a-topbar__discord" href="${DISCORD_URL}" target="_blank" rel="noreferrer">
-        ${renderDiscordIcon()}
-        <span data-copy="navDiscord">${copy.navDiscord}</span>
-        <span aria-hidden="true">↗</span>
       </a>
       <a class="a-topbar__github" href="${REPO_URL}" target="_blank" rel="noreferrer">
         ${renderGithubIcon()}

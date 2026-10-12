@@ -147,26 +147,6 @@
   font-weight: 680;
 }
 
-.a-topbar__discord {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding-block: 0.35rem;
-  color: var(--a-ink-soft);
-  transition: color 220ms var(--a-ease-lock);
-}
-
-.a-topbar__discord:hover,
-.a-topbar__discord:focus-visible {
-  color: var(--a-ink);
-}
-
-.a-discord-icon {
-  width: 1rem;
-  height: 1rem;
-  flex-shrink: 0;
-}
-
 .a-topbar__github {
   display: inline-flex;
   align-items: center;
@@ -563,7 +543,7 @@
     padding: 0;
   }
 
-  /* One compact row: the brand, the board's link and Discord. The changelog
+  /* One compact row: the brand and the board's link. The changelog
      link gives way because the release pill above the headline goes there. */
   .a-topbar {
     justify-content: space-between;
@@ -610,7 +590,6 @@
   .a-hero__pill-arrow,
   .a-topbar__changelog,
   .a-topbar__changelog::after,
-  .a-topbar__discord,
   .a-topbar__github::after {
     transition: none;
   }

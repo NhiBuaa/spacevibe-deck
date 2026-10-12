@@ -2,7 +2,6 @@ export const messages = {
   en: {
     navProduct: "Deck",
     navChangelog: "Changelog",
-    navDiscord: "Discord",
     navGithub: "GitHub",
     navDownload: "Download",
     releaseLabel: "Deck 2.6.0",
@@ -145,7 +144,6 @@ export const messages = {
   vi: {
     navProduct: "Deck",
     navChangelog: "Changelog",
-    navDiscord: "Discord",
     navGithub: "GitHub",
     navDownload: "Tải về",
     releaseLabel: "Deck 2.6.0",
