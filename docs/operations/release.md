@@ -131,6 +131,14 @@ Require an ordinary [CI run](../../.github/workflows/ci.yml) on the exact integr
 source works on Ubuntu: a red `prepare` costs a cleanup of the trigger tag. A local macOS pass is not that evidence. If CI is still
 red, stop for an explicit owner decision rather than treating a tag as a test run.
 
+Run the `landing-sync` skill
+([`.claude/skills/landing-sync/SKILL.md`](../../.claude/skills/landing-sync/SKILL.md)) in
+report mode against the commit being tagged, and decide on every item it reports: fix the
+landing in its own worktree, or record on the release PR why that surface ships stale.
+Nothing else catches this: [`landing.yml`](../../.github/workflows/landing.yml) runs only
+when `marketing/**` changes, so an app change that retires a surface the landing still sells
+passes every other gate.
+
 If [`src/telemetry/payload.ts`](../../src/telemetry/payload.ts) changed since the last
 release, the analytics Worker must already accept the new shape: run `npm run migrate` and
 `npm run deploy` in `backend/` first. A client whose snapshot the live Worker rejects gets a
