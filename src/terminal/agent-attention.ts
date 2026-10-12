@@ -103,7 +103,8 @@ export interface PaneAttentionSnapshot {
    * The current agent has reached `working` at least once. What separates a
    * pane that finished a run and was checked (the rail's `done`) from one
    * that has never run anything (`idle`) — the fold itself lives in
-   * `agent-rail-model.ts`, not here.
+   * `agent-rail-model.ts`, not here. An interrupt also resets it, keeping
+   * `sessionId`, so false alone does not mean a new occupant.
    */
   hasRun: boolean;
   /** When the visible state last changed (tracker clock). */

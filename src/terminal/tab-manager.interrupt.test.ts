@@ -59,7 +59,14 @@ describe("createTabManager — interrupt key (INT1)", () => {
       expect(pane()).toMatchObject({ phase: "working", phaseConfidence: "explicit" });
       const written = pty.writes.length;
       emitInterruptKey(1);
-      expect(pane()).toMatchObject({ phase: "idle", hasRun: false, attention: "none" });
+      // The session id stays: the session tail store reads it to tell an interrupt from a new
+      // occupant, which `hasRun` alone cannot.
+      expect(pane()).toMatchObject({
+        phase: "idle",
+        hasRun: false,
+        attention: "none",
+        sessionId: SESSION_ID,
+      });
       // The tracker never writes: what the key sends to the PTY is the pane's own business.
       expect(pty.writes).toHaveLength(written);
 

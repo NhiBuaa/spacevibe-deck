@@ -147,7 +147,12 @@ describe("Codex lifecycle", () => {
     send("UserPromptSubmit");
     send("Interrupt");
     redraw();
-    expect(tracker.snapshot(1)).toMatchObject({ phase: "idle", attention: "none", hasRun: false });
+    expect(tracker.snapshot(1)).toMatchObject({
+      phase: "idle",
+      attention: "none",
+      hasRun: false,
+      sessionId: "session-1",
+    });
     send("UserPromptSubmit", "turn-2");
     expect(tracker.snapshot(1)?.phase).toBe("working");
   });

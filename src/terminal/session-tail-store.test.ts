@@ -705,6 +705,125 @@ describe("session tail store — pairing hazards", () => {
 });
 
 /**
+ * Escape or Ctrl+C puts the tracker's `hasRun` back to false so the rail reads
+ * `idle`, not `done` (INT1), and Codex's `interrupted` does the same. The
+ * session id stays, so the pane is the same occupant in the same conversation.
+ */
+describe("session tail store — an interrupt", () => {
+  let dispose: (() => void) | null = null;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    resetSessionTailStore();
+    tabViews.value = [];
+    hosts.available = true;
+    hosts.sessionTails.mockReset();
+    hosts.sessionTails.mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    dispose?.();
+    dispose = null;
+    resetSessionTailStore();
+    tabViews.value = [];
+    vi.useRealTimers();
+  });
+
+  /** A Claude pane in session `S`, paired and quoted. */
+  async function pairRunning(): Promise<void> {
+    tabViews.value = [tab(1, "/w", [pane(101, { sessionId: "S" })])];
+    hosts.sessionTails.mockResolvedValue([pairingWithModel("S", "what claude said", "opus")]);
+    dispose = installSessionTailSync();
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+    expect(paneTails.value.get(101)).toBe("what claude said");
+  }
+
+  it("I1. keeps the tail, model, pairing and floor of the turn it stopped", async () => {
+    await pairRunning();
+
+    hosts.sessionTails.mockResolvedValue([null]);
+    vi.setSystemTime(NOW + 5_000);
+    tabViews.value = [
+      tab(1, "/w", [pane(101, { sessionId: "S", hasRun: false, changedAt: NOW + 5_000 })]),
+    ];
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+
+    expect(paneTails.value.get(101)).toBe("what claude said");
+    expect(paneModels.value.get(101)).toBe("opus");
+    expect(paneSessionIds.value.get(101)).toBe("S");
+    expect(batchAt(1)).toEqual([
+      {
+        agent: "claude",
+        cwd: "/w",
+        lastSeenAt: NOW + 5_000,
+        preferredId: "S",
+        exact: true,
+        notBefore: NOW,
+      },
+    ]);
+  });
+
+  it("I2. leaves a resume mark to the never-run pane beside it", async () => {
+    await pairRunning();
+
+    noteResumedPane("/w", "claude");
+    hosts.sessionTails.mockResolvedValue([null, pairing("R", "the resumed one")]);
+    vi.setSystemTime(NOW + 5_000);
+    tabViews.value = [
+      tab(1, "/w", [
+        pane(101, { sessionId: "S", hasRun: false, changedAt: NOW + 5_000 }),
+        pane(102, { hasRun: false, changedAt: NOW + 5_000 }),
+      ]),
+    ];
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+
+    expect(batchAt(1)).toEqual([
+      {
+        agent: "claude",
+        cwd: "/w",
+        lastSeenAt: NOW + 5_000,
+        preferredId: "S",
+        exact: true,
+        notBefore: NOW,
+      },
+      { agent: "claude", cwd: "/w", lastSeenAt: NOW + 5_000 },
+    ]);
+    expect(paneTails.value.get(102)).toBe("the resumed one");
+  });
+
+  it("I3. a relaunch seen in one step still forgets: the gate reset the session", async () => {
+    // claude → shell → claude inside one debounce shows no `null` step, only
+    // `hasRun` falling with a session id that moved.
+    await pairRunning();
+
+    vi.setSystemTime(NOW + 5_000);
+    tabViews.value = [
+      tab(1, "/w", [pane(101, { sessionId: null, hasRun: false, changedAt: NOW + 5_000 })]),
+    ];
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+    expect(paneTails.value.has(101)).toBe(false);
+    expect(paneModels.value.has(101)).toBe(false);
+    expect(paneSessionIds.value.has(101)).toBe(false);
+
+    hosts.sessionTails.mockResolvedValue([null]);
+    vi.setSystemTime(NOW + 8_000);
+    tabViews.value = [tab(1, "/w", [pane(101, { sessionId: "B", changedAt: NOW + 8_000 })])];
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS);
+    expect(batchAt(1)).toEqual([
+      {
+        agent: "claude",
+        cwd: "/w",
+        lastSeenAt: NOW + 8_000,
+        preferredId: "B",
+        exact: true,
+        notBefore: NOW + 5_000,
+      },
+    ]);
+  });
+});
+
+/**
  * `paneModels` is written by the same merge as `paneTails`, under the same
  * pairing rules, so it needs no fetch/debounce cases of its own — only the
  * three rules from the module doc, mirrored off the equivalent `paneTails`
