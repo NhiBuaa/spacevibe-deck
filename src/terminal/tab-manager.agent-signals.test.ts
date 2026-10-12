@@ -230,7 +230,7 @@ describe("createTabManager — arm-time augmentation (stage 2)", () => {
   for (const [agent, launchCommand, codexOff] of [
     ["claude", "claude --dangerously-skip-permissions", false],
     ["codex", "codex --full-auto", true],
-    ["opencode", "opencode", false],
+    ["opencode", "opencode", true],
   ] as const) {
     it(`types the user's ${agent} command unchanged ${codexOff ? "while its Signals are off" : "with the shipped defaults"}`, async () => {
       if (codexOff) {

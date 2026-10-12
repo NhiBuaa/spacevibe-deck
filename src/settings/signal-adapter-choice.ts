@@ -23,13 +23,14 @@ import type { SignalAdapters } from "../lib/launch-augment";
 export const DEFAULT_SIGNAL_ADAPTERS: SignalAdapters = {
   claude: true,
   codex: true,
-  opencode: false,
+  opencode: true,
 };
 
 /** Revision N switches on the agent it maps to for installs saved below N. */
 const SIGNAL_ADAPTER_LADDER: Readonly<Record<number, keyof SignalAdapters>> = {
   3: "claude",
   4: "codex",
+  5: "opencode",
 };
 
 /** First revision whose stored booleans are trusted at all. */

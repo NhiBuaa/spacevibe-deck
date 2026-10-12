@@ -512,9 +512,9 @@ describe("agentRuntimeDefaults", () => {
 });
 
 describe("agentSignalAdapters (agent-signal contract layer, stage 2)", () => {
-  const DEFAULTS = { claude: true, codex: true, opencode: false };
+  const DEFAULTS = { claude: true, codex: true, opencode: true };
 
-  it("ships Claude and Codex on and opencode off, including for a file that predates the field", () => {
+  it("ships all three on, including for a file that predates the field", () => {
     expect(validateSettings({}).agentSignalAdapters).toEqual(DEFAULTS);
   });
 
@@ -527,11 +527,11 @@ describe("agentSignalAdapters (agent-signal contract layer, stage 2)", () => {
     expect(written11x.signalAdaptersRevision).toBe(SIGNAL_ADAPTERS_REVISION);
   });
 
-  it("switches Codex on once for a revision-3 file and keeps the other stored choices", () => {
+  it("switches Codex and opencode on once for a revision-3 file and keeps Claude's choice", () => {
     expect(
       validateSettings({
         signalAdaptersRevision: 3,
-        agentSignalAdapters: { claude: false, codex: false, opencode: true },
+        agentSignalAdapters: { claude: false, codex: false, opencode: false },
       }).agentSignalAdapters,
     ).toEqual({ claude: false, codex: true, opencode: true });
   });
@@ -543,11 +543,11 @@ describe("agentSignalAdapters (agent-signal contract layer, stage 2)", () => {
         ...current,
         agentSignalAdapters: { claude: false, codex: "yes", gemini: true },
       }).agentSignalAdapters,
-    ).toEqual({ claude: false, codex: true, opencode: false });
+    ).toEqual({ claude: false, codex: true, opencode: true });
     expect(
-      validateSettings({ ...current, agentSignalAdapters: { codex: false, opencode: true } })
+      validateSettings({ ...current, agentSignalAdapters: { codex: false, opencode: false } })
         .agentSignalAdapters,
-    ).toEqual({ claude: true, codex: false, opencode: true });
+    ).toEqual({ claude: true, codex: false, opencode: false });
     expect(validateSettings({ ...current, agentSignalAdapters: [] }).agentSignalAdapters).toEqual(
       DEFAULTS,
     );
