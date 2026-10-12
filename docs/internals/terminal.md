@@ -48,7 +48,7 @@ Ids are process-local integers from 1, never reused.
 
 ## Shell bootstrap and agent wrappers
 
-macOS pane shells start through Deck-written files under `<userData>/agent-shell/`, so that
+On macOS and Linux, pane shells start through Deck-written files under `<userData>/agent-shell/`, so that
 `claude`, `codex` and `opencode` typed in a pane resolve to Deck's wrappers. They are
 rewritten atomically at every boot ([`provision.ts`](../../electron/agent-shell/provision.ts));
 if that fails, panes start a plain `$SHELL -l` and the wrappers are absent. Windows and the
