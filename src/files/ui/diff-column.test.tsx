@@ -17,6 +17,7 @@ import {
   type FileSurfaceController,
 } from "../file-surface-controller";
 import type { FileClient } from "../file-client";
+import { activeFileTab } from "../file-surface-store";
 import type { ChangesState, ChangesController } from "../changes/changes-controller";
 import { diffFocusRequested, requestDiffFocus } from "../changes/diff-column-focus";
 import { diffColumnFolded } from "../changes/diff-layout";
@@ -164,6 +165,7 @@ afterEach(() => {
   act(() => render(null, host));
   host.remove();
   surface.dispose();
+  activeFileTab.value = null;
   vi.unstubAllGlobals();
 });
 
@@ -293,6 +295,82 @@ describe("placement (D2)", () => {
     act(() => StubResizeObserver.instances.at(-1)!.callback());
     expect(column()!.classList.contains("diff-column--docked")).toBe(true);
     expect(rig.store.selection.value).not.toBeNull();
+  });
+
+  it("closes when it folds over a document that holds the keyboard, and leaves focus there", async () => {
+    const rig = makeRig();
+    const released = vi.fn();
+    const panel = document.createElement("section");
+    panel.className = "file-panel";
+    const editor = document.createElement("textarea");
+    panel.appendChild(editor);
+    document.body.appendChild(panel);
+    act(() => rig.store.open(ROOT, "src/a.ts"));
+    act(() =>
+      render(
+        <DiffColumn
+          controller={surface}
+          dockWidth={420}
+          selection={rig.store}
+          changes={rig.changes}
+          ports={rig.ports}
+          onInset={(inset) => rig.insets.push(inset)}
+          onFocusReleased={released}
+        />,
+        host,
+      ),
+    );
+    await settle();
+    expect(column()!.classList.contains("diff-column--docked")).toBe(true);
+    editor.focus();
+    // What FilePanel's focusin does as the document takes the keyboard.
+    act(() => {
+      activeFileTab.value = `${ROOT}/notes.txt`;
+    });
+    // The window narrowing, or the sidebar opening.
+    stageWidth = 825;
+    act(() => StubResizeObserver.instances.at(-1)!.callback());
+    await settle();
+    expect(rig.store.selection.value).toBeNull();
+    expect(column()).toBeNull();
+    expect(rig.insets.at(-1)).toBe(0);
+    expect(document.activeElement).toBe(editor);
+    expect(released).not.toHaveBeenCalled();
+    panel.remove();
+  });
+
+  it("stays open when it folds while focus is in the column", async () => {
+    const rig = makeRig();
+    await open(rig, "src/a.ts", 420);
+    column()!.focus();
+    stageWidth = 825;
+    act(() => StubResizeObserver.instances.at(-1)!.callback());
+    await settle();
+    expect(column()!.classList.contains("diff-column--folded")).toBe(true);
+    expect(rig.store.selection.value?.path).toBe("src/a.ts");
+    expect(document.activeElement).toBe(column());
+  });
+
+  it("closes when it folds just as Open file hands the keyboard to the document", async () => {
+    const rig = makeRig();
+    const row = document.createElement("div");
+    row.className = "changes-row";
+    row.dataset.path = "src/a.ts";
+    row.tabIndex = 0;
+    document.body.appendChild(row);
+    await open(rig, "src/a.ts", 420);
+    button("Open file")!.focus();
+    // Open file marks the document active at once; its editor takes focus only
+    // once Monaco has loaded, so focus is still on the button here.
+    act(() => {
+      activeFileTab.value = `${ROOT}/src/a.ts`;
+    });
+    stageWidth = 825;
+    act(() => StubResizeObserver.instances.at(-1)!.callback());
+    await settle();
+    expect(rig.store.selection.value).toBeNull();
+    expect(document.activeElement).toBe(row);
+    row.remove();
   });
 
   it("watches the stage only while open", async () => {

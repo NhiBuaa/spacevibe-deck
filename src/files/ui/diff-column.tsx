@@ -16,12 +16,14 @@
  *    change, `]` / `[` the next and previous file, Esc closes. They are caught
  *    before Monaco sees them, are never modified (so ⌘C and ⌘W pass through) and
  *    never reach a terminal, because focus is in a read-only editor.
- *  - **Its life.** It closes from its close button and from Esc, and with the
- *    list that opened it (the Explorer's own effect).
+ *  - **Its life.** It closes from its close button and from Esc, with the list
+ *    that opened it (the Explorer's own effect), and when it folds over a
+ *    document that holds the keyboard.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { FileSurfaceController } from "../file-surface-controller";
 import { defaultFileClient } from "../file-client";
+import { activeFileTab } from "../file-surface-store";
 import { readHeadFile } from "../../host/git-changes-host";
 import { changesController, type ChangesController } from "../changes/changes-controller";
 import { absolutePath } from "../changes/changes-model";
@@ -131,9 +133,16 @@ function OpenColumn(
   // Closing hands the room back at once.
   useLayoutEffect(() => () => publish.current(0), []);
   const folded = layout?.kind === "folded";
+  // Folding over a document that holds the keyboard (the window narrowed, the
+  // sidebar opened) would leave the user typing into a file they cannot see, so
+  // the column closes, as `App` closes it before a document takes the keyboard.
+  // A press that opens the column has taken focus from the document first.
   useLayoutEffect(() => {
     diffColumnFolded.value = folded;
-  }, [folded]);
+    if (folded && activeFileTab.value !== null) {
+      closeDiffColumn(store);
+    }
+  }, [folded, store]);
   useLayoutEffect(
     () => () => {
       diffColumnFolded.value = false;
