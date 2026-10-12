@@ -12,6 +12,7 @@ async function start() {
   const events: HookEventPayload[] = [];
   const server = createHookServer({
     tokenFor: (paneId) => (paneId === 7 ? TOKEN : null),
+    ttyFor: (paneId) => (paneId === 7 ? "ttys009" : null),
     emitToOwner: (_paneId, payload) => events.push(payload),
     log: () => {},
   });
@@ -22,13 +23,19 @@ async function start() {
       `http://127.0.0.1:${port}${agent === "codex" ? "/hook/codex" : "/hook"}`,
       {
         method: "POST",
-        headers: { "x-deck-pane": "7", "x-deck-token": TOKEN },
+        headers: { "x-deck-pane": "7", "x-deck-token": TOKEN, "x-deck-tty": "ttys009" },
         body: JSON.stringify({ hook_event_name: event, session_id: sessionId, turn_id: "t-1" }),
       },
     );
     expect(response.status).toBe(204);
   };
-  return { server, events, post };
+  const raw = (headers: Record<string, string>, body: object) =>
+    fetch(`http://127.0.0.1:${port}/hook/codex`, {
+      method: "POST",
+      headers: { "x-deck-pane": "7", "x-deck-token": TOKEN, ...headers },
+      body: JSON.stringify(body),
+    }).then((response) => response.status);
+  return { server, events, post, raw };
 }
 
 describe("hook server — generation per pane and agent", () => {
@@ -64,5 +71,17 @@ describe("hook server — generation per pane and agent", () => {
       ["claude", "claude-2"],
       ["codex", "codex-2"],
     ]);
+  });
+
+  it("refuses a Codex post from a host with no tty, or another pane's, and drops a subagent's", async () => {
+    const { events, raw } = await start();
+    const body = { hook_event_name: "PostToolUse", session_id: "codex-1", turn_id: "t-1" };
+    expect(await raw({}, body)).toBe(403);
+    expect(await raw({ "x-deck-tty": "??" }, body)).toBe(403);
+    expect(await raw({ "x-deck-tty": "ttys010" }, body)).toBe(403);
+    expect(await raw({ "x-deck-tty": "ttys009" }, { ...body, agent_id: "agent-1" })).toBe(400);
+    expect(events).toEqual([]);
+    expect(await raw({ "x-deck-tty": "ttys009" }, body)).toBe(204);
+    expect(events.map((e) => e.event)).toEqual(["PostToolUse"]);
   });
 });

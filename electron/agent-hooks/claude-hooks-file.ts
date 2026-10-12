@@ -38,6 +38,7 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
+import { BOUNDED_BODY_AWK, BOUNDED_PREFIX_BYTES } from "./bounded-body-awk";
 
 export const AGENT_HOOKS_DIR = "agent-hooks";
 export const CLAUDE_HOOKS_FILE = "claude.json";
@@ -71,63 +72,11 @@ export const CLAUDE_HOOK_MATCHERS: Readonly<Record<string, string>> = {
 
 /** Events whose stdin is too big to forward; the script posts a bounded body instead. */
 const BOUNDED_EVENTS = ["UserPromptSubmit", "PostToolUse", "PostToolUseFailure"];
-/** How much of stdin the scanner reads. Every key it needs precedes the first nested value. */
-const BOUNDED_PREFIX_BYTES = 64 * 1024;
-/** Tool names longer than this (an MCP name is the longest in practice) are left out. */
-const TOOL_NAME_MAX = 64;
 
 /** POSIX single-quoting: the only escape a `'…'` string needs is `'` itself. */
 export function shellQuote(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`;
 }
-
-/**
- * A POSIX `awk` scanner that reads only the string values at nesting depth 1 of
- * a JSON object. A tool argument named `agent_id` sits deeper, so it can never
- * read as the top-level one that marks a subagent. A string with an escape or
- * past 200 bytes is read as `?`, which no check below accepts. It prints a
- * body only for a payload with a safe event and session id and no top-level
- * `agent_id`.
- */
-const BOUNDED_BODY_AWK = String.raw`
-function keep(k, v) {
-  if (k == "agent_id") { if (v != "") subagent = 1 }
-  else if (k == "hook_event_name") ev = v
-  else if (k == "session_id") sid = v
-  else if (k == "tool_name") tool = v
-}
-{
-  n = length($0)
-  for (i = 1; i <= n; i++) {
-    c = substr($0, i, 1)
-    if (instr) {
-      if (esc) esc = 0
-      else if (c == "\\") { esc = 1; bad = 1 }
-      else if (c == "\"") {
-        instr = 0
-        if (depth == 1) {
-          if (bad) buf = "?"
-          if (colon) keep(key, buf); else lastkey = buf
-        }
-      } else if (depth == 1) {
-        if (length(buf) < 200) buf = buf c; else bad = 1
-      }
-    }
-    else if (c == "\"") { instr = 1; buf = ""; bad = 0 }
-    else if (c == "{" || c == "[") depth++
-    else if (c == "}" || c == "]") { if (--depth == 0) exit }
-    else if (depth == 1 && c == ":") { key = lastkey; colon = 1 }
-    else if (depth == 1 && c == ",") colon = 0
-  }
-}
-END {
-  if (subagent || ev !~ /^[A-Za-z]+$/ || length(ev) > 64) exit
-  if (sid !~ /^[A-Za-z0-9._-]+$/ || length(sid) > 128) exit
-  out = "{\"hook_event_name\":\"" ev "\",\"session_id\":\"" sid "\""
-  if (tool ~ /^[A-Za-z0-9_.:-]+$/ && length(tool) <= ${TOOL_NAME_MAX}) out = out ",\"tool_name\":\"" tool "\""
-  printf "%s}", out
-}
-`;
 
 /**
  * The script. `$1` is the event name, passed so the fallback below fires for

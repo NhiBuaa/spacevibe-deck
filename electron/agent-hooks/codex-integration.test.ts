@@ -10,6 +10,7 @@ import { parseHookEvent, contractSignalOf } from "../../src/lib/agent-signal-map
 import { createAgentAttentionTracker } from "../../src/terminal/agent-attention";
 import { buildEnv } from "../pty/spawn";
 import { SIGNAL_ADAPTERS_REVISION } from "../../src/settings/signal-adapter-choice";
+import { writeFakePs } from "./hook-script-harness";
 
 const scratch: string[] = [];
 const servers: HookServer[] = [];
@@ -118,6 +119,7 @@ describe("Codex lifecycle bridge", () => {
     const events: HookEventPayload[] = [];
     const server = createHookServer({
       tokenFor: (id) => (id === 7 ? "secret" : null),
+      ttyFor: (id) => (id === 7 ? "ttys009" : null),
       emitToOwner: (_id, payload) => {
         if (integration.enabled()) events.push(payload);
       },
@@ -125,12 +127,21 @@ describe("Codex lifecycle bridge", () => {
     servers.push(server);
     const port = await server.listen();
     expect(port).not.toBeNull();
-    const env = buildEnv(process.env, "test", {
-      paneId: 7,
-      hookToken: "secret",
-      hookPort: port,
-      codexHookScript: integration.scriptPath(),
-    });
+    // The hook's parent is `codex` on the pane's tty, as it is under `codex --no-daemon`.
+    const bin = await writeFakePs(deps.dir, [
+      "- 300 ttys009 sh",
+      "300 200 ttys009 codex",
+      "200 1 ?? zsh",
+    ]);
+    const env = {
+      ...buildEnv(process.env, "test", {
+        paneId: 7,
+        hookToken: "secret",
+        hookPort: port,
+        codexHookScript: integration.scriptPath(),
+      }),
+    };
+    env.PATH = `${bin}:${env.PATH ?? ""}`;
     expect(env.DECK_CODEX_HOOK_SCRIPT).toBe(integration.scriptPath());
     const payload = {
       hook_event_name: "Stop",

@@ -86,6 +86,34 @@ describe("contractSignalOf — claude hooks", () => {
   });
 });
 
+describe("contractSignalOf — codex hooks", () => {
+  const codex = (event: string, over: Partial<HookEvent> = {}) =>
+    claude(event, { agent: "codex", turnId: "turn-1", ...over });
+
+  it("maps prompts and tool results to work, and approvals and questions to a request", () => {
+    expect(contractSignalOf(codex("UserPromptSubmit"))?.kind).toBe("working");
+    expect(contractSignalOf(codex("PostToolUse", { detail: "shell" }))).toMatchObject({
+      kind: "working",
+      detail: null,
+    });
+    expect(contractSignalOf(codex("PermissionRequest", { detail: "shell" }))).toMatchObject({
+      kind: "requested",
+      detail: "permission prompt — shell",
+    });
+    expect(contractSignalOf(codex("PreToolUse", { detail: "request_user_input" }))).toMatchObject({
+      kind: "requested",
+      detail: "input needed",
+    });
+  });
+
+  it("needs a turn for every event but SessionStart, and says nothing on SessionEnd", () => {
+    expect(contractSignalOf(codex("PostToolUse", { turnId: undefined }))).toBeNull();
+    expect(contractSignalOf(codex("SessionStart", { turnId: undefined }))?.kind).toBe("session");
+    expect(contractSignalOf(codex("SessionEnd", { turnId: undefined }))).toBeNull();
+    expect(contractSignalOf(codex("SubagentStop"))).toBeNull();
+  });
+});
+
 describe("contractSignalOf — opencode server", () => {
   it("maps status, idle, error and both permission spellings", () => {
     expect(contractSignalOf(opencode("session.status"))?.kind).toBe("working");

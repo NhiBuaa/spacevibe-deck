@@ -30,10 +30,25 @@ import { timingSafeEqual } from "node:crypto";
 export const HOOK_PATH = "/hook";
 export const CODEX_HOOK_PATH = "/hook/codex";
 export const HOOK_MAX_BODY_BYTES = 64 * 1024;
-/** Codex sends the full prompt on UserPromptSubmit; only bounded metadata is forwarded. */
+/** Only `Stop` forwards stdin; every other Codex event posts a bounded body of its own. */
 export const CODEX_HOOK_MAX_BODY_BYTES = 8 * 1024 * 1024;
 export const HEADER_PANE = "x-deck-pane";
 export const HEADER_TOKEN = "x-deck-token";
+/** The tty of the `codex` process that ran the hook; see `validateHookHead`. */
+export const HEADER_TTY = "x-deck-tty";
+
+/** The Codex events Deck registers, and the two that are session-scoped and carry no `turn_id`. */
+const CODEX_EVENTS = [
+  "SessionStart",
+  "SessionEnd",
+  "UserPromptSubmit",
+  "PreToolUse",
+  "PostToolUse",
+  "PermissionRequest",
+  "Stop",
+  "Interrupt",
+];
+const CODEX_SESSION_EVENTS = ["SessionStart", "SessionEnd"];
 
 const SESSION_ID_SAFE = /^[A-Za-z0-9._-]{1,128}$/;
 /** Event names are CLI identifiers: letters only, bounded. */
@@ -76,6 +91,7 @@ function headerValue(headers: HookRequestHead["headers"], name: string): string 
 export function validateHookHead(
   head: HookRequestHead,
   tokenFor: (paneId: number) => string | null,
+  ttyFor: (paneId: number) => string | null,
 ): HookRefusal {
   const url = head.url ?? "";
   const pathOnly = url.split("?")[0];
@@ -96,6 +112,17 @@ export function validateHookHead(
     // One answer for "no such pane" and "wrong token": the difference is
     // exactly what a probe would want to learn.
     return { ok: false, status: 403, reason: "pane or token" };
+  }
+  // Codex 0.162 hosts an interactive session in a shared app-server daemon, and a hook runs with
+  // the HOSTING process's environment, so a daemon started from a pane carries that pane's
+  // token. The script reports the tty of the `codex` process it runs under; a daemon has none
+  // (`??`), and another pane's codex has another tty.
+  if (pathOnly === CODEX_HOOK_PATH) {
+    const tty = ttyFor(paneId) ?? "";
+    const offered = headerValue(head.headers, HEADER_TTY)?.trim() ?? "";
+    if (tty === "" || offered !== tty) {
+      return { ok: false, status: 403, reason: "tty" };
+    }
   }
   const length = headerValue(head.headers, "content-length");
   if (
@@ -169,9 +196,12 @@ export function parseHookBody(
     return null;
   }
   if (agent === "codex") {
-    if (!["SessionStart", "UserPromptSubmit", "Stop", "Interrupt"].includes(event)) return null;
+    if (!CODEX_EVENTS.includes(event)) return null;
+    // SUB1: a top-level `agent_id` means the hook fired inside a subagent. It is dropped here,
+    // before the generation check, so it can neither change the pane's state nor its session.
+    if (typeof node.agent_id === "string" && node.agent_id !== "") return null;
     if (
-      event !== "SessionStart" &&
+      !CODEX_SESSION_EVENTS.includes(event) &&
       (typeof node.turn_id !== "string" || !SESSION_ID_SAFE.test(node.turn_id))
     )
       return null;

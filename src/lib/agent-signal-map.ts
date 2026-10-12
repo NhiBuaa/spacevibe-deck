@@ -19,6 +19,15 @@
  *                         within a poll, and a session end is not a failure
  * - anything else (`SubagentStop`, `TeammateIdle`, …) → nothing
  *
+ * Codex (hook posts, `source: "hook"`, every turn event needs its `turn_id`):
+ * - `SessionStart`                      → the occupant's session (no state)
+ * - `UserPromptSubmit`, `PostToolUse`   → working (a working signal clears a request its own
+ *                                         source raised, so an approval ends the `asked` mark)
+ * - `PermissionRequest`, `PreToolUse`   → requested (`PreToolUse` is registered on
+ *                                         `request_user_input` only: the model asks a question)
+ * - `Stop`                              → completed; `Interrupt` → interrupted
+ * - `SessionEnd` and anything else      → nothing
+ *
  * opencode (its server's events, `source: "server"`):
  * - `session.status` (busy/retry) → working; (idle) → completed
  * - `session.idle`                → completed
@@ -84,12 +93,15 @@ function codexKind(event: HookEvent): ContractKind | null {
   if (!event.turnId) return null;
   switch (event.event) {
     case "UserPromptSubmit":
+    case "PostToolUse":
       return "working";
     case "Stop":
       return "completed";
     case "Interrupt":
       return "interrupted";
     case "PermissionRequest":
+    // Registered on `request_user_input` only: the model is asking the user a question.
+    case "PreToolUse":
       return "requested";
     default:
       return null;
@@ -136,13 +148,15 @@ export function contractSignalOf(event: HookEvent): ContractSignal | null {
         ? event.detail === null
           ? "permission prompt"
           : `permission prompt — ${event.detail}`
-        : event.event === "Notification"
-          ? event.detail === "idle_prompt"
-            ? "input needed"
-            : "permission prompt"
-          : event.detail === null
-            ? "permission"
-            : `permission — ${event.detail}`
+        : event.event === "PreToolUse"
+          ? "input needed"
+          : event.event === "Notification"
+            ? event.detail === "idle_prompt"
+              ? "input needed"
+              : "permission prompt"
+            : event.detail === null
+              ? "permission"
+              : `permission — ${event.detail}`
       : kind === "error"
         ? event.detail
         : null;

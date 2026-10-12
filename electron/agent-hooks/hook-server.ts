@@ -42,6 +42,8 @@ export interface HookEventPayload {
 export interface HookServerDeps {
   /** The pane's token, or null when the pane is not live. */
   readonly tokenFor: (paneId: number) => string | null;
+  /** The pane's tty (without `/dev/`), or null when the pane is not live. */
+  readonly ttyFor: (paneId: number) => string | null;
   /** Deliver to the window that owns the pane. */
   readonly emitToOwner: (paneId: number, payload: HookEventPayload) => void;
   readonly now?: () => number;
@@ -99,6 +101,7 @@ export function createHookServer(deps: HookServerDeps): HookServer {
     const head = validateHookHead(
       { method: request.method, url: request.url, headers: request.headers },
       deps.tokenFor,
+      deps.ttyFor,
     );
     if (!head.ok) {
       response.statusCode = head.status;

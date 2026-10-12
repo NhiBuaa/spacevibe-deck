@@ -2,7 +2,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { codexHookCommand, reconcileCodexHooks, syncCodexHooks } from "./codex-hooks";
+import {
+  CODEX_HOOK_EVENTS,
+  codexHookCommand,
+  reconcileCodexHooks,
+  syncCodexHooks,
+} from "./codex-hooks";
 
 const scratch: string[] = [];
 async function temporary() {
@@ -45,6 +50,60 @@ describe("Codex hook registration", () => {
       },
     };
     expect(reconcileCodexHooks(userAfterDeck, "/deck/hook.sh", true)).toEqual(userAfterDeck);
+  });
+
+  it("registers the eight events with their matchers", () => {
+    const hooks = reconcileCodexHooks({}, "/deck/hook.sh", true).hooks as Record<
+      string,
+      Array<{ matcher?: string }>
+    >;
+    expect(Object.keys(hooks)).toEqual([...CODEX_HOOK_EVENTS]);
+    expect(CODEX_HOOK_EVENTS).toHaveLength(8);
+    expect(hooks.PreToolUse[0].matcher).toBe("^request_user_input$");
+    expect(hooks.PostToolUse[0].matcher).toBe("*");
+    expect(hooks.PermissionRequest[0]).not.toHaveProperty("matcher");
+    expect(hooks.Stop[0]).not.toHaveProperty("matcher");
+  });
+
+  it("gives an install that holds the four old groups the new events without moving anything", () => {
+    // Codex trusts a hook by `<file>:<event>:<group>:<handler>`: no existing index may shift.
+    const deck = {
+      hooks: [{ type: "command", command: codexHookCommand("/deck/hook.sh"), timeout: 3 }],
+    };
+    const mine = (command: string) => ({ hooks: [{ type: "command", command }] });
+    const original = {
+      hooks: {
+        SessionStart: [mine("before"), deck, mine("after")],
+        UserPromptSubmit: [deck],
+        Stop: [mine("notify"), deck],
+        Interrupt: [deck],
+        PostToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: "lint" }] }],
+        PreCompact: [mine("compact")],
+      },
+    };
+    const next = reconcileCodexHooks(original, "/deck/hook.sh", true).hooks as Record<
+      string,
+      unknown[]
+    >;
+    for (const event of ["SessionStart", "UserPromptSubmit", "Stop", "Interrupt", "PreCompact"]) {
+      expect(next[event]).toEqual((original.hooks as Record<string, unknown[]>)[event]);
+    }
+    expect(next.PostToolUse[0]).toEqual(original.hooks.PostToolUse[0]);
+    expect(next.PostToolUse[1]).toMatchObject({ matcher: "*" });
+    expect(next.PostToolUse).toHaveLength(2);
+    expect(next.SessionEnd).toHaveLength(1);
+    expect(next.PreToolUse).toHaveLength(1);
+    expect(next.PermissionRequest).toHaveLength(1);
+    // Off removes only Deck's handlers and leaves the user's groups where they were.
+    const off = reconcileCodexHooks({ hooks: next }, "/deck/hook.sh", false).hooks as Record<
+      string,
+      unknown[]
+    >;
+    expect(off.SessionStart).toEqual([mine("before"), mine("after")]);
+    expect(off.PostToolUse).toEqual(original.hooks.PostToolUse);
+    expect(Object.keys(off).sort()).toEqual(
+      ["PostToolUse", "PreCompact", "SessionStart", "Stop"].sort(),
+    );
   });
 
   it("keeps symlinks and file permissions, and never edits config.toml/notify", async () => {

@@ -9,6 +9,7 @@ import path from "node:path";
 export interface Post {
   readonly url: string;
   readonly body: string;
+  readonly headers: http.IncomingHttpHeaders;
 }
 
 const scratch: string[] = [];
@@ -27,7 +28,11 @@ export async function startListener() {
     const chunks: Buffer[] = [];
     request.on("data", (chunk: Buffer) => chunks.push(chunk));
     request.on("end", () => {
-      posts.push({ url: request.url ?? "", body: Buffer.concat(chunks).toString("utf8") });
+      posts.push({
+        url: request.url ?? "",
+        body: Buffer.concat(chunks).toString("utf8"),
+        headers: request.headers,
+      });
       response.statusCode = 204;
       response.end();
     });
@@ -64,4 +69,31 @@ export async function runHookScript(source: string, options: RunOptions): Promis
     child.stdin.on("error", () => {});
     child.stdin.end(stdin);
   });
+}
+
+/**
+ * Write a fake `ps` into `<dir>/bin` and answer that directory, for `PATH`. Each row is
+ * `<pid> <ppid> <tty> <comm...>` and answers `ps -o ppid=,tty=,comm= -p <pid>`; the row whose pid
+ * is `-` answers a pid no row names (the real parent of the script under test).
+ */
+export async function writeFakePs(dir: string, rows: readonly string[]): Promise<string> {
+  const bin = path.join(dir, "bin");
+  await fs.mkdir(bin, { recursive: true });
+  const table = path.join(dir, "ps-table");
+  await fs.writeFile(table, `${rows.join("\n")}\n`);
+  const script = [
+    "#!/bin/sh",
+    "for last; do :; done",
+    "found=",
+    `while read -r pid ppid tty comm; do`,
+    `  if [ "$pid" = "$last" ]; then found="$ppid $tty $comm"; break; fi`,
+    `  if [ "$pid" = "-" ]; then fallback="$ppid $tty $comm"; fi`,
+    `done < '${table}'`,
+    `[ -n "$found" ] || found="\${fallback-}"`,
+    `[ -n "$found" ] || exit 1`,
+    `printf '%s\\n' "$found"`,
+    "",
+  ].join("\n");
+  await fs.writeFile(path.join(bin, "ps"), script, { mode: 0o755 });
+  return bin;
 }

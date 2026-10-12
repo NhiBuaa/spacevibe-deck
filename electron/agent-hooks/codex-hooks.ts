@@ -6,7 +6,27 @@ import { writeFileAtomically } from "../fs/write";
 import { shellQuote } from "./claude-hooks-file";
 
 type Document = Record<string, unknown>;
-export const CODEX_HOOK_EVENTS = ["SessionStart", "UserPromptSubmit", "Stop", "Interrupt"] as const;
+/**
+ * Superset's Codex set minus its Subagent events, plus the native `PermissionRequest`, in the
+ * order they are appended. The four oldest come first: Codex trusts a hook by its position, so
+ * an install that registered only those keeps its trust and gains the rest after them.
+ */
+export const CODEX_HOOK_EVENTS = [
+  "SessionStart",
+  "UserPromptSubmit",
+  "Stop",
+  "Interrupt",
+  "SessionEnd",
+  "PreToolUse",
+  "PostToolUse",
+  "PermissionRequest",
+] as const;
+
+/** The matcher each event is registered with; an event absent here has none. */
+export const CODEX_HOOK_MATCHERS: Readonly<Record<string, string>> = {
+  PreToolUse: "^request_user_input$",
+  PostToolUse: "*",
+};
 
 function record(value: unknown): value is Document {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -74,7 +94,15 @@ export function reconcileCodexHooks(
               event,
               holdsDeck(groups)
                 ? groups
-                : [...groups, { hooks: [{ type: "command", command, timeout: 3 }] }],
+                : [
+                    ...groups,
+                    {
+                      ...(event in CODEX_HOOK_MATCHERS
+                        ? { matcher: CODEX_HOOK_MATCHERS[event] }
+                        : {}),
+                      hooks: [{ type: "command", command, timeout: 3 }],
+                    },
+                  ],
             ];
           }),
         ),

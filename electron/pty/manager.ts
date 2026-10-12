@@ -258,6 +258,11 @@ export class PtyManager {
     return this.store.get(id)?.hookToken ?? null;
   }
 
+  /** The pane's tty without `/dev/` (the form `ps -o tty=` prints), or null once its PTY is gone. */
+  ttyNameOf(id: number): string | null {
+    return this.store.get(id)?.ttyName || null;
+  }
+
   /**
    * Flush, announce, then forget — in that order.
    *

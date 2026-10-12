@@ -157,6 +157,7 @@ const browserPanels = new BrowserPanels({
 // manager because every shell learns the endpoint's port at spawn.
 const hookServer = createHookServer({
   tokenFor: (paneId) => pty.hookTokenOf(paneId),
+  ttyFor: (paneId) => pty.ttyNameOf(paneId),
   emitToOwner: (paneId, payload) => {
     const enabled =
       payload.agent === "codex" ? codexIntegration.enabled() : claudeIntegration.enabled();
