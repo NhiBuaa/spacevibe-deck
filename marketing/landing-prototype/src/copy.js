@@ -77,27 +77,27 @@ export const messages = {
     demoLoopTitle: "See it in ten seconds.",
     demoLoopAlt:
       "Silent looping demo of Deck: the rail marks one of three agents as needing you, ⌘⇧A jumps to its pane, and ⌘E expands it.",
-    panelRestoreTitle: "Close it. Reopen it. Nothing lost the thread.",
+    panelRestoreTitle: "Close Deck. Reopen it. Pick up where the agents left off.",
     panelRestoreBody:
-      "Deck brings back every tab and pane, then types each agent's own resume command — claude --resume, codex resume, opencode -s. The conversation carries on from where it stopped.",
+      "Press Reopen on the start screen and every tab and pane returns, each agent resuming its own conversation. Scrollback and unsaved edits are not restored.",
     panelRailTitle: "Read the room without opening a single pane.",
     panelRailBody:
-      "Every checkout is a card. Open one and each agent's row carries the last thing it actually said, read straight from its own session log; close it and the agents fold into one strip. The marks say the rest — red failed, yellow waiting on you, three moving bars while it works, quiet gray once it is done, a square once it has ended. Claude Code, Codex and OpenCode today.",
+      "Each agent is a row under its project and branch: what it is working on and the last thing it said. A badge on its logo shows state: red failed, yellow waiting on you, a spinner working, gray done.",
     panelBoardTitle: "Every agent on one board.",
     panelBoardBody:
       "⌘⇧O opens the Agent Board: one card per running agent, across every project and worktree in the window — its state, the last thing it said, how long it has been up. The loudest cards come first, and pressing one takes you straight to that agent's pane.",
     panelWorktreeTitle: "Open an agent straight into a branch.",
     panelWorktreeBody:
-      "⌘T opens New Agent for the checkout you are working in. The worktree and its branch are named at the top, your agents are listed with the command each will type, and Open another project… closes the list. Every card in the rail keeps the same list behind its +.",
-    panelSurfacesTitle: "The terminal is not the only thing on the stage.",
+      "⌘T opens Quick Launch on the checkout you are in. Pick the project and branch, then press an agent to split beside your pane, or + for a new space.",
+    panelSurfacesTitle: "Files, the browser and usage sit beside your terminals.",
     panelSurfacesBody:
-      "A file tree, an editor, a browser and a token-usage dashboard share the tab strip with your panes. ⌘⇧B opens the explorer, its first row naming the folder it is rooted at; Markdown opens rendered and ⌘⇧V flips it to source; ⌘S saves, ⌘W closes whatever is in front.",
+      "⌘⇧B opens the Explorer: a file opens beside your terminals, Markdown rendered, ⌘⇧V for source, ⌘S to save. Changes shows what the checkout changed since the last commit.",
     panelUsageTitle: "What the agents cost, read off your own disk.",
     panelUsageBody:
-      "⌘⇧U opens Token usage. It reads the session files Claude Code and Codex already write in ~/.claude and ~/.codex — today, 7 days, 30 days, or all of it, estimated at API prices. No account, no upload.",
+      "⌘⇧U opens Token usage. It reads the session files Claude Code and Codex already write in ~/.claude and ~/.codex — today, 7 days, 30 days, or all of it, estimated at API prices. No account, no upload. Priced at API rates, not your subscription bill.",
     panelCatalogTitle: "Every agent Deck knows, and the command it will type.",
     panelCatalogBody:
-      "Settings → Agents splits the list in two: Installed, counted off your $PATH, and Available to install. Every row prints the command it ships with — claude --dangerously-skip-permissions, opencode bare — and Enabled/Disabled is what takes one out of the ⌘T list.",
+      "Settings → Agents lists every agent Deck can run, Installed (on your PATH) or Available to install, with each command. An on/off switch hides one from the launch lists; a missing one shows Install.",
     downloadMac: "Download for macOS",
     downloadWin: "Download for Windows",
     comingSoon: "coming soon",

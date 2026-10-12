@@ -1,55 +1,64 @@
 /**
- * Settings → Agents, the agent catalog — the data the Launch chapter's
- * catalog and ⌘T widgets read.
+ * Settings → Agents — the data the Launch chapter's catalog widget reads, and
+ * the installed set the Quick Launch widget offers.
  *
- * Every agent Deck knows, split by whether the discovery probe found its
- * binary, each with the exact command it launches with. The commands are the
- * catalog's own `defaultCommand` values (`src/lib/agent-catalog.ts`), not
- * invented ones: a reader can check them against the CLI they already run, so
- * a plausible-looking flag would be worse than no widget at all.
+ * Nothing here is typed in by hand. The commands come out of the app's own
+ * resolution, `agentLaunchCommand` (`src/lib/launch-command.ts:66`), the
+ * function the launch path and `LaunchProfileEditor`'s `effectiveCommand` both
+ * call (`src/ui/settings/launch-profile-editor.tsx:101`), so the row prints
+ * what a pane types: the catalog's shipped `defaultCommand`, else the bare
+ * binary. The split into a binary and its flags is `CommandLine`'s own
+ * (`commandAgentId` / `commandFlags`, :79). The Install / Get answer is
+ * `installOffer` (`src/lib/agent-install.ts:43-60`) asked for macOS: every
+ * active agent has a verified macOS command, so every missing row reads
+ * `Install`; `Get` shows only where a platform has none (Amp and Vibe on
+ * Windows).
  *
- * Two things the catalog deliberately does NOT draw, because the app stopped
- * drawing them on 2026-08-19 (`launch-profile-editor.tsx:42-46`): a star or
- * any "Set default" control, and the ↗ link to each agent's website.
- * `Settings.defaultAgent` and `BuiltinAgent.url` survive as data with no
- * control reading them. The enable toggle is the only control a row carries.
+ * The app stopped drawing a star, a "Set default" control and a ↗ link on
+ * installed rows on 2026-08-19 (`launch-profile-editor.tsx:55-58`); a row
+ * carries an on/off switch (`EnabledToggle`, :109) and, when the agent is
+ * missing, `Install` or `Get`. The headers are `n detected` and `n agents`
+ * (:492, :516).
  */
 
 import { AGENT_MARKS } from "../../agent-strip.js";
+import { installOffer } from "../../../../../src/lib/agent-install.ts";
+import { BUILTIN_AGENTS } from "../../../../../src/lib/agent-catalog.ts";
+import { agentLaunchCommand } from "../../../../../src/lib/launch-command.ts";
+import { commandAgentId, commandFlags } from "../../../../../src/lib/launch-profile.ts";
 
-/**
- * The commands the catalog ships, verbatim from `BUILTIN_AGENTS`.
- *
- * `opencode` is ABSENT on purpose. `agent-catalog.ts:66` carries no
- * `defaultCommand` for it — its `--auto` is opt-in per session — and
- * `catalogLaunchCommand` falls back to the bare binary id, so the app prints
- * the bare word `opencode`. Adding a key here to make the table look complete
- * would put a flag on screen that the app never types.
- */
-const DEFAULT_COMMANDS = {
-  claude: "claude --dangerously-skip-permissions",
-  codex: "codex --dangerously-bypass-approvals-and-sandbox",
-  agy: "agy --dangerously-skip-permissions",
-  gemini: "gemini --yolo",
-};
-
-/**
- * Which agents this drawing's probe found on `$PATH`.
- *
- * A `Set` filtered over `AGENT_MARKS` — which is the registry's order —
- * exactly as `LaunchProfileEditor` filters the catalog (`:162-168`). That is
- * what keeps the installed group in catalog order without being re-sorted: the
- * order is the digit-key contract.
- *
- * Exported for the ⌘T widget, which offers these same three agents with these
- * same commands: two widgets describing one imaginary machine must not
- * disagree about what is installed on it.
- */
+/** The imaginary machine's probe: these three binaries are on `$PATH`. */
 const INSTALLED_IDS = new Set(["claude", "codex", "opencode"]);
 
-export const INSTALLED = AGENT_MARKS.filter((agent) => INSTALLED_IDS.has(agent.id));
+const BUILTIN_BY_ID = new Map(BUILTIN_AGENTS.map((agent) => [agent.id, agent]));
 
-/** The command a row prints: the catalog's, else the bare binary. */
-export function launchCommand(agent) {
-  return DEFAULT_COMMANDS[agent.id] ?? agent.id;
+function toRow(mark) {
+  const found = INSTALLED_IDS.has(mark.id);
+  const command = agentLaunchCommand(mark.id, [], {}) ?? mark.id;
+  const offer = installOffer({
+    agent: BUILTIN_BY_ID.get(mark.id),
+    platform: "macos",
+    available: true,
+    probed: true,
+    enabled: true,
+    found,
+  });
+
+  return {
+    id: mark.id,
+    label: mark.label,
+    mark,
+    found,
+    binary: commandAgentId(command),
+    flags: commandFlags(command),
+    offer: offer.kind,
+  };
 }
+
+const ROWS = AGENT_MARKS.map(toRow);
+
+/** `installed` in the registry's order — the digit-key contract, never re-sorted. */
+export const INSTALLED = ROWS.filter((row) => row.found);
+
+/** `available`, every agent Deck can launch that the probe did not find. */
+export const AVAILABLE = ROWS.filter((row) => !row.found);

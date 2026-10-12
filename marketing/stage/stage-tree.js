@@ -4,10 +4,11 @@
  * create row and tools foot around it, the stage strip's breadcrumb and its
  * trailing chips, and panes as rounded cards with an agent header.
  *
- * It sits BESIDE `appwin.js` rather than replacing its renderers: the tour
- * panels still draw the 1.1 card rail through `renderStageRail`, and the video
- * the July window, until their own pass. Every renderer here is a pure
- * function of its argument; the styles are `appwin-tree.css`.
+ * It sits BESIDE `appwin.js` rather than replacing its renderers: the video
+ * still draws the July window through them, until its own pass. Every renderer
+ * here is a pure function of its argument; the styles are `appwin-tree.css`.
+ * `renderCluster` is exported for the Watch chapter's rail widget, which draws
+ * clusters of the same rail at one pixel per app pixel.
  *
  * Hooks the hero's beat writes through, same contract as the card rail:
  * `data-dot` on a row's state badge, `data-tail` on the sentence span alone
@@ -150,7 +151,7 @@ export function totalNeeds(rail) {
  * @param {{ project: string, collapsed?: boolean, needs?: number,
  *           checkouts?: Array<{ name: string, worktree?: boolean, rows: object[] }> }} cluster
  */
-function renderCluster(cluster) {
+export function renderCluster(cluster) {
   const collapsed = cluster.collapsed === true;
   const needs = needsOf(cluster);
   const caret = collapsed ? `<span class="a-tree__caret">${renderPhosphor("caretRight")}</span>` : "";

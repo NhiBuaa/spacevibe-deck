@@ -4,29 +4,33 @@
  *
  * The rule a widget is held to: no window chrome — no traffic lights, no
  * sidebar, no tab strip wrapped around it. A widget that needs chrome has
- * turned back into an app stage. Sizes are real px (widgets.css): the scene
- * CSS resolves `cqw` against `.a-appwin`, which a widget does not have.
+ * turned back into an app stage. Sizes are real px (widgets*.css), the app's
+ * own values, and the colours are the 2.10 `deck-dark` palette the hero draws
+ * with (appwin-tree.css): the scene CSS resolves `cqw` against `.a-appwin`,
+ * which a widget does not have, so the one widget that borrows the hero's rail
+ * rules sets `--u: 1px` instead.
  *
  * The DATA lives in `./scenes/`, imported rather than copied, so two widgets
- * cannot disagree about a command or a figure.
+ * cannot disagree about a command or a figure; where the app has a pure-data
+ * module the scene imports it (`src/lib/`, `src/ui/usage/`), and each fact
+ * that is still copied carries the `file:line` it came from.
  */
 
-import { STAGE_ICONS, renderChromeIcon } from "../appwin.js";
-import { AGENT_MARKS } from "../agent-strip.js";
-import { BOARD_PROJECTS } from "./scenes/agent-board.js";
-import { INSTALLED, launchCommand } from "./scenes/catalog.js";
+import { renderCluster } from "../../../stage/stage-tree.js";
+import { renderPhosphor } from "../../../stage/stage-icons.js";
 import { sceneAgentMark } from "./scenes/chrome.js";
-import { MENU_GROUPS, WHERE } from "./scenes/new-agent-menu.js";
-import { RESTORE_PANES } from "./scenes/restore.js";
-import { AGENTS as USAGE_AGENTS, FOOTNOTE, RANGES, TOTAL } from "./scenes/usage.js";
-
-/** The four states the rail paints, loudest first. */
-const STATES = ["failed", "asked", "working", "done"];
-
-/** Every live pane on the imaginary machine. */
-const LIVE_PANES = BOARD_PROJECTS.flatMap((project) =>
-  project.checkouts.flatMap((checkout) => checkout.panes),
-);
+import { RAIL_CLUSTERS } from "./scenes/rail.js";
+import { CARDS, CHIP, CONTEXT, HOVERED_CARD } from "./scenes/quick-launch.js";
+import { AVAILABLE, INSTALLED } from "./scenes/catalog.js";
+import { LAST_SESSION_META, RESUME_LINES } from "./scenes/restore.js";
+import {
+  DOCK_TABS,
+  EXPLORER_SWITCH,
+  KEYS,
+  PANE,
+  TREE_ROWS,
+} from "./scenes/surfaces.js";
+import { AGENTS as USAGE_AGENTS, EYEBROW, FOOTNOTE, RANGES, TOTAL } from "./scenes/usage.js";
 
 const ATTR_ESCAPES = { "&": "&amp;", '"': "&quot;", "<": "&lt;", ">": "&gt;" };
 
@@ -34,158 +38,192 @@ const attr = (text) => String(text).replace(/[&"<>]/g, (char) => ATTR_ESCAPES[ch
 
 const mark = (id, size = 16) => sceneAgentMark(id, "w-mark", size);
 
-const icon = (name) => `<span class="w-icon">${renderChromeIcon(STAGE_ICONS[name])}</span>`;
+const icon = (name, className = "", options = {}) =>
+  `<span class="w-icon ${className}">${renderPhosphor(name, options)}</span>`;
 
-function stateMark(state) {
-  const bars = state === "working" ? "<i></i><i></i><i></i>" : "";
-  return `<span class="w-state" data-state="${state}" aria-hidden="true">${bars}</span>`;
-}
+/** Only this many Available rows are drawn; the header's count says how many exist. */
+const AVAILABLE_SHOWN = 3;
 
-/** Rail: one row per agent — the sentence it last said, and its mark. */
+/** Rail: the hero's tree rail — a project, its checkouts, a badge on every logo. */
 function rail() {
-  const rows = STATES.map((state) => LIVE_PANES.find((pane) => pane.state === state))
-    .filter(Boolean)
-    .sort((a, b) => a.rank - b.rank)
-    .map(
-      (pane) => `
-        <div class="w-rail__row" data-state="${pane.state}">
-          ${mark(pane.agent)}
-          <span class="w-rail__text">${pane.label}</span>
-          ${stateMark(pane.state)}
-        </div>
-      `,
-    )
-    .join("");
-
-  return `<div class="w w-rail">${rows}</div>`;
+  return `<div class="w w-rail">${RAIL_CLUSTERS.map(renderCluster).join("")}</div>`;
 }
 
-/** ⌘T: the New Agent popover alone — the checkout, then the agents. */
-function menu() {
-  const [agents, , , [another]] = MENU_GROUPS;
-  const rows = agents
-    .map(
-      (row, index) => `
-        <div class="w-menu__row${index === 0 ? " is-focused" : ""}">
-          ${mark(row.agent)}
-          <span class="w-menu__title">${row.title}</span>
-          <span class="w-menu__detail">${row.detail}</span>
-        </div>
-      `,
-    )
-    .join("");
+/** One Quick Launch card: the press that splits, and the ⊕ that starts a new space. */
+function launchCard(card) {
+  const logo =
+    card.id === "terminal"
+      ? icon("terminal", "w-card__logo")
+      : sceneAgentMark(card.id, "w-card__logo", 20);
+  // One ⊕ is hovered, and the app's own tip (`NewSpaceTip`) names it.
+  const hovered = card.id === HOVERED_CARD;
+  const tip = hovered ? '<span class="w-tip" role="tooltip">New space</span>' : "";
 
   return `
-    <div class="w w-menu">
-      <kbd class="w-corner-kbd">⌘T</kbd>
-      <p class="w-menu__where">${icon("branch")}${WHERE}</p>
-      ${rows}
-      <div class="w-sep"></div>
-      <div class="w-menu__row">${icon("plus")}<span class="w-menu__title">${another.title}</span></div>
+    <div class="w-card">
+      <span class="w-card__main">${logo}<strong>${card.label}</strong>${icon("arrowRight")}</span>
+      <span class="w-card__alt${hovered ? " is-hovered" : ""}" role="img" aria-label="New space">${icon("plusCircle")}${tip}</span>
     </div>
   `;
 }
 
-/** Catalog: what is installed and the command each types; the rest as marks. */
-function catalog() {
-  const installed = new Set(INSTALLED.map((agent) => agent.id));
-  const available = AGENT_MARKS.filter((agent) => !installed.has(agent.id));
-  const rows = INSTALLED.map(
-    (agent) => `
-      <div class="w-cat__row">
-        ${mark(agent.id)}
-        <span class="w-cat__name">${agent.label}<code>${launchCommand(agent)}</code></span>
-        <span class="w-toggle"><b>On</b><span>Off</span></span>
+/** ⌘T: the Quick Launch page in miniature — where, then which agent. */
+function quickLaunch() {
+  const picker = (lead, label) =>
+    `<span class="w-picker">${icon(lead)}${label}${icon("caretDown")}</span>`;
+
+  return `
+    <div class="w w-ql">
+      <p class="w-ql__bar"><span>QUICK LAUNCH</span><kbd>⌘T</kbd></p>
+      <div class="w-ql__context">
+        ${picker("folder", CONTEXT.workspace)}
+        ${picker("gitBranch", CONTEXT.checkout)}
+        <span class="w-ql__chip">${icon("columns")}${CHIP}</span>
       </div>
-    `,
-  ).join("");
+      <div class="w-ql__grid">${CARDS.map(launchCard).join("")}</div>
+    </div>
+  `;
+}
+
+/** The command a row prints: the binary in full ink, its flags a step fainter. */
+function command(row) {
+  const flags = row.flags === "" ? "" : ` <span class="w-cat__flags">${row.flags}</span>`;
+
+  return `<span class="w-cat__cmd"><span>${row.binary}</span>${flags}</span>`;
+}
+
+function catalogRow(row) {
+  const get = row.offer === "none" ? "" : `<span class="w-btn">${row.offer === "get" ? "Get" : "Install"}</span>`;
+
+  return `
+    <div class="w-cat__row">
+      ${mark(row.id, 15)}
+      <span class="w-cat__text"><span class="w-cat__name">${row.label}</span>${command(row)}</span>
+      ${get}
+      <span class="w-switch">on</span>
+    </div>
+  `;
+}
+
+/** Catalog: Settings → Agents — what is installed, what is not, and each command. */
+function catalog() {
+  const head = (title, count) =>
+    `<p class="w-cat__head"><span>${title}</span><span>${count}</span></p>`;
 
   return `
     <div class="w w-cat">
-      <p class="w-cat__head"><span>Installed</span><span>${INSTALLED.length}</span></p>
-      ${rows}
-      <div class="w-sep"></div>
-      <p class="w-cat__head"><span>Available to install</span><span>${available.length}</span></p>
-      <div class="w-cat__avail">${available.map((agent) => mark(agent.id, 18)).join("")}</div>
+      ${head("Installed", `${INSTALLED.length} detected`)}
+      ${INSTALLED.map(catalogRow).join("")}
+      ${head("Available to install", `${AVAILABLE.length} agents`)}
+      <div class="w-cat__more">${AVAILABLE.slice(0, AVAILABLE_SHOWN).map(catalogRow).join("")}</div>
     </div>
   `;
 }
 
-/** Restore: the three resume commands Deck types, and what came back. */
+/** Restore: the start screen's Last session line, then what Reopen types in each pane. */
 function restore() {
-  const blocks = RESTORE_PANES.map(
-    (pane) => `
-      <div class="w-term__block">
-        <span class="w-term__cmd">${pane.cmd}</span>
-        <span class="w-term__out">${pane.lines[0].text}<span class="w-badge">restored</span></span>
+  const lines = RESUME_LINES.map(
+    (line) => `
+      <div class="w-resume__line">
+        ${mark(line.agent, 14)}<span class="w-resume__cmd">${attr(line.command)}</span>
       </div>
     `,
   ).join("");
 
-  return `<div class="w w-term">${blocks}</div>`;
+  return `
+    <div class="w w-restore">
+      <div class="w-last">
+        ${icon("clockCounterClockwise")}
+        <span class="w-last__text"><b>Last session</b><span>${LAST_SESSION_META}</span></span>
+        <span class="w-btn w-btn--solid">Reopen</span>
+        ${icon("x", "w-last__x")}
+      </div>
+      <div class="w-resume">${lines}</div>
+    </div>
+  `;
 }
 
-/** Surfaces: the tab strip holding more than terminals, and its keys. */
+const TREE_GLYPH = {
+  root: "caretDown",
+  folder: "caretDown",
+  closed: "caretRight",
+  code: "fileCode",
+};
+
+function treeRow(row) {
+  const lead =
+    row.kind === "code"
+      ? icon("fileCode", "w-tree__file")
+      : `${icon(TREE_GLYPH[row.kind], "w-tree__caret")}${icon("folder", "w-tree__folder")}`;
+
+  return `
+    <div class="w-tree__row${row.kind === "root" ? " is-root" : ""}" style="--depth: ${row.depth}">
+      ${lead}<span>${row.name}</span>
+    </div>
+  `;
+}
+
+/** Surfaces: terminals beside the docked side panel, and the keys that open it. */
 function surfaces() {
-  const tabs = [
-    { lead: mark("claude", 13), label: "claude" },
-    { lead: icon("file"), label: "layout-engine.ts", active: true },
-    { lead: icon("globe"), label: "localhost:5173" },
-    { lead: icon("squares"), label: "Token usage" },
-  ]
-    .map(
-      (tab) =>
-        `<span class="w-tab${tab.active ? " is-active" : ""}">${tab.lead}${tab.label}</span>`,
-    )
+  const tabs = DOCK_TABS.map(
+    (tab) =>
+      `<span class="w-dock__tab${tab.active ? " is-active" : ""}" role="img" aria-label="${attr(tab.label)}">${icon(tab.icon)}</span>`,
+  ).join("");
+  const lines = PANE.lines
+    .map((line) => `<div class="w-pane__line is-${line.cls}">${attr(line.text)}</div>`)
     .join("");
-  const keys = [
-    ["⌘⇧B", "Explorer"],
-    ["⌘⇧V", "Markdown source"],
-    ["⌘S", "Save"],
-    ["⌘W", "Close what is in front"],
-  ]
-    .map(([combo, label]) => `<span><kbd>${combo}</kbd>${label}</span>`)
-    .join("");
+  const keys = KEYS.map(([combo, label]) => `<span><kbd>${combo}</kbd>${label}</span>`).join("");
+  const { files, changes, added, removed } = EXPLORER_SWITCH;
 
   return `
     <div class="w w-surfaces">
-      <div class="w-tabs">${tabs}</div>
+      <div class="w-stage">
+        <article class="w-pane">
+          <header>${mark(PANE.agent, 16)}<span>${PANE.header}</span></header>
+          <div class="w-pane__body">${lines}</div>
+        </article>
+        <aside class="w-dock">
+          <div class="w-dock__head">${tabs}${icon("sidebarSimple", "w-dock__hide", { mirrored: true })}</div>
+          <div class="w-dock__switch"><span class="is-active">${files}</span><span>${changes} <small><i class="is-add">+${added}</i> <i class="is-del">−${removed}</i></small></span></div>
+          <div class="w-tree">${TREE_ROWS.map(treeRow).join("")}</div>
+        </aside>
+      </div>
       <div class="w-keys">${keys}</div>
     </div>
   `;
 }
 
-/** Usage: the figure, the range, and who spent it. */
+/** Usage: Overview — the figure, who spent it (biggest first), and the range. */
 function usage() {
-  const segments = RANGES.map(
-    (range, index) =>
-      `<span${index === RANGES.length - 1 ? ' class="is-active"' : ""}>${range}</span>`,
-  ).join("");
-  const bar = USAGE_AGENTS.map(
-    (agent) => `<span data-agent="${agent.id}" style="--share: ${agent.share}%"></span>`,
-  ).join("");
-  const rows = USAGE_AGENTS.map(
+  const agents = USAGE_AGENTS.map(
     (agent) => `
-      <span class="w-usage__row" data-agent="${agent.id}">
-        <span>${agent.label}</span><span>${agent.amount}</span>
-      </span>
+      <li class="w-usage__agent" data-agent="${agent.id}">
+        <div class="w-usage__line">
+          ${mark(agent.id, 18)}<span>${agent.label}</span><span>${agent.amount}</span>
+        </div>
+        <div class="w-usage__bar"><i style="--share: ${agent.share}%"></i></div>
+        <p>${agent.sub}</p>
+      </li>
     `,
+  ).join("");
+  const ranges = RANGES.map(
+    (range) => `<span${range.active ? ' class="is-active"' : ""}>${range.label}</span>`,
   ).join("");
 
   return `
     <div class="w w-usage">
-      <div class="w-seg">${segments}</div>
-      <strong class="w-usage__total">${TOTAL}*</strong>
-      <div class="w-usage__bar">${bar}</div>
-      ${rows}
+      <p class="w-usage__eyebrow">${EYEBROW}</p>
+      <strong class="w-usage__total">${TOTAL}</strong>
       <p class="w-usage__foot">${FOOTNOTE}</p>
+      <ul class="w-usage__agents">${agents}</ul>
+      <div class="w-range">${ranges}</div>
     </div>
   `;
 }
 
 const WIDGETS = {
   panelRail: rail,
-  panelWorktree: menu,
+  panelWorktree: quickLaunch,
   panelCatalog: catalog,
   panelRestore: restore,
   panelSurfaces: surfaces,

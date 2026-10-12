@@ -5,15 +5,18 @@
    arithmetic: the rail is 275px there and 275 × --u here (25cqw).
 
    The palette is the default `deck-dark` preset, restated as the `--sg-*`
-   names appwin.css already reads — scoped to `.a-appwin--tree`, because the
-   tour panels and the video still draw the older window from the same tokens.
+   names appwin.css already reads — scoped to `.a-appwin--tree` and to the
+   chapter widgets (`.w`), because the video still draws the older window from
+   the root tokens.
 
    Text sizes carry a pixel floor so a narrow window stays legible; line
    heights are unitless for the same reason, so a floored font never overlaps
    the row it sits in. */
 
-.a-appwin--tree {
-  --u: calc(100cqw / 1100);
+/* Shared with the chapter widgets (`.w`, widgets.css): the same ground and ink,
+   so a widget reads as a piece of this window. */
+.a-appwin--tree,
+.w {
   --sg-bg: #0a0a0a;
   --sg-rail: #141414;
   --sg-chrome-2: #222222;
@@ -30,6 +33,10 @@
   --tree-focus-bg: var(--sg-fg);
   --tree-focus-ink: var(--sg-bg);
   --tree-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.a-appwin--tree {
+  --u: calc(100cqw / 1100);
 
   background: var(--sg-rail);
   font-family: var(--a-font-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif);

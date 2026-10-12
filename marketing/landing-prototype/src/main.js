@@ -10,6 +10,8 @@ import "../styles/hero-copy-column.css";
 import "../styles/hero.css";
 import "../styles/stat-band.css";
 import "../styles/widgets.css";
+import "../styles/widgets-launch.css";
+import "../styles/widgets-keep.css";
 import "../styles/layout-chapters.css";
 
 import { messages } from "./copy.js";
