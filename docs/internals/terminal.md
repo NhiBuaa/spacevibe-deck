@@ -305,7 +305,7 @@ to wear `asked`'s yellow as an inferred `completed`. `phaseConfidence` in
 [`agent-attention.ts`](../../src/terminal/agent-attention.ts) is the axis; each adapter is
 switchable under Settings → Agents through the `agentSignalAdapters` setting.
 
-**Claude and Codex Signals ship on; opencode ships off until its slice.** The per-agent
+**Claude and Codex Signals ship on; opencode ships off.** The per-agent
 Signals switch in [`settings-schema.ts`](../../src/settings/settings-schema.ts) is resolved by
 a revision ladder in [`signal-adapter-choice.ts`](../../src/settings/signal-adapter-choice.ts):
 each rung turns one agent on once for a settings file saved under an older
@@ -403,8 +403,8 @@ session identity for [`live-session-state.ts`](../../src/ui/sessions/live-sessio
   which may hold a live pane's credentials. So the script sends the tty of the first `codex`
   process above it in `X-Deck-Tty`, and main accepts a Codex post only when that equals the
   pane's own tty ([`hook-server.ts`](../../electron/agent-hooks/hook-server.ts)); a daemon has
-  none. Commands that start the daemon (`agents`, `app-server`, `remote-control`, `--remote`)
-  are launched with `DECK_PANE_ID`, `DECK_HOOK_TOKEN` and `DECK_HOOK_PORT` emptied.
+  none. Commands that use the shared daemon (`agents`, `app-server`, `remote-control`, `queue`, `archive`, `unarchive`, `delete`, `--remote`)
+  are launched with `DECK_PANE_ID`, `DECK_HOOK_TOKEN` and `DECK_HOOK_PORT` unset (`env -u`, which csh and fish accept too).
 - **Codex turn state belongs to the reducer.** A `Stop` ends the current response; if another
   hook requests continuation, Codex emits `UserPromptSubmit` for the continuation turn. The
   [turn reducer](../../src/terminal/codex-lifecycle.ts) rejects late completion from a
