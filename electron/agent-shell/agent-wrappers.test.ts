@@ -1,5 +1,13 @@
 import { spawn } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -36,14 +44,16 @@ function run(
   env: Record<string, string>,
   args: string[] = [],
   timeout = 5000,
-  shellFlags: string[] = [],
+  launcher: string[] = [],
 ): Promise<Run> {
   return new Promise((resolve, reject) => {
     const wrapper = path.join(DEV_BIN, "claude");
+    // `launcher` is an interpreter (and flags) to run the wrapper through; empty runs it directly.
+    const [command = wrapper, ...flags] = launcher.length === 0 ? [] : launcher;
     const child =
-      shellFlags.length === 0
+      launcher.length === 0
         ? spawn(wrapper, args, { env, timeout })
-        : spawn("/bin/sh", [...shellFlags, wrapper, ...args], { env, timeout });
+        : spawn(command, [...flags, wrapper, ...args], { env, timeout });
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (chunk: Buffer) => (stdout += chunk));
@@ -75,12 +85,32 @@ describe.skipIf(process.platform === "win32")("agent wrapper", () => {
 
   // `sh -u` is the user's exported `set -u`; the fake agent is not run under it.
   it("still execs the real binary under nounset, nested or not", async () => {
-    const top = await run({ PATH }, [], 3000, ["-u"]);
+    const top = await run({ PATH }, [], 3000, ["/bin/sh", "-u"]);
     expect(top.code).toBe(0);
     expect(top.stdout).toContain("id=claude nested= ");
-    const nested = await run({ PATH, DECK_AGENT_ID: "codex" }, [], 3000, ["-u"]);
+    const nested = await run({ PATH, DECK_AGENT_ID: "codex" }, [], 3000, ["/bin/sh", "-u"]);
     expect(nested.code).toBe(0);
     expect(nested.stdout).toContain("id=codex nested=1");
+  });
+
+  // The wrapper switches globbing off to read PATH. Under an exported SHELLOPTS that
+  // would leak to the CLI as `noglob`, so a bash shim of it would see `*.json` literally.
+  it.skipIf(!existsSync("/bin/bash"))("leaves globbing on for the CLI it execs", async () => {
+    const globDir = path.join(ROOT, "glob");
+    mkdirSync(globDir, { recursive: true });
+    writeFileSync(path.join(globDir, "a.json"), "{}");
+    const globBin = path.join(ROOT, "globbin");
+    install(globBin, "claude", '#!/bin/bash\ncd "$DECK_GLOB_DIR" && echo "glob=$(echo *.json)"\n');
+    const env = {
+      PATH: [DEV_BIN, globBin].join(":"),
+      SHELLOPTS: "nounset",
+      DECK_GLOB_DIR: globDir,
+    };
+    // Direct (`/bin/sh` is bash on macOS) and through bash explicitly.
+    for (const launcher of [[], ["/bin/bash"]]) {
+      const result = await run(env, [], 3000, launcher);
+      expect(result.stdout.trim()).toBe("glob=a.json");
+    }
   });
 
   it("skips every directory ending in /agent-shell/bin", async () => {

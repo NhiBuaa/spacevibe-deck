@@ -34,7 +34,10 @@ export function agentWrapperSource(agent: WrappedAgent): string {
     "#!/bin/sh",
     `# ${WRAPPER_MARKER} (${agent}) - runs the real CLI after naming it for Deck's hooks.`,
     "# Written by Deck; edits are overwritten at the next launch.",
-    // `set -f` keeps a glob character in a PATH entry from expanding below.
+    // `set -f` keeps a glob character in a PATH entry from expanding below. It is
+    // undone before `exec`: with an exported SHELLOPTS (`set -u; export SHELLOPTS`) it
+    // would otherwise reach the CLI and every bash child as `noglob`.
+    "case $- in *f*) noglob_before=1 ;; *) noglob_before= ;; esac",
     "set -f",
     'real=""',
     "old_ifs=$IFS",
@@ -78,6 +81,7 @@ export function agentWrapperSource(agent: WrappedAgent): string {
     "  DECK_AGENT_NESTED=1",
     "  export DECK_AGENT_NESTED",
     "fi",
+    '[ -n "$noglob_before" ] || set +f',
     'exec "$real" "$@"',
     "",
   ].join("\n");
