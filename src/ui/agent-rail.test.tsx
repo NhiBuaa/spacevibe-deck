@@ -667,30 +667,6 @@ describe("AgentRail worktree cards (design 2026-08-25)", () => {
     expect(host.querySelector("button.asr-cluster__toggle")).not.toBeNull();
     expect(host.querySelector(".asr-cluster__count")).toBeNull();
   });
-
-  it("keeps Tauri on the legacy repository rail", async () => {
-    vi.stubGlobal("__TAURI_INTERNALS__", {});
-    tabViews.value = [tab({ panes: [pane({ paneId: 11 })] })];
-    mount();
-    await settle();
-
-    const rail = host.querySelector(".wsbar--repos");
-    expect(rail?.firstElementChild?.className).toBe("sidebar-launcher");
-    expect(rail?.querySelector(".sidebar-new")).not.toBeNull();
-    expect(host.querySelector(".asr-checkout")).toBeNull();
-  });
-
-  // DL-28 (restored 2026-10-07): the tools row is Electron's. A footer handed
-  // to the frozen Tauri rail must not paint there.
-  it("hands the legacy Tauri rail no tools footer", async () => {
-    vi.stubGlobal("__TAURI_INTERNALS__", {});
-    tabViews.value = [tab({ panes: [pane({ paneId: 11 })] })];
-    mount({ footer: <div data-testid="rail-footer" /> });
-    await settle();
-
-    expect(host.querySelector(".wsbar--repos")).not.toBeNull();
-    expect(host.querySelector('[data-testid="rail-footer"]')).toBeNull();
-  });
 });
 
 describe("AgentRail clusters (DL-27.9/DL-27.12)", () => {

@@ -160,16 +160,4 @@ describe("useTitleBarOverlaySync on Windows without an Electron host", () => {
 
     expect(warn).not.toHaveBeenCalled();
   });
-
-  it("does nothing under Tauri, whose Windows build keeps its native title bar", () => {
-    usePlatform("windows");
-    vi.stubGlobal("__TAURI_INTERNALS__", { invoke: vi.fn() });
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    mount(DARK);
-    mount(LIGHT);
-
-    expect(warn).not.toHaveBeenCalled();
-    expect((globalThis as { __deckHost?: unknown }).__deckHost).toBeUndefined();
-  });
 });

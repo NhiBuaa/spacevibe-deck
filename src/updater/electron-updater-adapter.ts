@@ -1,20 +1,13 @@
 /**
  * The renderer's door to the host's updater.
  *
- * The renderer is SHARED, so this file runs in three places and must be right
- * in all of them:
+ * It runs in two places and must be right in both:
  *
  *  - **Electron**, where the bridge exists and `electron/updater/updater.ts`
  *    answers. An unpackaged or unsigned run answers `unsupported`, which the
  *    menu reports as "Updates are unavailable in this build" instead of the
  *    "SpaceVibe Deck is up to date" this host used to claim.
- *  - **Tauri**, where the bridge does not exist and the Tauri updater plugin
- *    does. That path is delegated to `tauri-updater-adapter.ts` rather than
- *    dropped: one more Tauri release is still owed — the migration notice that
- *    tells existing users to download the new Deck by hand — and killing its
- *    updater first would strand the very users the notice exists to reach.
- *    Deleting Tauri is deleting the branch below and that file.
- *  - **Browser `npm run dev`**, where neither exists. Absent bridge resolves
+ *  - **Browser `npm run dev`**, where there is no bridge. Absent bridge resolves
  *    to `null` fail-soft, like every other `src/host/` facade: a preview shell
  *    with no host must not throw an update error at the user.
  */
@@ -36,13 +29,6 @@ type UpdateCheckReply =
       readonly version: string;
       readonly notes: string | null;
     };
-
-function isTauriHost(): boolean {
-  return (
-    typeof globalThis !== "undefined" &&
-    (globalThis as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ !== undefined
-  );
-}
 
 function hasDeckHost(): boolean {
   return (
@@ -97,10 +83,6 @@ export function parseUpdateCheckReply(value: unknown): UpdateCheckReply {
 }
 
 export async function checkForUpdate(): Promise<PendingUpdate | UpdateUnsupported | null> {
-  if (isTauriHost()) {
-    const { checkForUpdate: checkTauriUpdate } = await import("./tauri-updater-adapter");
-    return checkTauriUpdate();
-  }
   if (!hasDeckHost()) {
     return null;
   }
@@ -140,17 +122,13 @@ export async function checkForUpdate(): Promise<PendingUpdate | UpdateUnsupporte
 }
 
 export async function relaunchDeck(): Promise<void> {
-  if (isTauriHost()) {
-    const { relaunchDeck: relaunchTauri } = await import("./tauri-updater-adapter");
-    return relaunchTauri();
-  }
   return relaunchElectron();
 }
 
-/** Keep renderer diagnostics local on Electron; frozen Tauri keeps its console sink. */
+/** Keep renderer diagnostics local on Electron. */
 export function reportUpdateError(message: string, error: unknown): void {
   console.error(`${message}:`, error);
-  if (!hasDeckHost() || isTauriHost()) return;
+  if (!hasDeckHost()) return;
   const operation = /check/i.test(message)
     ? "check"
     : /download/i.test(message)

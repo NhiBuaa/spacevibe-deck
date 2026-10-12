@@ -63,9 +63,7 @@ mac:
   # This covers the zip; the dmg keeps its own name below.
   artifactName: SpaceVibe-Deck-${version}-${arch}-mac.${ext}
   category: public.app-category.developer-tools
-  # `build/` holds only the entitlements plist; both hosts share the Tauri icon
-  # set rather than duplicating it.
-  icon: src-tauri/icons/icon.icns
+  icon: build/icon.icns
   # Notarization requires the hardened runtime, and the hardened runtime
   # requires the entitlements — see build/entitlements.mac.plist for what each
   # key buys back.
@@ -97,8 +95,7 @@ win:
     - target: nsis
       arch:
         - x64
-  # Both hosts share the Tauri icon set.
-  icon: src-tauri/icons/icon.ico
+  icon: build/icon.ico
   # The default artifact name starts with `productName`, whose space breaks
   # shell-quoted download URLs and greps; named explicitly so the promote
   # job's `*-setup.exe` assertion has a stable shape to hold onto.

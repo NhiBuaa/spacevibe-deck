@@ -1,8 +1,7 @@
 name: Electron Release
 
 # The Electron host's release path: one pushed tag produces a stable release
-# carrying macOS AND Windows, both self-updating. `release.yml` (Tauri) is
-# reduced to `workflow_dispatch` and no longer triggers on tags at all.
+# carrying macOS AND Windows, both self-updating.
 #
 # The tag shape is NOT free. `GitHubProvider.getLatestVersion` skips every
 # release whose tag fails `semver.valid`, and derives the update channel from
@@ -134,7 +133,6 @@ jobs:
 
       - name: Validate source
         run: |
-          npm run generate:menu:check
           npm run lint
           npm test
           npm run build
@@ -210,7 +208,7 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           # One secret, two names. app-builder-lib reads
           # APPLE_APP_SPECIFIC_PASSWORD (MacTargetHelper.getNotarizeOptions);
-          # `release.yml` reads the same value as APPLE_PASSWORD. Notarization
+          # the repository stores the value as APPLE_PASSWORD. Notarization
           # fails late and confusingly when this mapping is dropped.
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}

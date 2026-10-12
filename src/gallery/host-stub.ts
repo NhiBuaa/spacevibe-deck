@@ -9,16 +9,8 @@ import { signal } from "@preact/signals";
  * the gallery can render the real settings screen, the real popovers and the
  * real bars instead of a second hand-drawn copy of them.
  *
- * **Both hooks are installed, on purpose.** The Tauri build reaches for
- * `window.__TAURI_INTERNALS__`; the Electron host reaches for
- * `globalThis.__deckHost` (see `src/host/bridge.ts` on `electron-migration`,
- * which throws "Deck host bridge is unavailable" when it is absent). The
- * gallery is meant to carry over to Electron unchanged and the Tauri branch
- * still takes hotfixes, so a stub that installed only one of them would be
- * dead on the other branch the moment either merged — and dead in a
- * particularly bad way, because `unhandledCommands` only sees calls that
- * reach it. Zero calls arriving would read on screen as "everything was
- * answered".
+ * The hook is `globalThis.__deckHost` (see `src/host/bridge.ts`, which throws
+ * "Deck host bridge is unavailable" when it is absent).
  *
  * Unknown commands resolve to `null` instead of rejecting: a component missing
  * data should still paint its rows, hairlines and spacing, which is what the
@@ -34,20 +26,14 @@ type CannedHandler = (args: InvokeArgs) => unknown;
 /** Commands the gallery could not answer, in first-seen order. */
 export const unhandledCommands = signal<readonly string[]>([]);
 
-/** Label the stubbed `getCurrentWindow()` reports. */
-const WINDOW_LABEL = "main";
-
 /**
  * One in-memory persisted store per key, standing in for whichever store the
  * host provides. Writes are kept so a value the user changes in the gallery
  * survives a re-render, and dropped on reload — a gallery has no business
  * writing to the real `settings.json` under the user's app-data directory.
- *
- * The key is a resource id under Tauri and a file name under Electron; the
- * two hosts are never live at the same time, so one map serves both.
+ * The key is the store's file name.
  */
 const stores = new Map<string, Map<string, unknown>>();
-let nextStoreRid = 1;
 
 function readString(args: InvokeArgs, key: string): string {
   const value = args[key];
@@ -119,8 +105,8 @@ function wt(path: string, branch: string, extra: { locked?: string; prunable?: s
 }
 
 /**
- * Commands both hosts answer under the same name — `bridge.ts` kept the Tauri
- * channel names precisely so the renderer's call sites did not have to change.
+ * Commands whose channel names predate the Electron host — `bridge.ts` kept
+ * them so the renderer's call sites did not have to change.
  */
 const SHARED: Readonly<Record<string, CannedHandler>> = {
   desktop_environment: () => ({ platform: "macos", homeDir: "/Users/deck" }),
@@ -173,51 +159,6 @@ const SHARED: Readonly<Record<string, CannedHandler>> = {
   scan_workspace_favicon: () => null,
   read_image_as_data_url: () => null,
   pty_info: () => null,
-};
-
-/** Tauri's plugin channels, which the Electron host replaced wholesale. */
-const TAURI_ONLY: Readonly<Record<string, CannedHandler>> = {
-  // A retina factor, because that is what the machines this is designed on use.
-  "plugin:window|scale_factor": () => 2,
-
-  // plugin-store addresses a loaded file by resource id.
-  "plugin:store|load": () => {
-    const rid = nextStoreRid;
-    nextStoreRid += 1;
-    storeFor(`rid:${rid}`);
-    return rid;
-  },
-  "plugin:store|get": (args) => {
-    const store = stores.get(`rid:${String(args.rid)}`);
-    const key = readString(args, "key");
-    if (store === undefined || !store.has(key)) {
-      return [null, false];
-    }
-    return [store.get(key), true];
-  },
-  "plugin:store|set": (args) => {
-    stores.get(`rid:${String(args.rid)}`)?.set(readString(args, "key"), args.value);
-    return null;
-  },
-  "plugin:store|has": (args) =>
-    stores.get(`rid:${String(args.rid)}`)?.has(readString(args, "key")) ?? false,
-  "plugin:store|delete": (args) =>
-    stores.get(`rid:${String(args.rid)}`)?.delete(readString(args, "key")) ?? false,
-  "plugin:store|keys": (args) => [...(stores.get(`rid:${String(args.rid)}`)?.keys() ?? [])],
-  "plugin:store|entries": (args) => [...(stores.get(`rid:${String(args.rid)}`)?.entries() ?? [])],
-  "plugin:store|save": () => null,
-  "plugin:store|reload": () => null,
-
-  "plugin:event|listen": () => 0,
-  "plugin:event|unlisten": () => null,
-  "plugin:event|emit": () => null,
-  "plugin:event|emit_to": () => null,
-
-  // The gallery must never open a real OS dialog.
-  "plugin:dialog|open": () => null,
-  "plugin:dialog|save": () => null,
-  "plugin:dialog|message": () => null,
-  "plugin:dialog|ask": () => true,
 };
 
 /**
@@ -277,7 +218,6 @@ const ELECTRON_ONLY: Readonly<Record<string, CannedHandler>> = {
 
 const CANNED: Readonly<Record<string, CannedHandler>> = {
   ...SHARED,
-  ...TAURI_ONLY,
   ...ELECTRON_ONLY,
 };
 
@@ -294,43 +234,6 @@ function invokeStub(command: string, args: InvokeArgs): Promise<unknown> {
 
 function asArgs(payload: unknown): InvokeArgs {
   return typeof payload === "object" && payload !== null ? (payload as InvokeArgs) : {};
-}
-
-interface CallbackHost {
-  [key: string]: unknown;
-}
-
-/** Tauri's hook: `@tauri-apps/api/core` reads `window.__TAURI_INTERNALS__`. */
-function installTauriHook(): void {
-  let nextCallbackId = 1;
-  const host = window as unknown as CallbackHost;
-
-  const internals = {
-    invoke: (command: string, args?: InvokeArgs): Promise<unknown> =>
-      invokeStub(command, args ?? {}),
-    transformCallback: (callback?: (payload: unknown) => void, once = false): number => {
-      const id = nextCallbackId;
-      nextCallbackId += 1;
-      const key = `_${id}`;
-      host[key] = (payload: unknown): void => {
-        if (once) {
-          delete host[key];
-        }
-        callback?.(payload);
-      };
-      return id;
-    },
-    unregisterCallback: (id: number): void => {
-      delete host[`_${id}`];
-    },
-    convertFileSrc: (path: string): string => path,
-    metadata: { currentWindow: { label: WINDOW_LABEL } },
-  };
-
-  Object.defineProperty(window, "__TAURI_INTERNALS__", {
-    value: internals,
-    configurable: true,
-  });
 }
 
 /**
@@ -361,8 +264,7 @@ function installDeckHostHook(): void {
  * it FIRST. That ordering is the whole reason it is a side effect rather than a
  * function the entry calls: ES imports are hoisted, so a call written at the
  * top of `main.tsx` would still run after every module below it had already
- * evaluated. Importing first is the only way to guarantee the hooks exist
- * before anything can reach for them.
+ * evaluated. Importing first is the only way to guarantee the hook exists
+ * before anything can reach for it.
  */
-installTauriHook();
 installDeckHostHook();

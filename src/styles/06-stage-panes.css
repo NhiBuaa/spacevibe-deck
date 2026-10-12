@@ -88,10 +88,10 @@
 }
 
 /* ── DL §30: the notice row ───────────────────────────────────────────────
-   One instance again since 2026-08-22 (owner-decided): the usage-consent row
-   became the DL-29.9 decision MODAL (`10-modals.css`), so `.migration-banner`
-   — Tauri-only and shipped enabled, see docs/operations/release.md (section
-   "Tauri hotfix") — is the genre's whole population.
+   No instance ships: the usage-consent row became the DL-29.9 decision MODAL
+   (`10-modals.css`) on 2026-08-22, and the Tauri-only migration banner left
+   with the Tauri host on 2026-10-12. The offsets below stay as the genre's
+   rule for the next notice.
 
    The first row of the stage's own content, BENEATH `.stage__strip` and above
    the terminal grid. Never above the strip: the strip sits at `top: 0`, and
@@ -103,82 +103,13 @@
    placements that depend on them are load-bearing, and a fourth row would
    move every one of them. */
 
-.migration-banner {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: var(--notice-h);
-  /* border-box for the strip's own reason: the seam below costs no height, so
-     the offsets under this rule stay exact arithmetic. */
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 10px;
-  /* DL-30.4: a §3 chrome role, never a colour of its own. The weight comes
-     from the position and the bold lead — a notice tinted red or yellow would
-     take the two words the status dot owns and say something this surface does
-     not mean (nothing is failing; a thing is ending). */
-  background: var(--chrome-1);
-  border-bottom: 1px solid var(--seam-divider);
-  color: var(--text-primary);
-  font-size: var(--type-body);
-}
-
-.stage--strip .migration-banner {
-  top: var(--frame-h);
-}
-
-.stage--dock .migration-banner {
-  right: var(--dock-w);
-}
-
-.migration-banner__message {
-  margin: 0;
-  min-width: 0;
-  /* One line while it fits; the message is two sentences and the window is
-     never narrower than the panes under it. */
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.migration-banner__action {
-  margin-left: auto;
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 24px;
-  padding: 0 10px;
-  border: 1px solid var(--hair-strong);
-  border-radius: var(--radius-tab);
-  background: transparent;
-  color: var(--text-primary);
-  font-size: var(--type-meta);
-  cursor: pointer;
-}
-
-.migration-banner__action:hover,
-.migration-banner__action:focus-visible {
-  background: var(--state-hover-bg);
-}
-
-/* DL-30.5: the neutral wash, matching the tab strip's close rather than the
-   rail's red. Dismissing a notice is not destructive — it comes back on the
-   next launch. */
-.migration-banner__close {
-  flex: 0 0 auto;
-}
-
 /* DL-30.2: the notice COSTS the stage height rather than floating over the
    panes — a terminal is a grid measured in rows, and an overlay would hide
    output the user cannot scroll back into view.
 
    `.stage__surface` IS offset since 2026-08-22, and stays offset now that
    the consent row is a modal again: the offset is the genre's rule, not one
-   instance's, so a future Electron-side notice inherits it instead of
+   instance's, so a future notice inherits it instead of
    re-finding the landmine. The browser's native view needs no host-side
    change: its bounds are measured off the DOM element (`browser-panel.tsx`),
    and a `top` change resizes that element, which the panel's ResizeObserver

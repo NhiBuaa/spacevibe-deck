@@ -111,7 +111,6 @@ describe("caption-overlay marker", () => {
   }
 
   const electronHost = () => vi.stubGlobal("__deckHost", { invoke: vi.fn(), listen: vi.fn() });
-  const tauriHost = () => vi.stubGlobal("__TAURI_INTERNALS__", {});
 
   it.each([true, false])(
     "is carried on Windows under the Electron host (sidebar %s)",
@@ -126,7 +125,6 @@ describe("caption-overlay marker", () => {
     ["macOS without a host", "macos", () => {}],
     ["an unsupported platform with the Electron host", "unsupported", electronHost],
     ["Windows in the browser preview, no host", "windows", () => {}],
-    ["Windows under Tauri, native title bar", "windows", tauriHost],
   ] as const)("is absent on %s", (_, platform, installHost) => {
     installHost();
     for (const sidebar of [true, false]) {

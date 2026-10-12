@@ -3,8 +3,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 /**
- * The one gate that crosses the IPC boundary — the Electron counterpart of
- * `ipc-contract.test.ts`.
+ * The one gate that crosses the IPC boundary.
  *
  * Nothing else in this repo checks this: Vitest mocks the host, and `tsc`
  * type-checks the two sides SEPARATELY because an `ipcMain.handle` payload is
@@ -352,9 +351,8 @@ describe("Electron IPC contract", () => {
     );
   });
 
-  it("leaves resolve_paths and open_editor untouched, so the Tauri twin stays valid", () => {
-    // Design §6: the two channels ⌘+click already used are unchanged, which is
-    // what lets `src-tauri/src/links.rs` keep answering them.
+  it("keeps the resolve_paths and open_editor payload shapes", () => {
+    // Design §6: the two channels ⌘+click already used are unchanged.
     for (const site of callSites.filter((candidate) => candidate.channel === "resolve_paths")) {
       expect(site.keys).toEqual(["cwd", "paths"]);
     }

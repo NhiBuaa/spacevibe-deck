@@ -76,12 +76,12 @@ export interface ActionDefinition {
    */
   readonly scope: ActionScope;
   /**
-   * Menu position. `group` only matters for a submenu generated entirely
-   * from the registry (File, View — see scripts/generate-menu.ts, a later
-   * task): items sharing a group render adjacent; a group change from the
-   * previous item in the same submenu inserts a separator. App/Edit/Window
-   * mix in native Cocoa builtins, so they stay hand-written in `menu.rs` —
-   * `group` is ignored there.
+   * Menu position. `group` only matters for a submenu built entirely from
+   * the registry (File, View — see `electron/menu.ts`): items sharing a group
+   * render adjacent; a group change from the previous item in the same
+   * submenu inserts a separator. App/Edit/Window mix in native Cocoa
+   * builtins, so they stay hand-written in the menu template — `group` is
+   * ignored there.
    */
   readonly menu?: {
     readonly submenu: MenuSubmenu;
@@ -338,9 +338,7 @@ export const ACTION_REGISTRY = [
   // surface takes the stage) would block them exactly where they are needed.
   //
   // Deliberately NO `menu` field: the Electron template hand-writes these
-  // three so they can keep the Cocoa position and label users expect, and
-  // omitting the field keeps `scripts/generate-menu.ts` — and with it Tauri's
-  // hand-written `menu.rs`, which still carries the Cocoa builtins — untouched.
+  // three so they can keep the Cocoa position and label users expect.
   {
     id: "select-all",
     label: "Select All",
@@ -462,8 +460,8 @@ export const ACTION_REGISTRY = [
     // Tier "pane" and in `isChromeScopedAction` alongside `toggle-dock`, for the
     // same reasons: the sidebar stands BESIDE the stage, a document on the stage
     // must not strand it, and every overlay covers the column with the grid.
-    // On Electron the sidebar's collapse is DL-27.29's avatar column; Tauri
-    // hides it (DL-18.9). Performable only while a tab is open — with none the
+    // The sidebar's collapse is DL-27.29's avatar column. Performable only
+    // while a tab is open — with none the
     // rail does not exist, so the key reaches whatever holds focus.
     scope: "pane",
     menu: { submenu: "View", group: "explorer" },

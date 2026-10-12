@@ -3,8 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   invoke: vi.fn(),
   electronRelaunch: vi.fn(async () => undefined),
-  tauriCheck: vi.fn(),
-  tauriRelaunch: vi.fn(async () => undefined),
 }));
 
 vi.mock("../host/bridge", () => ({
@@ -12,14 +10,6 @@ vi.mock("../host/bridge", () => ({
 }));
 vi.mock("../host/shell-host", () => ({
   relaunch: mocks.electronRelaunch,
-}));
-// Left real, not stubbed: the delegation is only worth anything if it reaches
-// the Tauri plugin, which is the path the migration-notice build depends on.
-vi.mock("@tauri-apps/plugin-updater", () => ({
-  check: mocks.tauriCheck,
-}));
-vi.mock("@tauri-apps/plugin-process", () => ({
-  relaunch: mocks.tauriRelaunch,
 }));
 
 import { checkForUpdate, relaunchDeck, reportUpdateError } from "./electron-updater-adapter";
@@ -29,7 +19,6 @@ describe("checkForUpdate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal("__deckHost", undefined);
-    vi.stubGlobal("__TAURI_INTERNALS__", undefined);
   });
 
   afterEach(() => {
@@ -106,52 +95,24 @@ describe("checkForUpdate", () => {
     mocks.invoke.mockResolvedValue({ status: "shrug" });
     await expect(checkForUpdate()).rejects.toThrow("unknown status");
   });
-
-  it("delegates to the Tauri updater while that host still ships", async () => {
-    vi.stubGlobal("__TAURI_INTERNALS__", {});
-    mocks.tauriCheck.mockResolvedValue({
-      currentVersion: "0.12.3",
-      version: "0.12.4",
-      body: "Security fixes",
-      download: vi.fn(async () => undefined),
-      install: vi.fn(async () => undefined),
-    });
-
-    await expect(checkForUpdate()).resolves.toMatchObject({
-      version: "0.12.4",
-      notes: "Security fixes",
-    });
-    expect(mocks.invoke).not.toHaveBeenCalled();
-  });
 });
 
 describe("relaunchDeck", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal("__deckHost", undefined);
-    vi.stubGlobal("__TAURI_INTERNALS__", undefined);
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it("routes through the Tauri process plugin under Tauri", async () => {
-    vi.stubGlobal("__TAURI_INTERNALS__", {});
-
-    await relaunchDeck();
-
-    expect(mocks.tauriRelaunch).toHaveBeenCalledOnce();
-    expect(mocks.electronRelaunch).not.toHaveBeenCalled();
-  });
-
-  it("routes through app_relaunch everywhere else", async () => {
+  it("routes through app_relaunch", async () => {
     vi.stubGlobal("__deckHost", { invoke: vi.fn(), listen: vi.fn() });
 
     await relaunchDeck();
 
     expect(mocks.electronRelaunch).toHaveBeenCalledOnce();
-    expect(mocks.tauriRelaunch).not.toHaveBeenCalled();
   });
 });
 
@@ -159,7 +120,6 @@ describe("reportUpdateError", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.stubGlobal("__deckHost", {});
-    vi.stubGlobal("__TAURI_INTERNALS__", undefined);
     vi.spyOn(console, "error").mockImplementation(() => {});
     mocks.invoke.mockResolvedValue(undefined);
   });
@@ -184,9 +144,8 @@ describe("reportUpdateError", () => {
     reportUpdateError("Update check failed", new Error("x".repeat(5000)));
     expect(mocks.invoke.mock.calls[0][1].message).toHaveLength(2048);
   });
-  it.each(["browser", "tauri"])("keeps %s diagnostics out of Electron IPC", (host) => {
+  it("keeps browser diagnostics out of Electron IPC", () => {
     vi.stubGlobal("__deckHost", undefined);
-    vi.stubGlobal("__TAURI_INTERNALS__", host === "tauri" ? {} : undefined);
     reportUpdateError("Update check failed", new Error("offline"));
     expect(mocks.invoke).not.toHaveBeenCalled();
   });

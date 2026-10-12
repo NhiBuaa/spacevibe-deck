@@ -79,8 +79,6 @@ import {
   openInApp,
   workspaceForPath,
 } from "../host/external-apps-host";
-import { MigrationBanner } from "./migration-banner";
-import { isTauriHost, shouldShowNotice } from "../updater/migration-notice";
 import { UsageConsentModal } from "./usage-consent-modal";
 import { ensureTelemetryStateLoaded, usageConsentOpen } from "../telemetry/consent-store";
 import { installUsageCounterEffects } from "../telemetry/usage-counters";
@@ -177,8 +175,7 @@ import { activeUpdateController } from "../updater/active-update-controller";
 import { appVersion, loadAppVersion } from "../updater/app-version";
 import { feedbackUrl, SEND_FEEDBACK_ACTION } from "../lib/feedback-url";
 import { UpdateAction } from "../updater/update-action";
-// Host-agnostic by construction: it answers the Electron host, delegates to
-// `tauri-updater-adapter.ts` under Tauri, and fails soft in a browser preview.
+// It answers the Electron host and fails soft in a browser preview.
 import {
   checkForUpdate,
   relaunchDeck,
@@ -279,11 +276,6 @@ function attemptMatchesDraft(attempt: TaskLaunchAttempt, draft: NewTaskDraft): b
 export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
   const stagesRef = useRef<HTMLDivElement>(null);
   const resumingWorkspacesRef = useRef<ReadonlySet<string>>(new Set());
-  // The migration notice's dismissal: window-scoped and UNPERSISTED per R5 and
-  // spec §5, so a relaunch brings it back. Two windows therefore dismiss twice
-  // — accepted, because a notice whose whole job is to be seen should err that
-  // way rather than the other.
-  const noticeDismissed = useSignal(false);
   const taskOperationPending = useSignal<LauncherPending | null>(null);
   const taskOperationFlight = useRef<Promise<LaunchTaskOutcome> | null>(null);
   const launchAttempt = useSignal<TaskLaunchAttempt | null>(null);
@@ -1557,15 +1549,11 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
       savedCollapsed: settings.value.sidebarCollapsed,
       dragCollapsed: sidebarWidthLive.value === null ? null : sidebarCollapseArmed.value,
     });
-  // DL-27.29: on Electron the collapsed sidebar is an avatar column, not an
-  // empty edge. The same runtime host probe as `tauriHost` below, read here
-  // because the paint width needs it first.
-  const avatarColumn = !isTauriHost();
-  // DL-28 (restored 2026-10-07): the rail's tools row is Electron's, and only
-  // while a live rail exists to hold it. Everywhere else — top-tab mode, Tauri,
-  // an empty window — `More` keeps the global group, so Settings and the Prompt
-  // Board never lose their only pointer route.
-  const railToolsMounted = sidebar && railAvailable && avatarColumn;
+  // DL-28 (restored 2026-10-07): the rail's tools row exists only while a live
+  // rail exists to hold it. Everywhere else — top-tab mode, an empty window —
+  // `More` keeps the global group, so Settings and the Prompt Board never lose
+  // their only pointer route.
+  const railToolsMounted = sidebar && railAvailable;
   const sidebarPaintWidth = (): number =>
     sidebarPaintWidthFor({
       liveTabCount: tabViews.value.length,
@@ -1573,7 +1561,6 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
       dragCollapsed: sidebarWidthLive.value === null ? null : sidebarCollapseArmed.value,
       savedWidth: settings.value.sidebarWidth,
       liveWidth: sidebarWidthLive.value,
-      avatarColumn,
     });
   // Written to `:root`, not handed to the shell as props — see
   // `sidebar-shell.ts` for the defect that forces it and the evidence behind
@@ -1583,7 +1570,7 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
     applySidebarShell(document.documentElement, {
       width: sidebarPaintWidth(),
       collapsed: effectiveSidebarCollapsed(),
-      column: avatarColumn && railAvailable,
+      column: railAvailable,
       sidebar,
     });
   });
@@ -2202,15 +2189,6 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
   // written on release. `dockDragging` is also what holds the mount open —
   // pointer capture survives the panel going off-stage, but not unmounting.
   const dockDragging = dockWidthLive.value !== null;
-  // Tauri-only, and the host probe is a RUNTIME check, so one renderer bundle
-  // still serves both hosts (spec §6). The Electron host must never tell a
-  // user to leave Electron.
-  const tauriHost = isTauriHost();
-  const showNotice = shouldShowNotice({
-    tauriHost,
-    dismissed: noticeDismissed.value,
-  });
-  const noticeRowShown = showNotice;
   const dockPainted = dockPaintedOpen({
     ...dockState,
     dragCollapsed: dockDragging ? dockCollapseArmed.value : null,
@@ -2383,7 +2361,7 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
           <AgentRail
             newPaneDrop={newPaneDrop}
             footer={railToolsMounted ? railActions : undefined}
-            collapsed={avatarColumn && effectiveSidebarCollapsed()}
+            collapsed={effectiveSidebarCollapsed()}
             usageSummary={
               effectiveSidebarCollapsed() ? null : (
                 <RailAgentLimits onOpenUsage={() => openDockTab("usage")} />
@@ -2448,7 +2426,7 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
             // open on purpose, so the painted state answers instead and the
             // terminals reclaim the space the moment the gesture arms.
             (dockDragging ? dockPainted : dockPresence.mounted) ? "stage--dock" : ""
-          } ${sidebar ? "stage--strip" : ""} ${noticeRowShown ? "stage--notice" : ""}`}
+          } ${sidebar ? "stage--strip" : ""}`}
           // One number, two consumers: the panel's own column and the inset
           // that keeps the terminal grid clear of it. A drag updates the
           // live signal, so both move together instead of the terminals
@@ -2536,18 +2514,6 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
                 />
               ) : null}
             </div>
-          ) : null}
-          {/* Spec §4: the first row of the stage's own content, BENEATH the
-              strip and above the terminal grid. Never above the strip — the
-              strip sits at `top: 0` and on macOS a hidden sidebar moves the
-              traffic-light inset onto it, so anything higher renders under
-              OS-painted window buttons. */}
-          {showNotice ? (
-            <MigrationBanner
-              onDismiss={() => {
-                noticeDismissed.value = true;
-              }}
-            />
           ) : null}
           <div class="stage__tabs" ref={stagesRef} />
           {agentLaunchPage.request.value !== null && (

@@ -4,9 +4,6 @@
 import { defineConfig } from "vitest/config";
 import preact from "@preact/preset-vite";
 
-// @ts-expect-error process is a nodejs global
-const host = process.env.TAURI_DEV_HOST;
-
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [preact()],
@@ -41,25 +38,13 @@ export default defineConfig(async () => ({
       },
     },
   },
-  // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
-  //
-  // 1. prevent Vite from obscuring rust errors
+  // `electron:dev` runs this server in the same terminal as the main process;
+  // clearing the screen would wipe its logs.
   clearScreen: false,
-  // 2. tauri expects a fixed port, fail if that port is not available
+  // `scripts/electron-dev-watch.mjs` loads the renderer from this fixed port,
+  // so a busy port must fail rather than drift.
   server: {
     port: 1420,
     strictPort: true,
-    host: host || false,
-    hmr: host
-      ? {
-          protocol: "ws",
-          host,
-          port: 1421,
-        }
-      : undefined,
-    watch: {
-      // 3. tell Vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
-    },
   },
 }));

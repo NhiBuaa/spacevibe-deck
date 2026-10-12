@@ -3,12 +3,11 @@
 # An UNSIGNED, local-only packaging path for running the Electron host as a
 # real app instead of a dev-server process. It produces no installer, no
 # updater metadata, no signing, no notarization and no publishing, and is
-# referenced by no release workflow — `.github/workflows/release.yml` still
-# builds Tauri, and switching what ships is a separate decision gated on
-# Gate A (Apple identity) and Gate C (Windows hardware).
+# referenced by no release workflow — shipping builds use
+# `electron-builder.release.yml`.
 #
 # Identity is deliberately NOT the shipping identity: `Deck Electron` /
-# `dev.spacevibe.deck.electron` cannot overwrite an installed Tauri
+# `dev.spacevibe.deck.electron` cannot overwrite an installed
 # `SpaceVibe Deck`, and it gets its own userData directory
 # (`~/Library/Application Support/Deck Electron`), which matches the
 # cutover's clean-install decision — no settings or workspace migration.
@@ -43,9 +42,7 @@ mac:
     - target: dir
   identity: null
   category: public.app-category.developer-tools
-  # `build/` does not exist in this repo, so the default icon lookup finds
-  # nothing; both hosts share the Tauri icon set.
-  icon: src-tauri/icons/icon.icns
+  icon: build/icon.icns
 
 # Windows preview target — UNSIGNED, and cross-built from macOS.
 #
@@ -62,7 +59,7 @@ win:
     - target: nsis
       arch:
         - x64
-  icon: src-tauri/icons/icon.ico
+  icon: build/icon.ico
 nsis:
   oneClick: false
   perMachine: false

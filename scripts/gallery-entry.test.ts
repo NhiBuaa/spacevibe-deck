@@ -82,7 +82,7 @@ describe("the gallery entry stays out of the app bundle", () => {
         ? (pkg as { scripts: Record<string, string> }).scripts
         : {};
     expect(scripts["prototype:gallery"]).toContain("/gallery.html");
-    // A shared port would make the gallery and `tauri dev` fight over 1420.
+    // A shared port would make the gallery and `electron:dev` fight over 1420.
     expect(scripts["prototype:gallery"]).not.toContain("1420");
   });
 

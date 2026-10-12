@@ -898,7 +898,7 @@ describe("workspacesOrphanedByClose — the project close's file sweep (close mo
   });
 });
 
-// DL-27.29, amending DL-18.9: collapsed on Electron paints the avatar column.
+// DL-27.29, amending DL-18.9: collapsed paints the avatar column.
 describe("the sidebar's painted width", () => {
   const open = {
     liveTabCount: 2,
@@ -906,7 +906,6 @@ describe("the sidebar's painted width", () => {
     dragCollapsed: null,
     savedWidth: 275,
     liveWidth: null,
-    avatarColumn: true,
   } as const;
 
   it("paints the user's width while open", () => {
@@ -914,17 +913,15 @@ describe("the sidebar's painted width", () => {
     expect(sidebarPaintWidth({ ...open, liveWidth: 310, dragCollapsed: false })).toBe(310);
   });
 
-  it("paints the avatar column when the setting is collapsed, on Electron only", () => {
+  it("paints the avatar column when the setting is collapsed", () => {
     const collapsed = { ...open, savedCollapsed: true };
     expect(sidebarPaintWidth(collapsed)).toBe(SIDEBAR_COLUMN_WIDTH);
-    expect(sidebarPaintWidth({ ...collapsed, avatarColumn: false })).toBe(SIDEBAR_HIDDEN_WIDTH);
   });
 
   it("lands a drag past the floor on the column, and leaves the pointer free to come back", () => {
     const armed = { ...open, liveWidth: 200, dragCollapsed: true };
     expect(sidebarPaintWidth(armed)).toBe(SIDEBAR_COLUMN_WIDTH);
     expect(sidebarPaintWidth({ ...armed, dragCollapsed: false })).toBe(200);
-    expect(sidebarPaintWidth({ ...armed, avatarColumn: false })).toBe(200);
   });
 
   it("opens a collapsed column by dragging it back out", () => {

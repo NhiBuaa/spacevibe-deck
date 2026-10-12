@@ -26,7 +26,7 @@ export function prepareDevElectron() {
   if (process.platform !== "darwin") return electronBin;
 
   const source = path.resolve(electronBin, "..", "..", "..");
-  const icon = path.join(ROOT, "src-tauri", "icons", "icon.icns");
+  const icon = path.join(ROOT, "build", "icon.icns");
   const sourcePlist = path.join(source, "Contents", "Info.plist");
   // A versioned cache avoids overwriting a runtime another dev process is using.
   const fingerprint = createHash("sha256")

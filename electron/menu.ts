@@ -1,15 +1,12 @@
 /**
  * Native menu, built from the action registry.
  *
- * R3 says menu code is generated from the registry and never hand-edited. On
- * Tauri that meant a codegen step producing `menu_registry.rs`, because Rust
- * could not import a TypeScript module. Electron's main process can, so the
- * menu is derived from `ACTION_REGISTRY` at RUNTIME instead — same single
- * source of truth, one fewer generated artifact to drift.
+ * R3 says the registry is the menu's single source of truth: the menu is
+ * derived from `ACTION_REGISTRY` at RUNTIME, so there is no generated artifact
+ * to drift.
  *
- * Accelerator translation mirrors `scripts/generate-menu.ts` exactly: an
- * accelerator is declared by CHARACTER, never by physical position, which is
- * why an action carrying a menu item must use a character binding.
+ * An accelerator is declared by CHARACTER, never by physical position, which
+ * is why an action carrying a menu item must use a character binding.
  */
 import { Menu, app, type MenuItemConstructorOptions } from "electron";
 import {

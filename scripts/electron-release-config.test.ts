@@ -21,8 +21,7 @@
  * The config is matched as text rather than parsed. `yaml` is not a declared
  * dependency of this repo — it only exists under `node_modules` as a
  * transitive of electron-builder — and adding one is a Forks decision in
- * AGENTS.md. `scripts/release-workflow.test.ts` locks `release.yml` the same
- * way, so this follows the pattern already in the tree.
+ * AGENTS.md.
  *
  * The package these lines produce is described in docs/operations/release.md.
  */
@@ -34,14 +33,12 @@ const LOCAL_CONFIG_PATH = new URL("../electron-builder.yml", import.meta.url);
 const ENTITLEMENTS_PATH = new URL("../build/entitlements.mac.plist", import.meta.url);
 const PACKAGE_PATH = new URL("../package.json", import.meta.url);
 const WORKFLOW_PATH = new URL("../.github/workflows/electron-release.yml", import.meta.url);
-const TAURI_WORKFLOW_PATH = new URL("../.github/workflows/release.yml", import.meta.url);
 
 const releaseConfig = readFileSync(RELEASE_CONFIG_PATH, "utf8");
 const localConfig = readFileSync(LOCAL_CONFIG_PATH, "utf8");
 const entitlements = readFileSync(ENTITLEMENTS_PATH, "utf8");
 const packageJson = JSON.parse(readFileSync(PACKAGE_PATH, "utf8"));
 const workflow = readFileSync(WORKFLOW_PATH, "utf8");
-const tauriWorkflow = readFileSync(TAURI_WORKFLOW_PATH, "utf8");
 
 /**
  * The config's own lines, with comments and blanks removed.
@@ -250,7 +247,7 @@ describe("the Electron release workflow", () => {
   });
 
   it("maps the one notarization secret onto the name app-builder-lib reads", () => {
-    // `release.yml` stores it as APPLE_PASSWORD; app-builder-lib reads
+    // The repository stores it as APPLE_PASSWORD; app-builder-lib reads
     // APPLE_APP_SPECIFIC_PASSWORD. Dropping the mapping fails the run at
     // notarization, minutes after the build started.
     expect(workflow).toContain("APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_PASSWORD }}");
@@ -361,20 +358,5 @@ describe("the Electron release workflow", () => {
     // the `electron` channel walks.
     expect(workflow).toContain('gh release edit "$TAG" --draft=false --latest');
     expect(workflow).toContain('gh release edit "$TAG" --draft=false --prerelease');
-  });
-
-  it("keeps Tauri off every automatic trigger", () => {
-    // `release.yml` stays for manual hotfixes but must never ship from a tag
-    // push again — tags ship Electron now. The freeze job remains as
-    // defense-in-depth should a push trigger ever be reintroduced.
-    const trigger = tauriWorkflow.slice(
-      tauriWorkflow.indexOf("\non:"),
-      tauriWorkflow.indexOf("permissions:"),
-    );
-    expect(trigger).toContain("workflow_dispatch:");
-    expect(trigger).not.toContain("push:");
-    expect(trigger).not.toContain("tags:");
-    expect(tauriWorkflow).toContain("release-freeze:");
-    expect(tauriWorkflow).toContain("Refuse to ship from a tag push");
   });
 });

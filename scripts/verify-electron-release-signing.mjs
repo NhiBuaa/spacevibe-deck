@@ -1,12 +1,11 @@
 /**
  * Refuse to start a signed release build that cannot possibly finish.
  *
- * Modelled on `verify-macos-release-signing.mjs`, which does the same job for
- * the Tauri path. The variable names differ on purpose, and that difference is
- * the whole reason this script exists: app-builder-lib reads
- * APPLE_APP_SPECIFIC_PASSWORD (MacTargetHelper.getNotarizeOptions), while
- * Tauri's workflow reads APPLE_PASSWORD. A run that forgets the mapping builds
- * and signs for ten minutes and only then fails, at notarization.
+ * The variable names are the whole reason this script exists: app-builder-lib
+ * reads APPLE_APP_SPECIFIC_PASSWORD (MacTargetHelper.getNotarizeOptions),
+ * while the repository secret is APPLE_PASSWORD. A run that forgets the
+ * mapping builds and signs for ten minutes and only then fails, at
+ * notarization.
  *
  * It also reads the keychain, because a missing identity does NOT fail a
  * build: electron-builder logs `skipped macOS application code signing` and

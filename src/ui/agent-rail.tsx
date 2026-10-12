@@ -21,10 +21,7 @@ import { requestSessionTitles, sessionEntries } from "../sessions/sessions-store
 import { focusCheckout, WorktreeCard } from "./worktree-card";
 import { needsUser } from "./worktree-card-row";
 import type { CardActions } from "./worktree-card-menus";
-import { RepositoryRail } from "./repository-rail";
-import { SidebarNewButton } from "./sidebar-toggle";
 import type { NewPaneDropDeps } from "./new-pane-drag";
-import { isTauriHost } from "../updater/migration-notice";
 import { WorkspaceIcon } from "./workspace-icon";
 import { buildRailAvatars } from "./agent-rail-collapsed-model";
 import { RailAvatarColumn } from "./agent-rail-column";
@@ -544,28 +541,5 @@ function WorktreeCardRail(props: AgentRailProps) {
 }
 
 export function AgentRail(props: AgentRailProps) {
-  if (isTauriHost()) {
-    return (
-      <RepositoryRail
-        header={
-          <div class="sidebar-launcher">
-            <SidebarNewButton
-              disabled={props.legacy.openWorkspaceDisabled}
-              onOpenWorkspace={props.legacy.onOpenWorkspace}
-              newPaneDrop={props.newPaneDrop}
-            />
-          </div>
-        }
-        onSelectTab={props.onSelectTab}
-        onCloseTab={props.onCloseTab}
-        onOpenWorkspace={props.legacy.onOpenWorkspace}
-        openWorkspaceDisabled={props.legacy.openWorkspaceDisabled}
-        onFocusAttention={props.legacy.onFocusAttention}
-        onResumeWorktree={props.legacy.onResumeWorktree}
-        showAgentPresence={false}
-        fileController={props.fileController}
-      />
-    );
-  }
   return <WorktreeCardRail {...props} />;
 }

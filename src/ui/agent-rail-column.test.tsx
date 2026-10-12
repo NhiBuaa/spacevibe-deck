@@ -310,15 +310,6 @@ describe("AgentRail collapsed (DL-27.29)", () => {
       avatars().map((avatar) => avatar.querySelector(".asr-avatar__initials")?.textContent),
     ).toEqual(["De", "Ap"]);
   });
-
-  it("keeps Tauri on the legacy repository rail, which hides instead", async () => {
-    vi.stubGlobal("__TAURI_INTERNALS__", {});
-    mount({ collapsed: true });
-    await settle();
-
-    expect(host.querySelector(".asr-avatar")).toBeNull();
-    expect(host.querySelector(".asr-rail--column")).toBeNull();
-  });
 });
 
 function press(element: Element | null | undefined): void {

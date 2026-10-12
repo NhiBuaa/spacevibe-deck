@@ -3,7 +3,6 @@ import { PresetThumb } from "../../presets/preset-thumb";
 import { AgentAttentionMark } from "../../ui/agent-attention-mark";
 import { DesktopChrome } from "../../ui/desktop-chrome";
 import { WorkspaceSpinner } from "../../ui/workspace-spinner";
-import { MigrationBanner } from "../../ui/migration-banner";
 import { activeTabIndex } from "../../terminal/tabs-store";
 import { SIDEBAR_COLUMN_WIDTH } from "../../ui/panel-resize";
 import { SidebarToggle } from "../../ui/sidebar-toggle";
@@ -236,19 +235,6 @@ export function ChromeSection() {
             <StateLabel>layout thumbnail</StateLabel>
             <PresetThumb layout={SEED_LAYOUT} />
           </span>
-        </div>
-      </Specimen>
-
-      <Specimen
-        name=".migration-banner"
-        note="DL §30 — the one notice the app raises about itself; Tauri-only, chrome-1 on the seam-divider, neutral close"
-        surface="bg"
-      >
-        {/* The banner is absolutely positioned against `.stage`, which is
-            `position: relative`. The specimen supplies the same frame so it
-            lands where it does on the stage instead of against the page. */}
-        <div style={{ position: "relative", height: "var(--notice-h)" }}>
-          <MigrationBanner onDismiss={() => {}} />
         </div>
       </Specimen>
     </>

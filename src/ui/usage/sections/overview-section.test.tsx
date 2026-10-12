@@ -2,11 +2,6 @@
 import { render } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-// The section imports the usage store, whose client reaches `invoke`; stub it
-// so the tree mounts under jsdom (the workspace-sidebar.test.tsx idiom).
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(async () => null) }));
-
 import { EMPTY_COUNTERS, type UsageBucket, type UsageSnapshot } from "../../../lib/usage-snapshot";
 import { PRICING_SNAPSHOT_DATE } from "../../../lib/usage-pricing-snapshot";
 import { dotColor } from "../../../lib/process-info";

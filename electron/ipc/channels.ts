@@ -106,10 +106,7 @@ export const CHANNELS = {
   abortTransfer: "abort_transfer",
   beginUpdateCheck: "begin_update_check",
   endUpdateCheck: "end_update_check",
-  // Auto-update. Electron-only, unlike the two names above: Tauri reaches its
-  // own updater plugin from the renderer
-  // (`src/updater/tauri-updater-adapter.ts`) and never through IPC, so no
-  // `#[tauri::command]` counterpart exists or should. All three are
+  // Auto-update. All three are
   // zero-payload — the renderer names no version, no URL and no file; the
   // feed and the pending update live in `electron/updater/updater.ts`.
   updateCheck: "update_check",

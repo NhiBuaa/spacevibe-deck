@@ -1,23 +1,20 @@
 name: CI
 
 # A change that touches only the landing (`marketing/**`) runs `landing.yml`
-# instead, and one that touches only prose runs nothing. The Tauri host is
-# feature-frozen, so its Rust checks run from `tauri.yml` only when
-# `src-tauri/**` changes. A change touching several of these runs each.
+# instead, and one that touches only prose runs nothing. A change touching
+# both runs each.
 on:
   push:
     branches: [main]
     paths-ignore:
       - "marketing/**"
       - ".github/workflows/landing.yml"
-      - ".github/workflows/tauri.yml"
       - "docs/**"
       - "**/*.md"
   pull_request:
     paths-ignore:
       - "marketing/**"
       - ".github/workflows/landing.yml"
-      - ".github/workflows/tauri.yml"
       - "docs/**"
       - "**/*.md"
   workflow_dispatch:
@@ -46,9 +43,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Check menu_registry.rs is up to date
-        run: npm run generate:menu:check
 
       # `max-lines` is a warning in `.oxlintrc.json` itself, not by a flag here:
       # the 101 pre-existing over-length files stay a visible backlog (the rule
@@ -117,22 +111,11 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
-        with:
-          components: rustfmt
-
       - name: Install dependencies
         run: npm ci
 
-      - name: Check menu_registry.rs is up to date
-        run: npm run generate:menu:check
-
       - name: Test
         run: npm test
-
-      - name: Test Windows bundle validator
-        run: node --test scripts/verify-windows-bundle.test.mjs
 
       - name: Build frontend
         run: npm run build
@@ -145,70 +128,6 @@ jobs:
       - name: Typecheck and bundle the Electron main process
         run: npm run electron:build
 
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-        with:
-          workspaces: src-tauri -> target
-
-      - name: Check Rust formatting
-        run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
-
-      - name: Rust tests
-        run: cargo test --locked --manifest-path src-tauri/Cargo.toml
-
-      - name: Build Windows desktop
-        run: npm run tauri build -- --no-bundle --ci
-
-  windows-engineering-bundle:
-    if: github.event_name == 'workflow_dispatch'
-    needs: windows-check
-    runs-on: windows-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Require a private repository
-        shell: pwsh
-        env:
-          REPOSITORY_PRIVATE: ${{ github.event.repository.private }}
-        run: |
-          if ($env:REPOSITORY_PRIVATE -ne "true") {
-            throw "Unsigned Windows artifacts may only be built in a private repository."
-          }
-
-      - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
-      - name: Setup Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-        with:
-          workspaces: src-tauri -> target
-
-      - name: Build unsigned Windows setup
-        run: npm run tauri build -- --ci
-
-      - name: Validate Windows bundle
-        run: npm run verify:windows-bundle -- src-tauri/target/release/bundle
-
-      - name: Upload private engineering preview
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: spacevibe-deck-windows-engineering-preview
-          path: src-tauri/target/release/bundle/nsis/*-setup.exe
-          if-no-files-found: error
-          retention-days: 7
-
   # Build the Electron host's Windows installer ON WINDOWS.
   #
   # It was cross-built from a Mac to get the first preview out, and that path
@@ -217,10 +136,9 @@ jobs:
   # so the cross-build only worked with the rebuild disabled and the shipped
   # prebuilds taken on trust. Here the native step runs for real.
   #
-  # No private-repository guard, unlike `windows-engineering-bundle` above:
-  # `release.yml` already publishes an unsigned Windows preview installer from
-  # this public repo, and the owner published the Electron preview the same way
-  # on 2026-08-18. The artifact is still unsigned and SmartScreen still warns.
+  # No private-repository guard: the owner published the unsigned Electron
+  # preview from this public repo on 2026-08-18. The artifact is still unsigned
+  # and SmartScreen still warns.
   #
   # `workflow_dispatch` only — a 119 MB artifact on every push is waste.
   #
@@ -229,8 +147,7 @@ jobs:
   # of them about the Electron host: POSIX file modes, symlink realpath,
   # a vendored bundle hash, and `pty/info.test.ts` fixtures that hand POSIX
   # rows to whatever platform module the host resolves. Gating packaging behind
-  # it would mean packaging never runs, which is what already happened to
-  # `windows-engineering-bundle` above.
+  # it would mean packaging never runs.
   windows-electron-package:
     if: github.event_name == 'workflow_dispatch'
     runs-on: windows-latest
