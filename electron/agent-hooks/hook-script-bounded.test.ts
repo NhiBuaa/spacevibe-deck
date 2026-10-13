@@ -1,4 +1,8 @@
+import { spawn } from "node:child_process";
+import fs from "node:fs/promises";
 import http from "node:http";
+import os from "node:os";
+import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { hookScriptSource } from "./claude-hooks-file";
 import {
@@ -169,5 +173,62 @@ describe.skipIf(process.platform === "win32")("claude hook script — bounded ev
       await runHookScript(hookScriptSource(), { env, event, stdin });
       expect(posts, event).toHaveLength(1);
     }
+  });
+});
+
+/** Run the script with `env` as the whole environment, answering its exit code and stdout. */
+function runCapturingStdout(env: Record<string, string>, event: string, stdin: string) {
+  return new Promise<{ code: number | null; stdout: string }>((resolve, reject) => {
+    const child = spawn("/bin/sh", ["-c", hookScriptSource(), "deck-hook.sh", event], { env });
+    let stdout = "";
+    child.stdout.on("data", (chunk: Buffer) => (stdout += chunk));
+    child.on("error", reject);
+    child.on("close", (code) => resolve({ code, stdout }));
+    child.stdin.on("error", () => {});
+    child.stdin.end(stdin);
+  });
+}
+
+// A `write-out` in the user's ~/.curlrc would print to stdout, which Claude adds to the
+// conversation on these two events, and a `proxy` there would receive the pane token.
+describe.skipIf(process.platform === "win32")("claude hook script — the user's ~/.curlrc", () => {
+  const scratch: string[] = [];
+  afterEach(async () => {
+    await Promise.all(scratch.splice(0).map((dir) => fs.rm(dir, { recursive: true })));
+  });
+
+  /** A fake HOME, Deck's listener and a proxy listener that should never be reached. */
+  async function setup() {
+    const home = await fs.mkdtemp(path.join(os.tmpdir(), "deck-hook-curlrc-"));
+    scratch.push(home);
+    const deck = await startListener();
+    const proxy = await startListener();
+    const env = {
+      PATH: "/usr/bin:/bin",
+      HOME: home,
+      DECK_PANE_ID: "7",
+      DECK_HOOK_TOKEN: "secret",
+      DECK_HOOK_PORT: String(deck.port),
+      NO_PROXY: "",
+      no_proxy: "",
+    };
+    return { deck, proxy, env, proxyUrl: `http://127.0.0.1:${proxy.port}` };
+  }
+
+  // One bounded and one forwarded event: each path runs its own curl.
+  const EVENTS = [
+    ["UserPromptSubmit", payload("UserPromptSubmit", { prompt: "hi" })],
+    ["SessionStart", payload("SessionStart", { source: "startup" })],
+  ];
+
+  it.each(EVENTS)("ignores ~/.curlrc and prints nothing on %s", async (event, stdin) => {
+    const { deck, proxy, env, proxyUrl } = await setup();
+    await fs.writeFile(
+      path.join(env.HOME, ".curlrc"),
+      `write-out = "INJECTED %{http_code}\\n"\nproxy = ${proxyUrl}\n`,
+    );
+    expect(await runCapturingStdout(env, event, stdin)).toEqual({ code: 0, stdout: "" });
+    expect(proxy.posts).toEqual([]);
+    expect(deck.posts).toHaveLength(1);
   });
 });
