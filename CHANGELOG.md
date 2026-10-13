@@ -7,6 +7,57 @@ the release PR, and frozen at the tag — never an auto-generated commit list.
 
 ## Unreleased
 
+- **OpenCode reports its status by default.** Signals is now on for OpenCode: Deck loads a
+  small plugin into OpenCode in its panes, so a turn shows as working, a permission request or
+  a question shows as needing you, and the end of a turn shows as done. While it is on, OpenCode
+  in a Deck pane uses Deck's config directory (`OPENCODE_CONFIG_DIR`), so agents, commands and
+  plugins from your own `OPENCODE_CONFIG_DIR` do not load there; switch it off in Settings →
+  Agents if you rely on them. Deck no longer reserves a port for OpenCode. Electron only, macOS
+  and Linux.
+
+- **Codex reports its status by default.** Signals is now on for Codex too: a turn shows as
+  working when you send a prompt, an approval or a question shows as needing you, and the end
+  of a turn shows as done. Deck adds its hooks to `~/.codex/hooks.json`, beside any of yours;
+  Codex started outside Deck may ask once whether to trust them, and since they do nothing
+  outside a Deck pane, either answer is fine. In a Deck pane Codex now starts with
+  `--dangerously-bypass-hook-trust`, so enabled hooks run there without Codex's hook review,
+  and with `--no-daemon`, so those sessions do not appear in `codex agents` or remote control.
+  If you had switched Codex's Signals off, it comes back on once with this update; switch it
+  off again in Settings → Agents. Electron only, macOS and Linux.
+
+- **Claude Code reports its status by default.** Signals is now on for Claude Code, so the rail
+  shows a turn as working the moment you send a prompt, keeps it working through quiet tool
+  runs and large tool output, and clears a permission wait as soon as you answer it. Pressing
+  Escape or Ctrl+C in the pane clears the working mark at once instead of leaving it for two
+  minutes. Deck adds its hooks to `~/.claude/settings.json`, beside any of yours, and creates
+  the file if it does not exist. If you had switched Claude Code's Signals off, it comes back
+  on once with this update; switch it off again in Settings → Agents if you prefer. Electron
+  only, macOS and Linux.
+
+- **An agent run by another agent no longer takes over its pane's status.** When Claude ran
+  `codex exec` or `claude -p` from a tool call, the inner run could claim the pane, and the
+  outer turn's end was then ignored. Panes now start through Deck's own startup files, which
+  load yours first (zsh, bash and fish), so `claude`, `codex` and `opencode` typed in a pane
+  run through small Deck wrappers that tell the outer agent from the inner one. Your PATH
+  order, aliases and dotfiles are unchanged; a bash pane now loads your login files itself
+  instead of starting as a login shell. macOS and Linux, Electron only.
+
+- **A new Quick Launch page.** Agents are larger tiles: press one to split it beside your
+  pane, or use the ⊕ in its corner for a new space. Hover or focus a tile to see the exact
+  command it will run, and pick another launch profile for this visit from the chip beside
+  it. Agents you have not installed show on the page with Install. A launch that fails before
+  it opens shows why, with Retry. The heading, the Add agent card and the footer are gone;
+  choose which agents show in Settings → Agents. Electron only.
+
+- **See a changed file's diff beside the Explorer.** Pressing a file in Changes now opens
+  its diff against the last commit in a column beside the Explorer instead of opening the
+  file: side by side when there is room, unified when there is not, with long unchanged
+  stretches folded. In the column, n and p move between changes, ] and [ between files, and
+  Esc closes it; Open file shows the file itself. Electron only.
+
+- **Changes counts stay in view.** The Changes switch in the file explorer shows how many
+  lines the checkout added and removed while you browse Files, not only once you open it.
+
 ## 2.10.0
 
 This update stops undo from emptying a file you just opened, lets you install a
