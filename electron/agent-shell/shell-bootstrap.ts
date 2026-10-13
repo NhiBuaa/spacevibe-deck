@@ -6,17 +6,20 @@
  *
  * - zsh: `-l` with `ZDOTDIR` pointing at Deck's dotfiles. Each one sources the
  *   user's file of the same name, then hands startup back to the next Deck
- *   file. `.zshrc` and `.zlogin` add the bin directory and keep it from being
- *   rewritten away by a `precmd` hook.
+ *   file. `.zshrc` and `.zlogin` add the bin directory and move it back to the
+ *   front of `PATH` from a `precmd` hook.
  * - bash: `--rcfile` sourcing the login files itself, so it is not a login
  *   shell any more.
  * - fish: `-l --init-command` with a list-aware prepend.
  * - anything else: no bootstrap, `$SHELL -l` as before.
  *
- * Two deliberate departures from Superset's zsh files:
+ * Three deliberate departures from Superset's zsh files:
  * - After the user's file runs, the `ZDOTDIR` it left behind is remembered in
  *   `DECK_ORIG_ZDOTDIR`. A `.zshenv` that relocates the dotfiles (the XDG
  *   `~/.config/zsh` layout) therefore still reaches the user's real `.zshrc`.
+ * - macOS `/etc/zshrc` runs while `ZDOTDIR` is still Deck's and derives
+ *   `HISTFILE` from it; the `.zshrc` stage points that value back at the user's
+ *   history before their `.zshrc` runs.
  * - The shell never gets a readiness marker or a prompt; Deck reads its own.
  */
 import os from "node:os";
@@ -112,18 +115,18 @@ function prependBinFunction(binDir: string): string {
 }
 
 /**
- * A zsh `precmd` hook re-adding the bin directory. mise, asdf and similar
- * rebuild PATH in their own `precmd`; ours stays last so it wins.
+ * A zsh `precmd` hook moving the bin directory back to the front. mise and asdf
+ * rebuild PATH in their own `precmd`, and `nvm use` or `conda activate` prepend
+ * at the prompt, either way ahead of the wrapper; ours stays last so it wins.
+ * `emulate -L` keeps a user's `KSH_ARRAYS` or `NO_UNSET` out of the array code.
  */
 function zshPrecmdHook(binDir: string): string {
   const dir = shellQuote(binDir);
   return [
     "typeset -ga precmd_functions 2>/dev/null || true",
     "_deck_ensure_path() {",
-    '  case ":$PATH:" in',
-    `    *:${dir}:*) ;;`,
-    `    *) PATH=${dir}:"$PATH" ;;`,
-    "  esac",
+    "  emulate -L zsh",
+    `  [[ $path[1] == ${dir} ]] || path=(${dir} \${path:#${dir}})`,
     "}",
     "{",
     "  precmd_functions=(${precmd_functions:#_deck_ensure_path} _deck_ensure_path)",
@@ -132,17 +135,31 @@ function zshPrecmdHook(binDir: string): string {
 }
 
 /**
+ * `/etc/zshrc` (macOS) sets `HISTFILE=${ZDOTDIR:-$HOME}/.zsh_history` while
+ * `ZDOTDIR` is Deck's, which would move the pane's history into userData. Only
+ * that exact value is repointed, to where the same line puts it without Deck.
+ */
+function zshHistfileRepair(zshDir: string): string {
+  return [
+    `if [[ "\${HISTFILE-}" == ${shellQuote(`${zshDir}/.zsh_history`)} ]]; then`,
+    '  HISTFILE="${DECK_ORIG_ZDOTDIR:-$HOME}/.zsh_history"',
+    "fi",
+  ].join("\n");
+}
+
+/**
  * One Deck stage of zsh's startup: run the user's file of the same name with
  * their `ZDOTDIR` in place, then put Deck's `ZDOTDIR` back so zsh continues
- * into Deck's next file. `after` runs once the user's variables are restored;
- * `last` leaves the user's `ZDOTDIR` in place instead (the final stage).
+ * into Deck's next file. `before` runs just before the user's file; `after`
+ * runs once the user's variables are restored; `last` leaves the user's
+ * `ZDOTDIR` in place instead (the final stage).
  */
 function zshStage(
   file: string,
   zshDir: string,
-  options: { after?: string; guard?: string; last?: boolean },
+  options: { before?: string; after?: string; guard?: string; last?: boolean },
 ) {
-  const { after, guard, last = false } = options;
+  const { before, after, guard, last = false } = options;
   const userFile = `"$ZDOTDIR/${file}"`;
   const source = `[[ -f ${userFile} ]] && source ${userFile}`;
   return [
@@ -150,6 +167,7 @@ function zshStage(
     SAVE_ENV,
     // Empty or unset means the home directory, as in zsh itself.
     'export ZDOTDIR="${DECK_ORIG_ZDOTDIR:-$HOME}"',
+    ...(before === undefined ? [] : [before]),
     guard === undefined ? source : `if ${guard}; then\n  ${source}\nfi`,
     '_deck_user_zdotdir="${ZDOTDIR:-$HOME}"',
     RESTORE_ENV,
@@ -172,7 +190,7 @@ export function zshDotfiles(paths: AgentShellPaths): Record<string, string> {
   return {
     ".zshenv": zshStage(".zshenv", dir, {}),
     ".zprofile": zshStage(".zprofile", dir, {}),
-    ".zshrc": zshStage(".zshrc", dir, { after: repair }),
+    ".zshrc": zshStage(".zshrc", dir, { before: zshHistfileRepair(dir), after: repair }),
     ".zlogin": zshStage(".zlogin", dir, {
       after: repair,
       guard: "[[ -o interactive ]]",

@@ -71,12 +71,17 @@ Tauri host are untouched.
     file of the same name and hands `ZDOTDIR` back to the next Deck file. The user's
     `ZDOTDIR` is remembered in `DECK_ORIG_ZDOTDIR` after each file runs, so a `.zshenv` that
     relocates the dotfiles (`~/.config/zsh`) still reaches the real `.zshrc`. `.zshrc` and
-    `.zlogin` also re-prepend the bin directory in a `precmd` hook, because mise and asdf
-    rebuild `PATH` there.
+    `.zlogin` also move the bin directory back to the front of `PATH` in a `precmd` hook,
+    because mise and asdf rebuild `PATH` there and `nvm use` or `conda activate` prepend at
+    the prompt. The `.zshrc` stage repoints `HISTFILE` when it is Deck's own
+    `<zsh dir>/.zsh_history`: macOS `/etc/zshrc` derives it from `ZDOTDIR` while that is
+    still Deck's, which would move the pane's history into userData.
   - bash runs `--rcfile`, which sources `/etc/profile`, the first of `~/.bash_profile`,
     `~/.bash_login` and `~/.profile`, then `~/.bashrc`, then prepends the bin directory. It
     is therefore **not a login shell** any more.
   - fish keeps `-l` and prepends the bin directory with `--init-command`.
+  - bash and fish prepend once at startup and have no prompt hook, so a later `nvm use` or
+    `conda activate` puts the real CLI ahead of the wrapper until the next pane.
   - Any other shell gets no bootstrap and no wrappers on `PATH`.
 - **Identity is first-wins.** The outermost wrapper exports `DECK_AGENT_ID`. An agent that
   launches another from its tool calls passes through a second wrapper, which only sets

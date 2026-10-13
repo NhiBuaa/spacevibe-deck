@@ -119,6 +119,10 @@ constants that currently switch behaviour off and are meant to be flipped back.
   common `~/.bash_profile` that ends with `source ~/.bashrc`), because the bootstrap rcfile
   sources the profile and then `.bashrc` itself. Superset does the same; guard-free rc files
   that append to `PATH` or start a program will see the duplicate.
+- **A pane's zsh runs the system rc files under Deck's `ZDOTDIR`.** Anything `/etc/zshrc`
+  derives from `ZDOTDIR` lands in userData: macOS sets `HISTFILE` there, which the `.zshrc`
+  stage repoints, and looks up `.zkbd` there, which nothing repoints. A new stage or a
+  reordered one has to keep the `HISTFILE` repair before the user's `.zshrc`.
 - **An agent wrapper must never stay a parent process.** It ends in `exec`, and the pane's
   classification and Claude's registry join both break if it does; see
   [Shell bootstrap and agent wrappers](terminal.md#shell-bootstrap-and-agent-wrappers).

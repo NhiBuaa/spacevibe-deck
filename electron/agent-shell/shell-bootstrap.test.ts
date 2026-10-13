@@ -249,11 +249,74 @@ describe.skipIf(process.platform === "win32")("zsh startup", () => {
     expect(field(result, "claude")).toBe(path.join(paths.binDir, "claude"));
   });
 
+  // What `nvm use` or `conda activate` does at the prompt, and mise in a `precmd`: the
+  // user's own `claude` lands ahead of a wrapper that is still on PATH.
+  it.skipIf(zsh === null)("moves the wrapper back in front of a directory prepended later", () => {
+    const home = makeHome({
+      ".zshrc": [
+        "setopt no_unset",
+        '_mise_like() { path=("$HOME/c" ${path:#"$HOME/c"}) }',
+        "precmd_functions+=(_mise_like)",
+        "",
+      ].join("\n"),
+    });
+    const result = startup(zsh!, home, [
+      "for f in $precmd_functions; do $f; done",
+      'echo "T:afterPrecmd=$(command -v claude)"',
+      'PATH="$HOME/c:$PATH"',
+      "for f in $precmd_functions; do $f; done",
+      'echo "T:afterPrompt=$(command -v claude)"',
+      'echo "T:path=$PATH"',
+    ]);
+    const wrapper = path.join(paths.binDir, "claude");
+    expect(field(result, "afterPrecmd")).toBe(wrapper);
+    expect(field(result, "afterPrompt")).toBe(wrapper);
+    expect(scratchEntries(field(result, "path"), home)).toEqual([
+      paths.binDir,
+      path.join(home, "c"),
+    ]);
+  });
+
+  // macOS /etc/zshrc sets HISTFILE from ZDOTDIR while it is still Deck's. The inherited
+  // value stands in for that line where the system file does not set it (Linux).
+  const deckHistory = () => ({ HISTFILE: `${paths.zshDir}/.zsh_history` });
+  const historyProbe = ['echo "T:histfile=$HISTFILE"'];
+
+  it.skipIf(zsh === null)("keeps the user's history file out of Deck's ZDOTDIR", () => {
+    // Oh My Zsh's lib/history.zsh keeps a HISTFILE that is already set.
+    const home = makeHome({ ".zshrc": '[ -z "$HISTFILE" ] && HISTFILE="$HOME/.zsh_history"\n' });
+    const result = startup(zsh!, home, historyProbe, deckHistory());
+    expect(field(result, "histfile")).toBe(path.join(home, ".zsh_history"));
+  });
+
+  it.skipIf(zsh === null)("puts the history file in a ZDOTDIR a .zshenv relocates", () => {
+    const home = makeHome({ ".zshenv": 'export ZDOTDIR="$HOME/.config/zsh"\n' });
+    const result = startup(zsh!, home, historyProbe, deckHistory());
+    expect(field(result, "histfile")).toBe(path.join(home, ".config", "zsh", ".zsh_history"));
+  });
+
+  it.skipIf(zsh === null)("leaves a history file the user's .zshrc names", () => {
+    const home = makeHome({ ".zshrc": 'HISTFILE="$HOME/elsewhere"\n' });
+    const result = startup(zsh!, home, historyProbe, deckHistory());
+    expect(field(result, "histfile")).toBe(path.join(home, "elsewhere"));
+  });
+
   it("renders four dotfiles that each end by handing startup on", () => {
     const files = zshDotfiles(PATHS);
     expect(Object.keys(files).sort()).toEqual([".zlogin", ".zprofile", ".zshenv", ".zshrc"]);
     expect(files[".zlogin"]).toContain('export ZDOTDIR="$_deck_user_zdotdir"');
     expect(files[".zshenv"]).toContain(`export ZDOTDIR='${PATHS.zshDir}'`);
+  });
+
+  it("repoints only Deck's own history path, in .zshrc before the user's file runs", () => {
+    const files = zshDotfiles(PATHS);
+    const repair = `if [[ "\${HISTFILE-}" == '${PATHS.zshDir}/.zsh_history' ]]; then\n  HISTFILE="\${DECK_ORIG_ZDOTDIR:-$HOME}/.zsh_history"\nfi`;
+    const zshrc = files[".zshrc"];
+    expect(zshrc).toContain(repair);
+    expect(zshrc.indexOf(repair)).toBeLessThan(zshrc.indexOf('source "$ZDOTDIR/.zshrc"'));
+    for (const other of [".zshenv", ".zprofile", ".zlogin"]) {
+      expect(files[other]).not.toContain("HISTFILE");
+    }
   });
 });
 
