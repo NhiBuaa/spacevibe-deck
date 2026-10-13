@@ -205,4 +205,56 @@ describe("createCodexCapabilities", () => {
       });
     });
   });
+
+  describe("forLaunch", () => {
+    const WAITED = "waited";
+    // Settles after every microtask, so only an answer that never waited on a probe beats it.
+    const nextTask = () => new Promise<string>((resolve) => setTimeout(resolve, 0, WAITED));
+
+    function gated() {
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      const caps = createCodexCapabilities({
+        discover: async () => "/bin/codex",
+        identity: async () => "v1",
+        help: async () => {
+          await gate;
+          return HELP_0_162;
+        },
+      });
+      return { caps, release };
+    }
+
+    it("answers at once where a wrapper runs, while a probe is still in flight", async () => {
+      const { caps, release } = gated();
+      void caps.refresh();
+      expect(await Promise.race([caps.forLaunch(true), nextTask()])).toEqual({
+        bypassHookTrust: false,
+        noDaemon: false,
+      });
+      release();
+      await caps.settled();
+    });
+
+    it("waits for the probe in flight where no wrapper runs", async () => {
+      const { caps, release } = gated();
+      void caps.refresh();
+      const answer = caps.forLaunch(false);
+      expect(await Promise.race([answer, nextTask()])).toBe(WAITED);
+      release();
+      expect(await answer).toEqual({ bypassHookTrust: true, noDaemon: true });
+    });
+
+    it("never rediscovers where a wrapper runs, even after a probe that found nothing", async () => {
+      let clock = 0;
+      const discover = vi.fn(async () => null);
+      const caps = createCodexCapabilities({ discover, now: () => clock });
+      await caps.refresh();
+      clock += PROBE_RETRY_MS;
+      await caps.forLaunch(true);
+      expect(discover).toHaveBeenCalledTimes(1);
+      await caps.forLaunch(false);
+      expect(discover).toHaveBeenCalledTimes(2);
+    });
+  });
 });

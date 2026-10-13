@@ -445,20 +445,20 @@ registerServices({ labelOf, setRecording: menuState.setRecording });
 // ------------------------------------------------- Agent-signal adapters
 registerAgentSignals({
   config: async () => {
-    // A probe started by a Signals change must land before a launch reads the answer, and a
-    // Codex upgraded or downgraded since the last probe is probed again.
-    await codexCapabilities.settled();
-    await codexCapabilities.revalidate();
-    const codex = codexCapabilities.current();
+    const shellBootstrap =
+      hooksSupported() &&
+      agentShell !== null &&
+      bootstrapLaunch(process.env.SHELL || "/bin/zsh", agentShell) !== null;
+    // Where no wrapper runs, a probe started by a Signals change must land before a launch reads
+    // the answer, and a Codex upgraded or downgraded since the last probe is probed again. A
+    // wrapper probes for itself, so window init never waits on a login shell for it.
+    const codex = await codexCapabilities.forLaunch(shellBootstrap);
     return {
       // POSIX only: the hook script is `sh` + `curl`. Windows keeps the
       // fallback (spec §8) until a PowerShell script exists.
       claudeSettingsPath: null,
       hookPort: hookServer.port(),
-      shellBootstrap:
-        hooksSupported() &&
-        agentShell !== null &&
-        bootstrapLaunch(process.env.SHELL || "/bin/zsh", agentShell) !== null,
+      shellBootstrap,
       codexBypassHookTrust: codex.bypassHookTrust,
       codexNoDaemon: codex.noDaemon,
     };

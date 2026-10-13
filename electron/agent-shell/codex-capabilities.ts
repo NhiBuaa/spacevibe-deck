@@ -106,35 +106,51 @@ export function createCodexCapabilities(deps: CapabilitiesDeps = {}) {
     return queue;
   }
 
+  /**
+   * Re-probe when the binary last probed changed on disk (an upgrade or downgrade while Deck
+   * runs) or is gone, and do nothing otherwise: it is one `stat`, cheap enough for every
+   * launch. When the last attempt found nothing it is retried, at most once per
+   * `PROBE_RETRY_MS`, so a timeout under load or a Codex installed later is picked up.
+   */
+  function revalidate(): Promise<void> {
+    return enqueue(async () => {
+      if (probed === null) {
+        if (lastAttemptAt !== null && now() - lastAttemptAt >= PROBE_RETRY_MS) {
+          await discoverAndProbe();
+        }
+        return;
+      }
+      const known = probed;
+      let identity: string;
+      try {
+        identity = await identityOf(known.binary);
+      } catch {
+        await discoverAndProbe();
+        return;
+      }
+      if (identity !== known.identity) await probe(known.binary);
+    });
+  }
+
   return {
     current: (): CodexCapabilities => current,
     /** Resolves once every probe requested so far has finished. */
     settled: (): Promise<void> => queue,
     /** Rediscover and re-probe the installed Codex. Never rejects: a failure answers "accepts nothing". */
     refresh: (): Promise<void> => enqueue(discoverAndProbe),
+    revalidate,
     /**
-     * Re-probe when the binary last probed changed on disk (an upgrade or downgrade while Deck
-     * runs) or is gone, and do nothing otherwise: it is one `stat`, cheap enough for every
-     * launch. When the last attempt found nothing it is retried, at most once per
-     * `PROBE_RETRY_MS`, so a timeout under load or a Codex installed later is picked up.
+     * The answer a launch reads. Where the pane shell is bootstrapped (`wrapped`) the wrapper
+     * probes Codex at exec time and this answer goes unread, so it comes back at once rather
+     * than after a login shell. Otherwise every probe requested so far lands first, then
+     * `revalidate` runs.
      */
-    revalidate: (): Promise<void> =>
-      enqueue(async () => {
-        if (probed === null) {
-          if (lastAttemptAt !== null && now() - lastAttemptAt >= PROBE_RETRY_MS) {
-            await discoverAndProbe();
-          }
-          return;
-        }
-        const known = probed;
-        let identity: string;
-        try {
-          identity = await identityOf(known.binary);
-        } catch {
-          await discoverAndProbe();
-          return;
-        }
-        if (identity !== known.identity) await probe(known.binary);
-      }),
+    forLaunch: async (wrapped: boolean): Promise<CodexCapabilities> => {
+      if (!wrapped) {
+        await queue;
+        await revalidate();
+      }
+      return current;
+    },
   };
 }
