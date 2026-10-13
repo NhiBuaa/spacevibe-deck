@@ -77,7 +77,7 @@ describe("shellQuote", () => {
 
 describe("augmentLaunchCommand — codex without a wrapper (CX2)", () => {
   const bypass = { codexBypassHookTrust: true, codexNoDaemon: true };
-  const flags = "--no-daemon --enable hooks --dangerously-bypass-hook-trust";
+  const flags = "--no-daemon --dangerously-bypass-hook-trust";
   const augment = (command: string, over: Partial<AugmentContext> = {}) =>
     augmentLaunchCommand(command, context({ ...bypass, ...over })).command;
 
@@ -89,20 +89,20 @@ describe("augmentLaunchCommand — codex without a wrapper (CX2)", () => {
   });
 
   it("leaves --no-daemon off every non-interactive and remote form", () => {
-    const base = "--enable hooks --dangerously-bypass-hook-trust";
+    const base = "--dangerously-bypass-hook-trust";
     expect(augment("codex exec say hi")).toBe(`codex ${base} exec say hi`);
     expect(augment("codex review")).toBe(`codex ${base} review`);
   });
 
   it("omits --no-daemon when this Codex does not list it", () => {
     expect(augment("codex resume", { codexNoDaemon: false })).toBe(
-      "codex --enable hooks --dangerously-bypass-hook-trust resume",
+      "codex --dangerously-bypass-hook-trust resume",
     );
   });
 
   it("does not double what the user typed", () => {
     expect(augment("codex --dangerously-bypass-hook-trust --no-daemon")).toBe(
-      "codex --enable hooks --dangerously-bypass-hook-trust --no-daemon",
+      "codex --dangerously-bypass-hook-trust --no-daemon",
     );
     expect(augment("codex -- --dangerously-bypass-hook-trust")).toBe(
       `codex ${flags} -- --dangerously-bypass-hook-trust`,

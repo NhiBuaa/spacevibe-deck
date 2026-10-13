@@ -394,12 +394,15 @@ runs independently of the switch. Without hooks, API failures cannot produce the
   makes Codex ask the user to review hooks that did not change.
 - **The wrapper trusts Deck's hooks and keeps Codex out of its shared daemon.**
   [`codex-wrapper-branch.ts`](../../electron/agent-shell/codex-wrapper-branch.ts) adds
-  `--enable hooks --dangerously-bypass-hook-trust` to every launch in a pane, and `--no-daemon`
-  to the interactive forms (bare `codex`, `resume`, `fork`; not `exec`, `review` or `--remote`).
+  `--dangerously-bypass-hook-trust` to every launch in a pane, and `--no-daemon` to the
+  interactive forms (bare `codex`, `resume`, `fork`; not `exec`, `review` or `--remote`).
   - *Why the bypass:* without it every Codex session opens on a hook-review screen. It runs
     every enabled hook in every config layer, trusted or not; a hook the user disabled in
     `config.toml` still stays disabled. The owner accepted the rest
     ([RISK1](../specs/2026-10-11-agent-status-hooks-by-default.md#risks)).
+  - *Why not `--enable hooks`:* it would override a user's `[features] hooks = false` and run
+    every hook unreviewed. Hooks are on by default in every Codex that accepts the bypass, so
+    only a user who switched them off loses Signals, and that Codex row stays inferred.
   - *Why `--no-daemon`:* Codex 0.162 hosts an interactive session in a shared app-server daemon
     that runs hooks with the daemon's own environment, so they never reached the pane
     ([decision 4](../specs/2026-10-11-agent-status-hooks-by-default.md#decisions-owner-2026-10-11)).

@@ -193,9 +193,10 @@ below were spot-checked against the source.
   - *Check:* `codex-hooks` reconciliation tests keep existing groups in place; E2E: a Codex
     approval prompt shows `requested` without the BEL.
 - **CX2 — Every Codex launch in a pane skips the hook-trust review, as Superset.**
-  - The Codex wrapper adds `--enable hooks --dangerously-bypass-hook-trust` unless the
-    arguments before `--` already carry it. This covers typed commands, the launcher, resume
-    and restore.
+  - The Codex wrapper adds `--dangerously-bypass-hook-trust` unless the arguments before `--`
+    already carry it. This covers typed commands, the launcher, resume and restore. It does not
+    add `--enable hooks` (2026-10-13 release review): hooks are on by default in every Codex
+    that accepts the bypass, and the flag would override a user's `[features] hooks = false`.
   - Where no wrapper runs (other shells on macOS and Linux), the commands Deck composes carry
     the same flags through `launch-augment`. They are never written to a profile, the journal
     or the strip.
@@ -264,6 +265,7 @@ Where Deck departs from Superset, and why. Anything not listed here follows Supe
 | Host restart rediscovery, v1 fallback | manifest lookup per event | not adopted | Deck's hook server lives in main; a restart ends the panes too |
 | Subagent roster | tracked separately | dropped | no rail surface for it yet |
 | Project auto-trust, approval bypass default | on | not adopted | not part of status accuracy |
+| `--enable hooks` on Codex launches | added | not added | it overrides a user's `[features] hooks = false`; hooks are on by default wherever the bypass is accepted |
 | Codex shared app-server daemon | not handled; the wrapper adds no `--no-daemon` | `--no-daemon` on interactive launches; hooks from a tty-less host refused | the daemon runs hooks with its own env, so they never reach the pane (decision 4) |
 
 ## Delivery slices

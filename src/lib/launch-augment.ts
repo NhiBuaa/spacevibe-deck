@@ -126,8 +126,6 @@ export function augmentLaunchCommand(command: string, context: AugmentContext): 
             ...(form.interactive && !form.remote && !form.hasNoDaemon && context.codexNoDaemon
               ? [CODEX_NO_DAEMON_FLAG]
               : []),
-            "--enable",
-            "hooks",
             ...(form.hasBypass ? [] : [CODEX_BYPASS_FLAG]),
           ];
           return { command: insertCodexFlags(command, flags), sessionId };

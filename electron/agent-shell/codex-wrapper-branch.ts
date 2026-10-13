@@ -8,9 +8,11 @@
  *   credentials whether Codex Signals is on or off.
  * - Otherwise, while the runtime marker exists (Codex Signals is on), the real
  *   binary's `--help` decides what it accepts. Only a Codex that accepts the
- *   hook-trust bypass gets `--enable hooks --dangerously-bypass-hook-trust`,
- *   and only its interactive forms also get `--no-daemon` (see
- *   `src/lib/codex-launch-form.ts` for why). An older Codex runs unchanged.
+ *   hook-trust bypass gets `--dangerously-bypass-hook-trust`, and only its
+ *   interactive forms also get `--no-daemon` (see `src/lib/codex-launch-form.ts`
+ *   for why). An older Codex runs unchanged. `--enable hooks` is never added:
+ *   it would override a user's `[features] hooks = false`, and hooks are on by
+ *   default in every Codex that accepts the bypass.
  * - `-h`, `--help`, `-V` and `--version` pass through untouched.
  *
  * The argument classification mirrors `classifyCodexArgs`; both read the same
@@ -76,7 +78,6 @@ export function codexWrapperBranch(markerPath: string): string[] {
     "  case $help in",
     `    *${CODEX_BYPASS_FLAG}*)`,
     `      [ -n "$has_bypass" ] || set -- ${CODEX_BYPASS_FLAG} "$@"`,
-    '      set -- --enable hooks "$@"',
     '      if [ -n "$interactive" ] && [ -z "$has_no_daemon" ]; then',
     `        case $help in *${CODEX_NO_DAEMON_FLAG}*) set -- ${CODEX_NO_DAEMON_FLAG} "$@" ;; esac`,
     "      fi",
