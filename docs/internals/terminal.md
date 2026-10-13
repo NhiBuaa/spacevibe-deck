@@ -51,8 +51,8 @@ Ids are process-local integers from 1, never reused.
 On macOS and Linux, pane shells start through Deck-written files under `<userData>/agent-shell/`, so that
 `claude`, `codex` and `opencode` typed in a pane resolve to Deck's wrappers. They are
 rewritten atomically at every boot ([`provision.ts`](../../electron/agent-shell/provision.ts));
-if that fails, panes start a plain `$SHELL -l` and the wrappers are absent. Windows and the
-Tauri host are untouched.
+if that fails, panes start a plain `$SHELL -l` and the wrappers are absent. Windows is
+untouched.
 
 - **A wrapper must `exec` the real CLI.** Classification reads `ps args` of the tty's
   foreground process group, and Claude's session registry joins on the foreground pid. A
