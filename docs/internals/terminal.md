@@ -83,11 +83,17 @@ Tauri host are untouched.
   - bash and fish prepend once at startup and have no prompt hook, so a later `nvm use` or
     `conda activate` puts the real CLI ahead of the wrapper until the next pane.
   - Any other shell gets no bootstrap and no wrappers on `PATH`.
-- **Identity is first-wins.** The outermost wrapper exports `DECK_AGENT_ID`. An agent that
-  launches another from its tool calls passes through a second wrapper, which only sets
+- **Identity is first-wins.** The outermost wrapper exports `DECK_AGENT_ID` and its own pid
+  as `DECK_AGENT_PID`. An agent that launches another from its tool calls passes through a
+  second wrapper, which only sets `DECK_AGENT_NESTED`. A wrapper reached again in the same
+  pid is the same exec chain (a user's shim that execs `claude` by name) and keeps the
+  identity. With no `DECK_AGENT_ID` but an inherited `CLAUDECODE`, which Claude Code sets for
+  its tool subprocesses, the outer Claude skipped the wrapper, and the wrapper still sets
   `DECK_AGENT_NESTED`. Both hook scripts exit early when `DECK_AGENT_NESTED` is set or
-  `DECK_AGENT_ID` names the other agent, so the inner agent never rotates the generation or
-  draws marks on the outer one's row. `buildEnv` deletes both variables from the inherited
+  `DECK_AGENT_ID` names the other agent; the Claude script also exits when Claude's own
+  `CLAUDE_PID` differs from `DECK_AGENT_PID`, which catches a nested `claude` that skipped
+  the wrapper. The inner agent therefore never rotates the generation or draws marks on the
+  outer one's row. `buildEnv` deletes these variables and `CLAUDE_PID` from the inherited
   environment: a Deck started from an agent's tool call would otherwise mark every pane
   nested.
 - **The generation check is per pane and agent**

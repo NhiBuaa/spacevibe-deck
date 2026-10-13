@@ -69,9 +69,16 @@ describe("buildEnv — the pane's identity for its hooks (stage 2, 2026-09-03)",
     expect(env).not.toHaveProperty("DECK_HOOK_TOKEN");
   });
 
-  it("never passes an inherited agent identity to a pane", () => {
+  it("never passes an inherited agent identity, or Claude Code's marks, to a pane", () => {
     const env = buildEnv(
-      { DECK_AGENT_ID: "claude", DECK_AGENT_NESTED: "1", PATH: "/bin" },
+      {
+        DECK_AGENT_ID: "claude",
+        DECK_AGENT_NESTED: "1",
+        DECK_AGENT_PID: "41",
+        CLAUDECODE: "1",
+        CLAUDE_PID: "42",
+        PATH: "/bin",
+      },
       "1.2.3",
       {
         paneId: 7,
@@ -79,8 +86,16 @@ describe("buildEnv — the pane's identity for its hooks (stage 2, 2026-09-03)",
         hookPort: 1,
       },
     );
-    expect(env).not.toHaveProperty("DECK_AGENT_ID");
-    expect(env).not.toHaveProperty("DECK_AGENT_NESTED");
+    for (const name of [
+      "DECK_AGENT_ID",
+      "DECK_AGENT_NESTED",
+      "DECK_AGENT_PID",
+      "CLAUDECODE",
+      "CLAUDE_PID",
+    ]) {
+      expect(env).not.toHaveProperty(name);
+    }
+    expect(env.PATH).toBe("/bin");
     expect(buildEnv({ DECK_AGENT_ID: "codex" }, "1.2.3")).not.toHaveProperty("DECK_AGENT_ID");
   });
 

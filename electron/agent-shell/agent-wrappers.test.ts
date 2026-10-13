@@ -29,7 +29,7 @@ function install(dir: string, name: string, source: string, mode = 0o755): void 
 // Prints what the wrapper hands the real binary. `$$` is the shell's own pid, so
 // it equals the spawned pid only when the wrapper exec'd instead of forking.
 const FAKE_AGENT = `#!/bin/sh
-echo "pid=$$ id=$DECK_AGENT_ID nested=$DECK_AGENT_NESTED args=$*"
+echo "pid=$$ id=$DECK_AGENT_ID nested=$DECK_AGENT_NESTED agentpid=$DECK_AGENT_PID args=$*"
 `;
 
 interface Run {
@@ -80,7 +80,9 @@ describe.skipIf(process.platform === "win32")("agent wrapper", () => {
   it("execs the real binary: same pid, identity named, arguments intact", async () => {
     const result = await run({ PATH }, ["--flag", "two words"]);
     expect(result.code).toBe(0);
-    expect(result.stdout.trim()).toBe(`pid=${result.pid} id=claude nested= args=--flag two words`);
+    expect(result.stdout.trim()).toBe(
+      `pid=${result.pid} id=claude nested= agentpid=${result.pid} args=--flag two words`,
+    );
   });
 
   // `sh -u` is the user's exported `set -u`; the fake agent is not run under it.
@@ -122,6 +124,29 @@ describe.skipIf(process.platform === "win32")("agent wrapper", () => {
   it("marks a second wrapper nested and leaves the first identity alone", async () => {
     const result = await run({ PATH, DECK_AGENT_ID: "codex" });
     expect(result.stdout).toContain("id=codex nested=1");
+  });
+
+  it("marks a wrapper nested when the identity belongs to another process", async () => {
+    const result = await run({ PATH, DECK_AGENT_ID: "claude", DECK_AGENT_PID: "1" });
+    expect(result.stdout).toContain("id=claude nested=1 agentpid=1 ");
+  });
+
+  // The user's shim drops its own directory and execs `claude` by name, which reaches
+  // this wrapper again in the same process: still the pane's own agent.
+  it("keeps the identity when a shim execs back through the wrapper", async () => {
+    const SHIM_BIN = path.join(ROOT, "shim");
+    install(SHIM_BIN, "claude", `#!/bin/sh\nPATH='${DEV_BIN}:${REAL_BIN}' exec claude "$@"\n`);
+    const result = await run({ PATH: [DEV_BIN, SHIM_BIN, REAL_BIN].join(":") });
+    expect(result.stdout.trim()).toBe(
+      `pid=${result.pid} id=claude nested= agentpid=${result.pid} args=`,
+    );
+  });
+
+  // Claude Code sets CLAUDECODE for its tool subprocesses: an outer claude that
+  // skipped the wrapper is still the pane's agent, so this one is nested.
+  it("marks a wrapper nested under a Claude Code that bypassed the wrapper", async () => {
+    const result = await run({ PATH, CLAUDECODE: "1" });
+    expect(result.stdout).toContain("id= nested=1 agentpid= ");
   });
 
   it("drops a stale nested flag when no agent owns the pane", async () => {

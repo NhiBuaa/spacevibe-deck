@@ -77,6 +77,13 @@ describe.skipIf(process.platform === "win32")("opencode wrapper — OC1 plugin d
     expect(nested.config).toBe("/outer");
   });
 
+  // Claude Code sets CLAUDECODE for its tool subprocesses: an outer claude that skipped the
+  // wrapper still owns the pane, so this opencode is nested and gets no plugin.
+  it("leaves the configuration alone under a Claude Code that bypassed the wrapper", async () => {
+    const nested = await run({ marker: true, env: { CLAUDECODE: "1" } });
+    expect(nested.config).toBe("unset");
+  });
+
   it("adds nothing when the wrapper was rendered without the paths", () => {
     expect(agentWrapperSource("opencode")).not.toContain("OPENCODE_CONFIG_DIR");
     expect(agentWrapperSource("claude", { opencodeSignalsMarker: MARKER })).not.toContain(

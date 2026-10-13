@@ -94,6 +94,10 @@ export function hookScriptSource(): string {
     // `${VAR-}`: an inherited `set -u` (SHELLOPTS) must not kill the hook on an unset variable.
     '[ -n "${DECK_AGENT_NESTED-}" ] && exit 0',
     '[ -n "${DECK_AGENT_ID-}" ] && [ "${DECK_AGENT_ID-}" != claude ] && exit 0',
+    // Claude Code (2.1.296) puts its own pid in a hook's `CLAUDE_PID`; the wrapper exec'd the
+    // pane's agent as `DECK_AGENT_PID`. A claude that skipped the wrapper (absolute path, npx)
+    // inherits the outer agent's identity but runs as another process. Either unset: no check.
+    '[ -n "${DECK_AGENT_PID-}" ] && [ -n "${CLAUDE_PID-}" ] && [ "$CLAUDE_PID" != "$DECK_AGENT_PID" ] && exit 0',
     'EVENT="${1-}"',
     'if [ -z "${DECK_HOOK_PORT-}" ] || [ -z "${DECK_PANE_ID-}" ] || [ -z "${DECK_HOOK_TOKEN-}" ]; then',
     "  exit 0",

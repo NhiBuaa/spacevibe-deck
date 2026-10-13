@@ -8,10 +8,16 @@
  * foreground pid. A wrapper that stayed alive as a parent would change both,
  * so the real binary replaces the wrapper's process: same pid, same group.
  *
- * Identity is first-wins. The outermost wrapper exports `DECK_AGENT_ID`; an
- * agent that launches another one from its tool calls passes through a second
- * wrapper, which only raises `DECK_AGENT_NESTED`. The hook scripts use the two
- * variables to ignore events from the inner agent.
+ * Identity is first-wins. The outermost wrapper exports `DECK_AGENT_ID` and its
+ * own pid as `DECK_AGENT_PID`; an agent that launches another one from its tool
+ * calls passes through a second wrapper, which only raises `DECK_AGENT_NESTED`.
+ * Two exceptions:
+ * - The same pid back in a wrapper is the same exec chain, not a nested agent:
+ *   a user's shim that drops its own directory and execs `claude` by name.
+ * - Without `DECK_AGENT_ID`, an inherited `CLAUDECODE` (Claude Code sets it for
+ *   its tool subprocesses) still means nested: the outer Claude skipped the
+ *   wrapper (absolute path, alias, npx).
+ * The hook scripts use these variables to ignore events from the inner agent.
  */
 
 import { shellQuote } from "../agent-hooks/claude-hooks-file";
@@ -104,9 +110,13 @@ export function agentWrapperSource(agent: WrappedAgent, options: WrapperOptions 
     `  echo "deck: ${agent} not found on PATH" >&2`,
     "  exit 127",
     "fi",
-    'if [ -z "${DECK_AGENT_ID-}" ]; then',
+    // `exec` keeps the pid, so the pane's own agent re-entering through a shim keeps its identity.
+    'if [ -n "${DECK_AGENT_ID-}" ] && [ "${DECK_AGENT_PID-}" = "$$" ]; then',
+    "  :",
+    'elif [ -z "${DECK_AGENT_ID-}" ] && [ -z "${CLAUDECODE-}" ]; then',
     `  DECK_AGENT_ID=${agent}`,
-    "  export DECK_AGENT_ID",
+    "  DECK_AGENT_PID=$$",
+    "  export DECK_AGENT_ID DECK_AGENT_PID",
     "  unset DECK_AGENT_NESTED",
     "else",
     "  DECK_AGENT_NESTED=1",

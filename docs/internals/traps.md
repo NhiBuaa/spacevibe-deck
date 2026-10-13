@@ -125,7 +125,10 @@ constants that currently switch behaviour off and are meant to be flipped back.
   reordered one has to keep the `HISTFILE` repair before the user's `.zshrc`.
 - **An agent wrapper must never stay a parent process.** It ends in `exec`, and the pane's
   classification and Claude's registry join both break if it does; see
-  [Shell bootstrap and agent wrappers](terminal.md#shell-bootstrap-and-agent-wrappers).
+  [Shell bootstrap and agent wrappers](terminal.md#shell-bootstrap-and-agent-wrappers). The
+  Claude hook's nesting check needs the same of whatever sits between the wrapper and the CLI:
+  a launcher or shim that forks the CLI instead of exec'ing it leaves `CLAUDE_PID` unequal to
+  `DECK_AGENT_PID`, and every event of the pane's own Claude is then dropped as nested.
 - **In a pane `command -v claude`, `codex` and `opencode` always succeed,** installed or not:
   the wrapper is on `PATH` and exits 127 with `deck: <agent> not found on PATH` when it finds
   no real binary. An agent running in the pane sees the same, so a check for the CLI from

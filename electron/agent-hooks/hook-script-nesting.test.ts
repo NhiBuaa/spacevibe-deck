@@ -78,3 +78,39 @@ describe.skipIf(process.platform === "win32").each(cases)(
     });
   },
 );
+
+// Claude Code puts the pid of the claude running the hook in CLAUDE_PID; the wrapper exported
+// the pid it exec'd the pane's agent as. A claude that skipped the wrapper inherits the outer
+// agent's identity, so only the two pids tell it apart.
+describe.skipIf(process.platform === "win32")("claude hook script — the wrapper's pid", () => {
+  const paneEnv = (port: number) => ({
+    DECK_PANE_ID: "7",
+    DECK_HOOK_TOKEN: "secret",
+    DECK_HOOK_PORT: String(port),
+    DECK_AGENT_ID: "claude",
+  });
+
+  it("posts from the claude the wrapper exec'd", async () => {
+    const { posts, port } = await startListener();
+    const env = { ...paneEnv(port), DECK_AGENT_PID: "4242", CLAUDE_PID: "4242" };
+    expect(await runHookScript(hookScriptSource(), { env })).toBe(0);
+    expect(urls(posts)).toEqual(["/hook"]);
+  });
+
+  it("sends nothing from a claude that skipped the wrapper", async () => {
+    const { posts, port } = await startListener();
+    const env = { ...paneEnv(port), DECK_AGENT_PID: "4242", CLAUDE_PID: "5151" };
+    expect(await runHookScript(hookScriptSource(), { env })).toBe(0);
+    expect(urls(posts)).toEqual([]);
+  });
+
+  it.each([
+    ["an older Claude without CLAUDE_PID", { DECK_AGENT_PID: "4242" }],
+    ["a pane whose agent bypassed the wrapper", { CLAUDE_PID: "5151" }],
+  ])("still posts from %s", async (_label, extra) => {
+    const { posts, port } = await startListener();
+    const env = { ...paneEnv(port), ...extra };
+    expect(await runHookScript(hookScriptSource(), { env, shellFlags: ["-u"] })).toBe(0);
+    expect(urls(posts)).toEqual(["/hook"]);
+  });
+});

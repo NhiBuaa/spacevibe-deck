@@ -147,9 +147,13 @@ export function buildEnv(
     TERM_PROGRAM_VERSION: version,
   };
   // The agent wrapper names its agent for the hooks. A Deck started from an
-  // agent's tool call would otherwise hand that identity to every pane.
+  // agent's tool call would otherwise hand that identity to every pane, and
+  // Claude Code's own marks would make every pane's agent read as nested.
   delete env.DECK_AGENT_ID;
   delete env.DECK_AGENT_NESTED;
+  delete env.DECK_AGENT_PID;
+  delete env.CLAUDECODE;
+  delete env.CLAUDE_PID;
   if (process.platform === "darwin") {
     env.ConEmuANSI = "ON";
   }
