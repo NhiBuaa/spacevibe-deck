@@ -44,6 +44,7 @@ describe("feature action entrances share host-owned development identity", () =>
       isActionPerformable("find", {
         stageOwner: "terminal",
         hasSelection: false,
+        keymapPlatform: "macos",
         actionAvailable: isRegisteredActionAvailable("find"),
       }),
     ).toBe(isDevelopment);

@@ -99,7 +99,7 @@ describe("runAction — the macOS menu bridge", () => {
     async (enabled) => {
       releaseFixture.enabled = enabled;
       onOpenTaskLauncher.mockClear();
-            settings.value = {
+      settings.value = {
         ...DEFAULT_SETTINGS,
         keybindings: { macos: { "new-tab": [{ key: "j", meta: true }] }, windows: {} },
       };
@@ -124,7 +124,7 @@ describe("runAction — the macOS menu bridge", () => {
     async (enabled) => {
       releaseFixture.enabled = enabled;
       onOpenTaskLauncher.mockClear();
-            boardOpen.value = false;
+      boardOpen.value = false;
       const { tm } = setup({ deps: { onOpenTaskLauncher } });
       await tm.init();
       boardOpen.value = false;

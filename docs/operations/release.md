@@ -62,7 +62,7 @@ workflow is a target, not a time guarantee, and the cut also waits for main CI b
 ### `source-check` (ubuntu-24.04)
 
 After `prepare` creates the draft, independently check out the exact tag, install dependencies
-and run `generate:menu:check`, `npm test`, `npm run build` with a fail-fast shell. This
+and run `npm run lint`, `npm test`, `npm run build` with a fail-fast shell. This
 [read-only job](../../.github/workflows/electron-release.yml) runs alongside both platform
 builds. If it fails, platform uploads can remain in the draft, but promotion cannot run.
 

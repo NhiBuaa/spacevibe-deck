@@ -382,7 +382,7 @@ describe("the release train dependency graph", () => {
       expect(job(name)).not.toContain("needs: source-check");
     }
     expect(job("source-check")).toContain("set -euo pipefail");
-    for (const command of ["npm ci", "npm run generate:menu:check", "npm test", "npm run build"]) {
+    for (const command of ["npm ci", "npm run lint", "npm test", "npm run build"]) {
       expect(job("source-check")).toContain(command);
     }
     expect(job("promote")).toMatch(/^    needs: \[prepare, source-check, mac, windows\]$/m);
@@ -436,9 +436,7 @@ describe("release train executes fail-closed shell checks", () => {
         },
       });
       expect(result.status).toBe(7);
-      expect(readFileSync(join(cwd, "commands.txt"), "utf8").trim()).toBe(
-        "run generate:menu:check",
-      );
+      expect(readFileSync(join(cwd, "commands.txt"), "utf8").trim()).toBe("run lint");
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }

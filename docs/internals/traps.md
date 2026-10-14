@@ -192,9 +192,9 @@ shortcuts, native menu/registry entries, IPC, restore and background starts. Reu
 [the central action guard](../../src/terminal/tab-manager.ts), and the IPC guard before side
 effects. A hidden button is insufficient. Test both true and false with real entrance
 coverage; preserve both branches while the switch exists and inspect shipping bundles.
-Electron-only registry entries also declare the `electron` capability: the
-[frozen menu generator](../../scripts/generate-menu.ts) always uses release values and no
-Electron capabilities, independent of the process's dev mode.
+Electron-only registry entries also declare the `electron` capability; the native
+[menu](../../electron/menu.ts) filters registry entries by availability at build time, using
+the host's packaged state.
 
 Activation is a small main commit after checkout handoff: flip the release value to true
 and write its user-facing `## Unreleased` CHANGELOG entry in that same commit. Keep worktree
