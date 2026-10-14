@@ -15,7 +15,9 @@
   display: flex;
   min-width: 0;
   min-height: 0;
-  background: var(--chrome-2);
+  /* The stage's own background: the rail keeps a colour of its own, every
+     other surface shares one (owner, 2026-10-15). */
+  background: var(--bg);
   /* `.stage__surface`'s layer, for its reason: terminal chrome inside
      `.stage__tabs` carries z-indexes of its own and would paint through. Below
      the open board (30), Settings (35), the modal tier (40). */

@@ -367,7 +367,9 @@ the rail.
 - **DL-11.1** The shell is a fixed 220px nav rail plus a section area that owns all scrolling; the
   rail never scrolls with the content. Settings covers the whole window, frame row included:
   `.settings-screen` is `position: fixed; inset: 0` over the sidebar, rail and frame row, while
-  the Open board still stops below the strip. It exits by Escape and by a **Back** control in its
+  the Open board still stops below the strip. Its surface is the stage's `--bg`, not a raised
+  `--chrome-2` step (owner, 2026-10-15: the sidebar rail keeps a colour of its own; every other
+  surface shares one background). It exits by Escape and by a **Back** control in its
   own header, because a window with no tabs would otherwise be stranded under it. The header
   reserves the window controls' footprint (`--frame-lights-w` for the macOS traffic lights,
   `--frame-controls-w` for the Windows caption buttons, DL-18.4) and carries the window's drag
@@ -508,7 +510,7 @@ Functional icons come from one package, `@phosphor-icons/react`, drawn through o
 A page of measured numbers, such as the token usage grid, is a table of facts: every cell was
 counted, and the table has no interaction.
 
-- **DL-15.1** A metric table sits on the screen's own `--chrome-2` surface inside a 1px `--hair`
+- **DL-15.1** A metric table sits on the screen's own `--bg` surface inside a 1px `--hair`
   container at `--radius-control` (DL-20.1). Rows are separated by `--hair` hairlines only: no
   zebra striping, no fills, no shadow (DL-1.3, DL-3.3).
 - **DL-15.2** A metric table is read-only: no sort control, column reordering, row click target
@@ -581,8 +583,8 @@ comes from limit readings, cost from recorded token history; neither is a subscr
   beside every historical figure, an empty period says which period is empty, and the selection
   resets when the screen closes (DL-13.6).
 - **DL-16.8** The dock's Usage tab stays a summary and carries one quiet **Details** control that
-  opens the [usage page](../src/ui/usage/usage-page.tsx). The page is a full-bleed surface laid
-  over the whole stage, the way Settings lies over the window: only the rail stays uncovered. The
+  opens the [usage page](../src/ui/usage/usage-page.tsx). The page is a full-bleed `--bg` surface
+  laid over the whole stage, the way Settings lies over the window: only the rail stays uncovered. The
   stage strip, an open dock and a diff column go under it and the dock is inert until it closes
   (owner, 2026-10-15: a page that takes the content area leaves no terminal chrome or side panel
   showing), and no pane is unmounted or resized. In the sidebar layout its header stands in the
