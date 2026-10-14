@@ -28,10 +28,41 @@
   },
   "overrides": [
     {
+      "files": ["src/**/*.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "electron",
+                "message": "The renderer reaches the main process only through src/host/ (overview.md)."
+              },
+              {
+                "name": "node-pty",
+                "message": "PTYs belong to the main process; the renderer goes through src/host/."
+              }
+            ],
+            "patterns": [
+              {
+                "group": ["node:*"],
+                "message": "The renderer runs without Node; ask the main process through src/host/."
+              },
+              {
+                "regex": "^(\\.\\./)+electron/",
+                "message": "The renderer must not import the main process; go through src/host/."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "files": ["**/*.{test,spec}.{ts,tsx}"],
       "plugins": ["jest", "vitest"],
       "rules": {
         "no-explicit-any": "off",
+        "no-restricted-imports": "off",
         "jest/expect-expect": "off",
         "vitest/expect-expect": "off",
         "jest/no-conditional-expect": "off",

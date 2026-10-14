@@ -148,6 +148,9 @@ Several agent sessions run against this repo at once. The owner's standing rule 
   boundary in `npm test`.
 - **R7. Gallery imports flow app → gallery only.** Shipping modules must not import
   `src/gallery/` or its stubs.
+- **R8. The renderer never imports the main process.** Under `src/`, oxlint
+  ([`.oxlintrc.json`](.oxlintrc.json)) rejects `electron`, `node-pty`, `node:*` and relative
+  `electron/` imports outside tests; reach the host through `src/host/`.
 
 ## Known traps
 
