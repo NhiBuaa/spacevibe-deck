@@ -1,0 +1,28 @@
+/* Candidate treatments for the usage-by-repository table. Gallery only: shipping
+   settles each axis to one value in 12-usage.css when the page is wired. */
+
+.ur-frame {
+  padding: 16px;
+}
+
+.ur-totals {
+  margin: 0 0 18px;
+}
+
+/* B and C: a hairline leader hangs the child rows from their repository. */
+.usage-repos--leader .usage-repos__line th {
+  position: relative;
+}
+.usage-repos--leader .usage-repos__line th::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 18px;
+  border-left: 1px solid var(--hair-strong);
+}
+
+/* B: the repository name outweighs its children. */
+.usage-repos--strong .usage-repos__repo .usage-repos__name {
+  font-weight: 600;
+}

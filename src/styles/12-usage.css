@@ -606,3 +606,95 @@
     visibility: hidden;
   }
 }
+
+/* ── Usage by repository (usage-repo-table.tsx, DL-15) ───────────────────
+   One table: a repository row, then its agent/model rows. It rides on the
+   `.usage-overview` wrapper for the box-sizing reset and the base cell rules;
+   everything below only adds the DL-15.1 container and the two row tiers. */
+.usage-repos__scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-control);
+}
+.usage-repos__scroll:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.usage-repos table {
+  min-width: 460px;
+}
+.usage-repos th,
+.usage-repos td {
+  padding: 8px 12px;
+}
+.usage-repos thead th {
+  color: var(--text-faint);
+}
+.usage-repos tbody tr:last-child th,
+.usage-repos tbody tr:last-child td {
+  border-bottom: 0;
+}
+.usage-repos__name {
+  display: block;
+  font-size: var(--type-body);
+  color: var(--text-primary);
+}
+.usage-repos__parent {
+  display: block;
+  font-size: var(--type-micro);
+  color: var(--text-faint);
+  overflow-wrap: anywhere;
+}
+.usage-repos__line th,
+.usage-repos__line td {
+  color: var(--text-faint);
+  font-size: var(--type-meta);
+}
+.usage-repos__line th {
+  padding-left: 28px;
+}
+.usage-repos__logo {
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
+  vertical-align: -2px;
+}
+.usage-repos__sub {
+  display: block;
+  white-space: nowrap;
+  font-size: var(--type-micro);
+  color: var(--text-faint);
+}
+.usage-repos__share {
+  min-width: 96px;
+}
+.usage-repos__bar {
+  display: block;
+  height: 4px;
+  margin-top: 5px;
+  overflow: hidden;
+  border-radius: var(--radius-tight);
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+}
+.usage-repos__fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-tight);
+}
+.usage-repos__mix {
+  display: flex;
+  gap: 1px;
+  height: 3px;
+  max-width: 120px;
+  margin-top: 6px;
+  overflow: hidden;
+  border-radius: var(--radius-tight);
+}
+.usage-repos__absent,
+.usage-repos .usage-repos__empty {
+  color: var(--text-faint);
+}
+.usage-repos .usage-repos__empty {
+  text-align: left;
+}
