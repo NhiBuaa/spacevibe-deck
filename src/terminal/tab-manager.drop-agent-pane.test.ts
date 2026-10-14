@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createMemoryPtyClient } from "./pty-client";
+import { createMemoryPtyClient, type DetectedAgent } from "./pty-client";
+import { probeNames } from "../lib/agent-catalog";
 import { settings } from "../settings/settings-store";
 import { DEFAULT_SETTINGS } from "../settings/settings-schema";
 import { workspacesData } from "../open-board/workspaces-store";
@@ -11,6 +12,16 @@ import { freshWindowFocusController, wire } from "./tab-manager.fixtures";
 
 vi.mock("../lib/native-notification", () => ({
   sendAgentNotification: vi.fn(),
+}));
+
+// The drop reads the window's agent cache, which probes through the default
+// client rather than the memory pty these tests wire in.
+const probe = vi.hoisted(() => ({
+  ensureAgentsDetected: vi.fn(async (): Promise<readonly DetectedAgent[]> => []),
+}));
+vi.mock("./agent-detection-store", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./agent-detection-store")>()),
+  ensureAgentsDetected: probe.ensureAgentsDetected,
 }));
 
 // See tab-manager.materialize.test.ts: `init()` is not called here, but the
@@ -53,10 +64,36 @@ describe("createTabManager dropAgentPane", () => {
     workspacesData.value = { version: WORKSPACES_VERSION, recents: [] };
   });
 
-  function build(agents: readonly { name: string; path: string }[]) {
-    const pty = createMemoryPtyClient({ nextId: 1, agents });
+  /** `agents` is what the cache answers; the pty itself detects nothing. */
+  function build(agents: readonly DetectedAgent[]) {
+    probe.ensureAgentsDetected.mockResolvedValue(agents);
+    const pty = createMemoryPtyClient({ nextId: 1 });
     return { pty, ...wire(pty) };
   }
+
+  it("answers from the window's agent cache instead of probing again", async () => {
+    // On Windows every `detect_agents` re-reads the registry through
+    // PowerShell, so a probe of its own held each drop for up to 5 s.
+    const { tm, pty } = build([{ name: "codex", path: "/bin/codex" }]);
+    await tm.openFromPreset({ type: "leaf" }, ["/work"], {
+      workspacePath: "/work",
+      agent: null,
+    });
+    const detectAgents = vi.spyOn(pty, "detectAgents");
+    probe.ensureAgentsDetected.mockClear();
+
+    await tm.dropAgentPane(1, "right");
+    await vi.advanceTimersByTimeAsync(3000);
+
+    expect(probe.ensureAgentsDetected).toHaveBeenCalledExactlyOnceWith(
+      probeNames(DEFAULT_SETTINGS.customAgents),
+    );
+    expect(detectAgents).not.toHaveBeenCalled();
+    expect(pty.writes).toEqual([
+      { id: 2, data: "codex --dangerously-bypass-approvals-and-sandbox -c tui.animations=false\r" },
+    ]);
+    tm.dispose();
+  });
 
   it("docks a pane into the active tab and types the workspace's remembered agent", async () => {
     const { tm, pty } = build([{ name: "codex", path: "/bin/codex" }]);
@@ -115,10 +152,10 @@ describe("createTabManager dropAgentPane", () => {
       platform: "windows",
       homeDir: String.raw`C:\Users\dev`,
     });
-    const base = createMemoryPtyClient({
-      nextId: 1,
-      agents: [{ name: "codex", path: String.raw`C:\bin\codex.exe` }],
-    });
+    probe.ensureAgentsDetected.mockResolvedValue([
+      { name: "codex", path: String.raw`C:\bin\codex.exe` },
+    ]);
+    const base = createMemoryPtyClient({ nextId: 1 });
     const pty = {
       ...base,
       sessionCwds: vi.fn(async (ids: readonly number[]) =>

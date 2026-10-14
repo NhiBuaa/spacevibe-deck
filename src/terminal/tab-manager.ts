@@ -7,7 +7,7 @@ import {
   type AgentLaunchReceipt,
   type LaunchCommandOverride,
 } from "./agent-launch-target";
-import { detectedAgents } from "./agent-detection-store";
+import { detectedAgents, ensureAgentsDetected } from "./agent-detection-store";
 import { getCurrentWindow } from "../host/window-host";
 import type { UnlistenFn } from "../host/bridge";
 import { clampFontSize, DEFAULT_SETTINGS } from "../settings/settings-schema";
@@ -1872,11 +1872,13 @@ export function createTabManager(
    * (session restore arms many panes and must not be clobbered).
    *
    * Nobody picks an agent here: the drop IS the confirmation, so the choice
-   * comes from what this workspace was last opened with, resolved against a
-   * live probe. The probe is awaited for the same reason the Open board
-   * awaits it — resolving against a not-yet-answered list would silently
-   * spawn a Shell. A failed probe degrades to Shell rather than sinking the
-   * drop.
+   * comes from what this workspace was last opened with, resolved against the
+   * window's agent cache, as the Open board resolves it. A warm cache answers
+   * at once; a cold one is awaited, since resolving against a not-yet-answered
+   * list would silently spawn a Shell. A probe of its own would hold every
+   * drop on Windows, where each probe re-reads the registry through
+   * PowerShell. A failed probe leaves the last good list, so it degrades to
+   * Shell only when nothing was ever found.
    */
   async function dropAgentPane(targetPaneId: number, edge: Edge): Promise<boolean> {
     const manager = activeManager();
@@ -1884,10 +1886,7 @@ export function createTabManager(
       return false;
     }
     const customAgents = settings.value.customAgents;
-    const detected = await pty.detectAgents(probeNames(customAgents)).catch((err: unknown) => {
-      console.warn("detect_agents failed:", err);
-      return [];
-    });
+    const detected = await ensureAgentsDetected(probeNames(customAgents));
     const agentId = agentForWorkspace(
       workspacesData.value.recents,
       activeWorkspacePath(),
