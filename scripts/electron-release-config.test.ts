@@ -512,3 +512,23 @@ fi
     },
   );
 });
+
+describe("the preview workflow", () => {
+  const preview = readFileSync(
+    new URL("../.github/workflows/electron-preview.yml", import.meta.url),
+    "utf8",
+  );
+  it("publishes nothing a release feed or updater could see", () => {
+    expect(preview).not.toMatch(/--publish always/);
+    expect(preview).not.toMatch(/gh release|git push|git tag|contents: write/);
+    for (const platform of ["--mac --arm64", "--win --x64"]) {
+      expect(preview).toContain(`${platform} --publish never`);
+    }
+  });
+  it("runs only on request, from main's workflow file, on a commit of this repository", () => {
+    expect(preview).toMatch(/^on:\n {2}workflow_dispatch:/m);
+    expect(preview).not.toMatch(/^ {2}(push|pull_request|schedule):/m);
+    expect(preview).toContain("if: github.ref == 'refs/heads/main'");
+    expect(preview).toContain("git branch -r --contains");
+  });
+});
