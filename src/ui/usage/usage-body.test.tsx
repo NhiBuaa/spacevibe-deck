@@ -30,6 +30,7 @@ const SEEDED_SNAPSHOT: UsageSnapshot = {
       bucketStartMs: 1_754_800_000_000,
       agent: "claude",
       model: "claude-opus-4-5-20251101",
+      repo: null,
       counters: {
         inputUncached: 1_000_000,
         cacheRead: 200_000,
@@ -43,6 +44,7 @@ const SEEDED_SNAPSHOT: UsageSnapshot = {
       bucketStartMs: 1_754_800_000_000,
       agent: "codex",
       model: "gpt-5-codex",
+      repo: null,
       counters: {
         inputUncached: 400_000,
         cacheRead: 0,

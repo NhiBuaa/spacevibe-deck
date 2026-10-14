@@ -18,6 +18,7 @@ const bucket = (patch: Partial<UsageBucket>): UsageBucket => ({
   bucketStartMs: NOW,
   agent: "claude",
   model: "claude-opus-4-5-20251101",
+  repo: null,
   counters: { ...EMPTY_COUNTERS, inputUncached: 100, output: 50 },
   ...patch,
 });

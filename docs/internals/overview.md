@@ -39,7 +39,7 @@ keeps two processes from sharing one `userData`.
 | `electron/fs/`         | Path guard, reads, atomic writes, directory watches, workspace containment        |
 | `electron/browser/`    | The `WebContentsView`, URL policy, react-grab injection                          |
 | `electron/resume/`, `sessions/` | Session scanners per agent, resume resolution, session tails, history  |
-| `electron/usage/`      | Token-usage scanner (a port of the Rust one, held equal by a golden fixture)     |
+| `electron/usage/`      | Token-usage scanner; buckets carry the repository each usage line ran in         |
 | `electron/updater/`    | electron-updater lifecycle and the cross-window check flight                     |
 | `electron/telemetry/`  | Consent state, day buffers, the daily POST                                       |
 | `electron/git.ts`, `worktrees.ts`, `git/worktree.ts` | `git_branch`, repository scans, `git worktree add` via `execFile` |

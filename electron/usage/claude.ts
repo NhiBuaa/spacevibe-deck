@@ -1,5 +1,6 @@
 /**
- * Claude Code transcript ingestion. Port of `src-tauri/src/usage/claude.rs`.
+ * Claude Code transcript ingestion. Originally ported from the removed Tauri
+ * host's usage module.
  */
 import { parseRfc3339Ms } from "./reader";
 import {
@@ -110,6 +111,9 @@ export function ingestClaudeLine(bytes: Buffer, record: FileRecord): LineOutcome
   record.entries.set(`${messageId}${DEDUPE_SEPARATOR}${requestId}`, {
     bucketStartMs,
     model,
+    // Per line, not per file: a session that `cd`s into a worktree moves its
+    // later usage with it.
+    cwd: stringField(line, "cwd"),
     counters,
   });
   return "counted";

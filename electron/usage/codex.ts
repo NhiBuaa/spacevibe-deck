@@ -1,11 +1,13 @@
 /**
  * Codex rollout ingestion, and the dispatcher that routes one line to its
- * agent's parser. Port of `src-tauri/src/usage/codex.rs`.
+ * agent's parser. Originally ported from the removed Tauri host's usage
+ * module.
  */
 import { ingestClaudeLine, u64Field, type LineOutcome } from "./claude";
 import { parseRfc3339Ms } from "./reader";
 import {
   CODEX_EVENT_TYPE,
+  CODEX_SESSION_META_TYPE,
   CODEX_TOKEN_COUNT_TYPE,
   CODEX_TURN_CONTEXT_TYPE,
   EMPTY_CODEX_TOTALS,
@@ -49,7 +51,7 @@ export function backfillUnknownModel(record: FileRecord, model: string): void {
   const rebuilt: Contribution[] = [];
   for (const entry of taken) {
     const target = entry.model === UNKNOWN_MODEL ? model : entry.model;
-    addTotal(rebuilt, entry.bucketStartMs, target, entry.counters);
+    addTotal(rebuilt, entry.bucketStartMs, target, entry.cwd, entry.counters);
   }
   sortTotals(rebuilt);
   record.totals = rebuilt;
@@ -81,7 +83,20 @@ export function ingestCodexLine(bytes: Buffer, record: FileRecord): LineOutcome 
   if (payload === null) {
     return "ignored";
   }
+  const cwd = typeof payload.cwd === "string" ? payload.cwd : null;
+  if (kind === CODEX_SESSION_META_TYPE) {
+    // Only before any directory is known: a forked or resumed rollout repeats
+    // its parent's `session_meta` further down, and that line describes the
+    // parent, not where this session is now.
+    if (cwd !== null && record.lastCwd === null) {
+      record.lastCwd = cwd;
+    }
+    return "ignored";
+  }
   if (kind === CODEX_TURN_CONTEXT_TYPE) {
+    if (cwd !== null) {
+      record.lastCwd = cwd;
+    }
     const model = typeof payload.model === "string" ? payload.model : null;
     if (model !== null) {
       // Only the FIRST declaration back-fills. On a resumed scan `lastModel`
@@ -154,7 +169,7 @@ export function ingestCodexLine(bytes: Buffer, record: FileRecord): LineOutcome 
     return "ignored";
   }
   const model = record.lastModel ?? UNKNOWN_MODEL;
-  addTotal(record.totals, bucketStartMs, model, counters);
+  addTotal(record.totals, bucketStartMs, model, record.lastCwd, counters);
   return "counted";
 }
 

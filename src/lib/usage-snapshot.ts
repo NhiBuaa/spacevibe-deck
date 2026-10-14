@@ -1,14 +1,14 @@
 /**
- * The `usage_snapshot` payload mirrored in TypeScript, plus the two counter
- * operations every rollup needs. Pure — no signals, no Tauri, no DOM.
+ * The `usage_snapshot` payload, plus the two counter operations every rollup
+ * needs. Pure — no signals, no IPC, no DOM.
  *
- * The field names here are the camelCase serde output of the Rust structs in
- * `src-tauri/src/usage.rs`. Nothing in TypeScript can catch a rename on the
- * Rust side; the serialization-contract test in that module is what does.
+ * This is the wire contract. The main process (`electron/usage/model.ts`)
+ * imports it and asserts at compile time that its own shapes carry exactly
+ * these fields, so `electron:build` fails when the two drift apart.
  *
  * The six counters never overlap, so summing them is a real token total. That
- * is a property of the Rust mapping and not a coincidence: Codex reports
- * `cached_input_tokens` as a SUBSET of `input_tokens`, and `usage.rs` stores
+ * is a property of the scanner's mapping and not a coincidence: Codex reports
+ * `cached_input_tokens` as a SUBSET of `input_tokens`, and the scanner stores
  * `input_uncached = input - cached` precisely so nothing is counted twice.
  */
 
@@ -34,16 +34,24 @@ export interface UsageBucket {
   /** Unix ms at the start of the 15-minute UTC bucket. */
   readonly bucketStartMs: number;
   readonly agent: UsageAgent;
-  /** The raw model string, verbatim — no canonicalization in Rust. */
+  /** The raw model string, verbatim — no canonicalization in the scanner. */
   readonly model: string;
+  /**
+   * Repository root the usage was recorded in (worktrees and subdirectories
+   * fold into it), or the raw cwd when it does not resolve or has not yet;
+   * null only when the transcript named no cwd. Label with its basename,
+   * minus a trailing `.git`; basenames can collide, so keep the full path at
+   * hand. Per-repository sums equal the machine-wide total.
+   */
+  readonly repo: string | null;
   readonly counters: UsageCounters;
 }
 
-/** Mirror of the Rust `UsageSnapshot` payload from the `usage_snapshot` command. */
+/** The payload of the `usage_snapshot` command. */
 export interface UsageSnapshot {
   /** Unix ms when the scan finished. */
   readonly scannedAtMs: number;
-  /** Sorted by (bucketStartMs, agent, model) so the payload is stable. */
+  /** Sorted by (bucketStartMs, agent, model, repo) so the payload is stable. */
   readonly buckets: readonly UsageBucket[];
   /** Exactly two entries, Claude then Codex. */
   readonly sources: readonly UsageSource[];

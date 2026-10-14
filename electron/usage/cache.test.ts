@@ -3,7 +3,13 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { loadCache, writeCache } from "./cache";
-import { USAGE_CACHE_VERSION, emptyCache, emptyRecord, type UsageCache } from "./model";
+import {
+  EMPTY_COUNTERS,
+  USAGE_CACHE_VERSION,
+  emptyCache,
+  emptyRecord,
+  type UsageCache,
+} from "./model";
 
 const temps: string[] = [];
 function tempDir(): string {
@@ -23,6 +29,7 @@ function sampleCache(): UsageCache {
   record.entries.set("k1", {
     bucketStartMs: 900_000,
     model: "m",
+    cwd: "/work/My Repo/sub",
     counters: {
       inputUncached: 1,
       cacheRead: 2,
@@ -35,6 +42,17 @@ function sampleCache(): UsageCache {
   record.offset = 42;
   record.skippedLines = 1;
   cache.files.set("/a/file.jsonl", record);
+  const codex = emptyRecord("codex", "codex-1", 5, 10);
+  codex.lastCwd = "/work/other";
+  codex.totals.push({
+    bucketStartMs: 900_000,
+    model: "gpt",
+    cwd: null,
+    counters: { ...EMPTY_COUNTERS },
+  });
+  cache.files.set("/b/rollout.jsonl", codex);
+  cache.repos.set("/work/My Repo/sub", "/work/My Repo");
+  cache.repos.set("/work/other", null);
   return cache;
 }
 

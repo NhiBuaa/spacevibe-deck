@@ -92,9 +92,9 @@ Tests that guard a repository rule rather than a module:
 - [`scripts/icon-system.test.ts`](../../scripts/icon-system.test.ts): no hand-drawn SVG
   outside the icon primitive.
 - [`electron/usage/parity.test.ts`](../../electron/usage/parity.test.ts): the Electron usage
-  scanner reproduces a golden snapshot produced by the Rust scanner of the removed Tauri host
-  (in git history). Never regenerate the fixture from this port's own output, which would turn
-  the gate into a tautology.
+  scanner, summed over repositories, reproduces a golden snapshot produced by the Rust scanner
+  of the removed Tauri host (in git history). The fixture is frozen: never regenerate it from
+  this scanner's own output, which would turn the gate into a tautology.
 
 ## What a green run proves
 

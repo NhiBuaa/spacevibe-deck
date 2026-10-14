@@ -15,6 +15,7 @@ const snapshot: UsageSnapshot = {
       bucketStartMs: 1_754_819_100_000,
       agent: "claude",
       model: "claude-opus-5",
+      repo: null,
       counters: {
         inputUncached: 10,
         cacheRead: 20,

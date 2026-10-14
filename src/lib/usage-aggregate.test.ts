@@ -35,6 +35,7 @@ function bucket(
     bucketStartMs: Date.parse(isoStart),
     agent,
     model,
+    repo: null,
     counters: { ...EMPTY_COUNTERS, ...patch },
   };
 }
@@ -83,6 +84,26 @@ describe("agentTotals", () => {
     expect(totals.map((row) => row.agent)).toEqual(["claude", "codex"]);
     expect(totals[0].counters.output).toBe(3000);
     expect(totals[1].counters.inputUncached).toBe(1000);
+  });
+
+  it("gives the same totals and cost when a bucket is split across repositories", () => {
+    const split = buckets.flatMap((whole) => {
+      const half = (value: number) => value / 2;
+      const counters = {
+        inputUncached: half(whole.counters.inputUncached),
+        cacheRead: half(whole.counters.cacheRead),
+        cacheCreate5m: half(whole.counters.cacheCreate5m),
+        cacheCreate1h: half(whole.counters.cacheCreate1h),
+        cacheWrite: half(whole.counters.cacheWrite),
+        output: half(whole.counters.output),
+      };
+      return [
+        { ...whole, repo: "/w/deck", counters },
+        { ...whole, repo: "/w/notes", counters },
+      ];
+    });
+
+    expect(agentTotals(split, null)).toEqual(agentTotals(buckets, null));
   });
 
   it("prices the total from each contributing model's own rate", () => {

@@ -19,6 +19,7 @@ const snapshot: UsageSnapshot = {
     {
       agent: "claude",
       model: "gpt-5",
+      repo: null,
       bucketStartMs: now,
       counters: { ...EMPTY_COUNTERS, inputUncached: 1_000_000 },
     },
