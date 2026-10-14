@@ -13,6 +13,7 @@ import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import * as macos from "./platform/macos";
 import * as windows from "./platform/windows";
+import { refreshWindowsPath } from "./platform/windows-path";
 import { ACTIVE_AGENT_IDS } from "../src/lib/agents/agent-registry";
 
 /** A login shell that hangs (a `.zprofile` waiting on the network) must not
@@ -149,12 +150,12 @@ export function parseCommandVOutput(output: string, probed: readonly string[]): 
 /**
  * Windows discovery: walk PATH directly, no shell.
  *
- * There is no `-ilc` here and no rc file to source — a PowerShell profile is
- * not where a CLI registers its PATH — so the shell probe is not merely
- * unnecessary, it is wrong twice over. This module used to run it
- * unconditionally through the macOS launcher, which ENOENTs on Windows;
- * `detectAgentsSafely` swallowed that to `[]`, and the picker reported "Shell
- * only" on a machine with every agent installed.
+ * A Windows CLI registers its directory in the registry `Path`, not in a
+ * PowerShell profile, so there is no rc file to source and no `-ilc` probe to
+ * run. `detectAgents` refreshes `process.env.PATH` from the registry first
+ * (`platform/windows-path.ts`); this walks whatever PATH it is given. The
+ * macOS login-shell probe ENOENTs here, and when it once ran unconditionally
+ * the picker reported "Shell only" on a machine with every agent installed.
  *
  * Each name resolves through `COMMAND_SUFFIXES`, so an npm `.cmd` shim with no
  * bare `.exe` is found. `name` carries the probe key rather than the file's
@@ -209,6 +210,34 @@ export function discoverAgents(requested: readonly string[]): Promise<AgentInfo[
       },
     );
   });
+}
+
+export interface DetectAgentsSeams {
+  readonly platform?: NodeJS.Platform;
+  readonly refresh?: () => Promise<void>;
+  readonly discover?: (requested: readonly string[]) => Promise<AgentInfo[]>;
+}
+
+/**
+ * The `detect_agents` answer — the user-facing probe, and the only caller that
+ * re-reads the Windows registry PATH first, so an agent installed while Deck
+ * runs is found. Internal callers (the Claude registry poll, agent limits, the
+ * Codex capability check) call `discoverAgents` against the PATH this left:
+ * the registry poll re-resolves on every failed 5 s tick, and a PowerShell
+ * spawn per tick is not a price to pay for a lookup that already happened.
+ */
+export async function detectAgents(
+  requested: readonly string[],
+  {
+    platform = process.platform,
+    refresh = refreshWindowsPath,
+    discover = discoverAgents,
+  }: DetectAgentsSeams = {},
+): Promise<AgentInfo[]> {
+  if (platform === "win32") {
+    await refresh();
+  }
+  return discover(requested);
 }
 
 /** Existence check for workspace recents; order mirrors input. */

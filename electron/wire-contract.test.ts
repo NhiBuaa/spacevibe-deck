@@ -90,6 +90,24 @@ describe("desktop_environment", () => {
   });
 });
 
+describe("detect_agents", () => {
+  it("answers through the probe that refreshes the Windows PATH", () => {
+    // `discoverAgents` walks the PATH as it stands; only `detectAgents`
+    // re-reads the registry first, so an agent installed while Deck runs is found.
+    expect(SERVICES).toContain(
+      "ipcMain.handle(CHANNELS.detectAgents, (_event, { names }) => detectAgents(names ?? []))",
+    );
+  });
+
+  it("puts .local\\bin on PATH before the first window can spawn a pane", () => {
+    const boot = MAIN.slice(MAIN.indexOf("app.whenReady()"));
+    // A statement on its own line, so a commented-out call does not count.
+    const added = boot.search(/^\s*addLocalBinToPath\(\);/m);
+    expect(added).toBeGreaterThan(-1);
+    expect(added).toBeLessThan(boot.indexOf("createWindow("));
+  });
+});
+
 describe("agent_registry", () => {
   it("answers a snapshot the renderer's validator accepts, field for field", () => {
     // The contract fixture for the stage-1 channel (spec §1, R6): main's

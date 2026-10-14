@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import os from "node:os";
 import path from "node:path";
 import {
+  detectAgents,
   discoverAgentsWindows,
   BUILTIN_AGENTS,
   dirsExist,
@@ -16,6 +17,8 @@ import {
   probeNames,
   stripAnsi,
 } from "./agents";
+import { resolveOnPath } from "./platform/windows";
+import { addLocalBinToPath, refreshWindowsPath } from "./platform/windows-path";
 
 const builtins = [...BUILTIN_AGENTS];
 const PROBE_NAME_MAX = 128;
@@ -194,5 +197,100 @@ describe("discoverAgentsWindows", () => {
 
   it("omits an agent that is not installed", () => {
     expect(discoverAgentsWindows([], () => null)).toEqual([]);
+  });
+});
+
+describe("discoverAgentsWindows after a PATH refresh", () => {
+  const profile = "C:\\Users\\Nguyễn Văn A";
+  const codexBin = `${profile}\\AppData\\Local\\Programs\\OpenAI\\Codex\\bin`;
+  const localBin = `${profile}\\.local\\bin`;
+
+  function discoverOn(env: NodeJS.ProcessEnv, files: readonly string[]) {
+    return discoverAgentsWindows([], (name) =>
+      resolveOnPath(name, env, (candidate) => files.includes(candidate)),
+    );
+  }
+
+  it("finds an agent whose installer added a User Path directory while Deck ran", async () => {
+    const env: NodeJS.ProcessEnv = { Path: "C:\\Windows\\System32", USERPROFILE: profile };
+    const files = [`${codexBin}\\codex.exe`];
+    expect(discoverOn(env, files)).toEqual([]);
+
+    await refreshWindowsPath({
+      env,
+      read: () => Promise.resolve({ machine: "C:\\Windows\\System32", user: codexBin }),
+      isDirectory: () => false,
+    });
+
+    expect(discoverOn(env, files)).toEqual([{ name: "codex", path: `${codexBin}\\codex.exe` }]);
+  });
+
+  it("finds claude.exe in %USERPROFILE%\\.local\\bin, which its installer leaves off PATH", async () => {
+    const files = [`${localBin}\\claude.exe`];
+    const isDirectory = (dir: string) => dir === localBin;
+    const atStartup: NodeJS.ProcessEnv = { Path: "C:\\Windows\\System32", USERPROFILE: profile };
+    const atProbe: NodeJS.ProcessEnv = { Path: "C:\\Windows\\System32", USERPROFILE: profile };
+
+    addLocalBinToPath({ env: atStartup, isDirectory });
+    await refreshWindowsPath({
+      env: atProbe,
+      read: () => Promise.resolve({ machine: "C:\\Windows\\System32", user: "" }),
+      isDirectory,
+    });
+
+    const claude = [{ name: "claude", path: `${localBin}\\claude.exe` }];
+    expect(discoverOn(atStartup, files)).toEqual(claude);
+    expect(discoverOn(atProbe, files)).toEqual(claude);
+  });
+});
+
+describe("detectAgents", () => {
+  function recorder() {
+    const calls: string[] = [];
+    return {
+      calls,
+      refresh: () => {
+        calls.push("refresh");
+        return Promise.resolve();
+      },
+      discover: (names: readonly string[]) => {
+        calls.push(`discover:${names.join(",")}`);
+        return Promise.resolve([]);
+      },
+    };
+  }
+
+  it("re-reads the registry PATH before a Windows probe", async () => {
+    const seams = recorder();
+    await detectAgents(["claude"], { ...seams, platform: "win32" });
+    expect(seams.calls).toEqual(["refresh", "discover:claude"]);
+  });
+
+  it("does not probe until the refresh has finished", async () => {
+    const calls: string[] = [];
+    let finishRefresh = () => {};
+    const detecting = detectAgents(["claude"], {
+      platform: "win32",
+      refresh: () =>
+        new Promise<void>((resolve) => {
+          finishRefresh = resolve;
+        }),
+      discover: () => {
+        calls.push("discover");
+        return Promise.resolve([]);
+      },
+    });
+
+    await Promise.resolve();
+    expect(calls).toEqual([]);
+    finishRefresh();
+    await detecting;
+    expect(calls).toEqual(["discover"]);
+  });
+
+  it("leaves PATH to the login shell elsewhere", async () => {
+    const seams = recorder();
+    await detectAgents(["claude"], { ...seams, platform: "darwin" });
+    expect(seams.calls).toEqual(["discover:claude"]);
   });
 });

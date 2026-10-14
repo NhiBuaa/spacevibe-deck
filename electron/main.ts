@@ -44,6 +44,7 @@ import { PtyManager } from "./pty/manager";
 import { validateResizeOptions, validateSpawnOptions } from "./pty/spawn";
 import { ptyInfo, type PtyInfo } from "./pty/info";
 import { validateAgentProcessMatchers } from "./platform/classify";
+import { addLocalBinToPath } from "./platform/windows-path";
 import { censusFor, CloseFlight, QuitFlight } from "./quit-flow";
 import { MAIN_LABEL, WindowRegistry } from "./window-lifecycle";
 import { INITIAL_OVERLAY_COLORS, windowChromeOptions } from "./window-options";
@@ -605,6 +606,11 @@ app.on("second-instance", () => {
 
 // ------------------------------------------------------------------ Boot
 app.whenReady().then(async () => {
+  // Before any pane spawns: a restored `claude --resume` must find the
+  // `claude.exe` that Claude Code's native Windows installer leaves off PATH.
+  if (process.platform === "win32") {
+    addLocalBinToPath();
+  }
   // Every initial shell must inherit a bound endpoint and the installation's
   // hook script. Registration failure keeps registry-based discovery available.
   await hookServer.listen();

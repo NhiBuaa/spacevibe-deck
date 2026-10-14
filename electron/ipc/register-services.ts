@@ -7,7 +7,7 @@
 import path from "node:path";
 import { app, ipcMain, type IpcMainInvokeEvent } from "electron";
 import { CHANNELS } from "./channels";
-import { discoverAgents, dirsExist } from "../agents";
+import { detectAgents, dirsExist } from "../agents";
 import { gitBranch } from "../git";
 import { scanRepository } from "../worktrees";
 import { addWorktree } from "../git/worktree";
@@ -71,7 +71,7 @@ export function registerServices(deps: RegisterServicesDeps): void {
   ipcMain.handle(CHANNELS.windowLabel, (event) => deps.labelOf(event));
   // Rejects when the probe could not answer; the renderer's agent store keeps
   // its last good list and retries rather than caching an empty one.
-  ipcMain.handle(CHANNELS.detectAgents, (_event, { names }) => discoverAgents(names ?? []));
+  ipcMain.handle(CHANNELS.detectAgents, (_event, { names }) => detectAgents(names ?? []));
   ipcMain.handle(CHANNELS.dirsExist, (_event, { paths }) => dirsExist(paths));
   ipcMain.handle(CHANNELS.desktopEnvironment, () => ({
     isDevelopment: !app.isPackaged,
