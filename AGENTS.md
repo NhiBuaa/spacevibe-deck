@@ -152,7 +152,17 @@ Several agent sessions run against this repo at once. The owner's standing rule 
 ## Known traps
 
 The full list, with the live switches and the limitations that were looked at and accepted, is
-[internals/traps.md](docs/internals/traps.md). The four that catch people first:
+[internals/traps.md](docs/internals/traps.md). It is not loaded on its own, so read the
+section for the area before editing it:
+
+- `src/styles/`, layout, anything that scrolls or sizes →
+  [Layout and CSS](docs/internals/traps.md#layout-and-css)
+- updater, packaging, native or Windows behaviour, what counts as evidence →
+  [Hosts and evidence](docs/internals/traps.md#hosts-and-evidence)
+- IPC, persistence, worktrees, shell bootstrap, agent wrappers, hooks and plugins →
+  [Data and contracts](docs/internals/traps.md#data-and-contracts)
+
+The ones that cost the most when missed:
 
 - The app running an update is the **old build**; an updater fix cannot protect the transition
   into the release that carries it.
@@ -164,6 +174,14 @@ The full list, with the live switches and the limitations that were looked at an
 - **A one-pixel overflow moves the whole window.** `#root` is `overflow: clip`, not `hidden`,
   because `hidden` still builds a scroll container. Treat "the top bar looks misaligned" as a
   scroll report, not a layout one.
+- **A store that cannot be read is write-locked.** Never "fix" an unreadable file by writing
+  defaults over it; the lock keeps recoverable bytes alive.
+- **A timed-out worktree command is not a rollback.** Git may leave a branch, directory or
+  registered worktree holding user work: no automatic cleanup, no force retry.
+- **A hook or plugin post must never honour proxy variables**, or the pane token goes to the
+  user's proxy.
+- **An agent wrapper must never stay a parent process.** It ends in `exec`; a fork breaks pane
+  classification and drops every Claude event as nested.
 
 Old `FR-` and `ADR-` references are historical. Do not recreate `PIPELINE.lock` or
 `docs/decisions/` merely to satisfy those comments.
