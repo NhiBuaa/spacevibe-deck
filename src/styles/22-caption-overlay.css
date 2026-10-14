@@ -69,3 +69,9 @@
 .window--caption-overlay .settings-screen__head {
   padding-right: calc(var(--frame-controls-w) + 16px);
 }
+
+/* The usage page covers the stage strip in the sidebar layout (DL-16.8), so its
+   header ends at the corner the strip or the dock's header held. */
+.window--caption-overlay .stage--strip .usage-screen__head {
+  padding-right: calc(var(--frame-controls-w) + 16px);
+}

@@ -1,11 +1,13 @@
 /* ── Usage page: the stage-content shell (usage-page.tsx, DL-11.1) ─────── */
 
-/* Laid over the stage's content area: the rail and the stage strip stay
-   uncovered, and the terminal grid underneath keeps its measured size, so
-   opening and closing costs no pane a resize. It runs to the window's right
-   edge, over an open dock and diff column too (owner, 2026-10-15): a page that
-   takes the content area leaves no side panel showing. The dock stays mounted
-   and keeps its state underneath; `App` makes it inert while covered. */
+/* Laid over the whole stage, the way Settings lies over the window: only the
+   rail stays uncovered (owner, 2026-10-15). The stage strip, an open dock and
+   a docked diff column all go under it — their breadcrumb and pane controls
+   describe the terminal, not this page. The terminal grid underneath keeps its
+   measured size, so opening and closing costs no pane a resize, and the dock
+   stays mounted with its state; `App` makes it inert while covered.
+   Full-bleed like Settings (DL-20.1): a surface with no edge to meet gets no
+   gutter, radius or seam. */
 
 .usage-screen {
   position: absolute;
@@ -13,8 +15,7 @@
   display: flex;
   min-width: 0;
   min-height: 0;
-  padding: var(--stage-gutter);
-  background: var(--sidebar-bg);
+  background: var(--chrome-2);
   /* `.stage__surface`'s layer, for its reason: terminal chrome inside
      `.stage__tabs` carries z-indexes of its own and would paint through. Below
      the open board (30), Settings (35), the modal tier (40). */
@@ -33,10 +34,6 @@
     visibility 0s linear 0.22s;
 }
 
-.stage--strip .usage-screen {
-  top: var(--frame-h);
-}
-
 .usage-screen.is-open {
   opacity: 1;
   transform: translateY(0);
@@ -48,17 +45,12 @@
     visibility 0s;
 }
 
-/* A card on the gutter, like a pane and the document surface (DL-20.1). */
 .usage-screen__card {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  box-sizing: border-box;
-  border: 1px solid var(--seam-split);
-  border-radius: var(--radius-tab);
-  background: var(--chrome-2);
   overflow: hidden;
 }
 
@@ -66,9 +58,32 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 16px;
+  padding: 8px 16px;
   flex-shrink: 0;
   border-bottom: 1px solid var(--hair);
+}
+
+/* In the sidebar layout the head stands where the stage strip was, so it takes
+   that row's obligations, as `.settings-screen__head` does: at least the row's
+   height, a drag surface with its controls opted out, and the macOS lights'
+   footprint once the rail no longer covers it (02-shell, 04e). In the top-tab
+   layout the tab bar is still the frame row above, and none of this applies. */
+.stage--strip .usage-screen__head {
+  min-height: var(--frame-h);
+  box-sizing: border-box;
+  -webkit-app-region: drag;
+}
+
+.stage--strip .usage-screen__head button {
+  -webkit-app-region: no-drag;
+}
+
+[data-sidebar-collapsed="true"] .stage--strip .usage-screen__head {
+  padding-left: calc(var(--frame-lights-w) + 16px);
+}
+
+[data-sidebar-collapsed="column"] .stage--strip .usage-screen__head {
+  padding-left: calc(max(0px, var(--frame-lights-w) - var(--sidebar-w)) + 16px);
 }
 
 /* Back, not a close X: leaving is going back to the work (same word and shape
