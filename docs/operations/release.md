@@ -143,6 +143,27 @@ promotion and updater assets. Invoking it authorizes those remote actions. Run o
 local `main` after the primary checkout's writer hands it off; it refuses dirty, behind,
 diverged, wrong-repository and incomplete-release states. Never run it as a release probe.
 
+### Verify the commit before cutting it
+
+To ship only what was looked at, build a preview of the commit the cut will use, verify it,
+then cut that SHA:
+
+1. Dispatch [`electron-preview.yml`](../../.github/workflows/electron-preview.yml) from `main`
+   with `ref` set to the commit (`gh workflow run electron-preview.yml --ref main -f ref=<sha>`).
+   It builds the signed, notarized macOS app and the unsigned Windows installer from the
+   shipping config, keeps them as 7-day artifacts and publishes nothing: no draft, release,
+   tag or manifest.
+2. Verify the artifacts. A release switch stays at its file value in a packaged build, so a
+   branch shows a gated feature only if it carries the activation commit.
+3. Run `npm run release:cut -- --expect-sha <sha>`. It refuses before any edit when local
+   `main` HEAD is not that commit. When `main` moved, either build a preview of the new HEAD,
+   or leave the newer commits unshipped: a feature merged behind a switch is harmless, one
+   without a switch is not.
+
+The preview accepts a branch of this repository or a commit already on one, and runs only when
+dispatched from `main`, because the signing secrets run beside the code at `ref`. A fork's
+commit is refused. The workflow mirrors the `mac` and `windows` jobs, so change them together.
+
 Maintain reviewed user-facing notes under exactly `## Unreleased` at the top of CHANGELOG
 on main at integration time. The command renames that heading to exactly `## X.Y.Z`; it
 refuses missing/empty/duplicate sections and preserves older release sections. It does not
@@ -347,6 +368,9 @@ keyed its app data by bundle identifier, while Electron uses `app.getPath("userD
   nowhere.
 - `npm run electron:package:monaco-smoke` then `npm run electron:verify:monaco-smoke` — the
   packaged Monaco regression smoke (universal, unsigned). Rerun it after adding a CSP.
+- [`electron-preview.yml`](../../.github/workflows/electron-preview.yml) — the shipping config
+  built from any commit of this repository on CI, signed on macOS, kept as artifacts, published
+  nowhere; see [Verify the commit before cutting it](#verify-the-commit-before-cutting-it).
 - [`ci.yml`](../../.github/workflows/ci.yml)'s `windows-electron-package` job
   (`workflow_dispatch`) builds the unsigned Electron Windows preview on a Windows runner and
   keeps it as a 7-day artifact. It is deliberately not gated on `windows-check`.
