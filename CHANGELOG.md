@@ -9,11 +9,12 @@ the release PR, and frozen at the tag — never an auto-generated commit list.
 
 - **OpenCode reports its status by default.** Signals is now on for OpenCode: Deck loads a
   small plugin into OpenCode in its panes, so a turn shows as working, a permission request or
-  a question shows as needing you, and the end of a turn shows as done. While it is on, OpenCode
-  in a Deck pane uses Deck's config directory (`OPENCODE_CONFIG_DIR`), so agents, commands and
-  plugins from your own `OPENCODE_CONFIG_DIR` do not load there; switch it off in Settings →
-  Agents if you rely on them. Deck no longer reserves a port for OpenCode. Electron only, macOS
-  and Linux.
+  a question shows as needing you, and the end of a turn shows as done. Your global
+  `~/.config/opencode/AGENTS.md` still applies there. While it is on, OpenCode in a Deck pane
+  uses Deck's config directory (`OPENCODE_CONFIG_DIR`), so agents, commands, plugins and
+  `AGENTS.md` from a directory you set in `OPENCODE_CONFIG_DIR` yourself do not load there;
+  switch it off in Settings → Agents if you rely on them. Deck no longer reserves a port for
+  OpenCode. Electron only, macOS and Linux.
 
 - **Codex reports its status by default.** Signals is now on for Codex too: a turn shows as
   working when you send a prompt, an approval or a question shows as needing you, and the end
