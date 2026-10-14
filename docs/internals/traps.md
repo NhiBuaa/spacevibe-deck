@@ -146,6 +146,12 @@ at and left; changing one is a decision, not a cleanup.
   became the single catalog id `externalAppId`, and a stored `custom` migrates to the first
   catalog app. `editor-command.ts` and `open_editor`'s `custom` branch still build and still
   validate; restoring the feature needs a catalog entry carrying a command template.
+- **A quick agent pressed in a pane opened before its install types a name that pane cannot
+  run.** [`pane-quick-agents.tsx`](../../src/terminal/pane-quick-agents.tsx) types the bare
+  launch command, and a shell keeps the `PATH` it started with, so the old pane answers "not
+  found" while a new pane runs the agent. Typing the resolved path instead needs the pane's
+  shell, because PowerShell, cmd and Git Bash each invoke a quoted path differently, and the
+  renderer knows the foreground process of the active pane only.
 
 ## Live switches
 

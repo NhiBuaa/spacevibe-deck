@@ -93,8 +93,9 @@ in that terminal. Pressing **Install** again while that terminal is open takes y
 
 Deck does not watch the installer finish. It looks again when you return to the Deck window or
 open an agent list, or when you press **Refresh**, and the row then moves to **Installed**
-without a restart. An agent installed this way is also added to your quick agents. On Windows, an installer that adds a new folder to `PATH` is seen only after
-Deck restarts. An agent whose install command Deck has not verified shows **Get** instead, which
+without a restart. An agent installed this way is also added to your quick agents. A terminal
+that was already open keeps the `PATH` it started with, so start a newly installed agent from a
+new terminal. An agent whose install command Deck has not verified shows **Get** instead, which
 opens its website. Install and Get appear only for enabled built-in agents, never for custom
 ones, and only in the Electron app
 ([install control](../../src/launcher/agent-install-control.tsx)).
