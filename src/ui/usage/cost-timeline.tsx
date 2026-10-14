@@ -1,5 +1,5 @@
 import type { AgentTotal } from "../../lib/usage-aggregate";
-import { dotColor } from "../../lib/process-info";
+import { usageAgentColor } from "./usage-agent-colors";
 import { formatUsd } from "../../lib/usage-pricing";
 import { EM_DASH, formatTokens, USAGE_AGENT_LABEL, USAGE_AGENT_ORDER } from "./usage-format";
 import type { UsageInterval, UsageTimeline } from "./usage-timeline";
@@ -111,7 +111,10 @@ export function CostTimeline({ timeline }: { readonly timeline: UsageTimeline })
                     return cost !== null && cost !== undefined && cost > 0 ? (
                       <span
                         key={agent}
-                        style={{ height: `${(cost / max) * 100}%`, background: dotColor(agent) }}
+                        style={{
+                          height: `${(cost / max) * 100}%`,
+                          background: usageAgentColor(agent),
+                        }}
                       />
                     ) : null;
                   })}
@@ -138,7 +141,7 @@ export function CostTimeline({ timeline }: { readonly timeline: UsageTimeline })
       <div class="usage-timeline__legend">
         {USAGE_AGENT_ORDER.map((agent) => (
           <span key={agent}>
-            <i aria-hidden="true" style={{ background: dotColor(agent) }} />
+            <i aria-hidden="true" style={{ background: usageAgentColor(agent) }} />
             {USAGE_AGENT_LABEL[agent]}
           </span>
         ))}

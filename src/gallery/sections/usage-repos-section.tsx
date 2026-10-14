@@ -10,6 +10,7 @@ import { buildRepoTable, type RepoUsage } from "../../ui/usage/usage-by-repo";
 import { EM_DASH } from "../../ui/usage/usage-format";
 import { UsageRepoTiles } from "../../ui/usage/usage-repo-tiles";
 import { SectionHead, Specimen } from "../specimen";
+import { UsageDockOverviewSpecimen } from "./usage-dock-overview-specimen";
 import {
   REPOS_AWKWARD,
   REPOS_MANY_LINES,
@@ -125,6 +126,13 @@ export function UsageReposSection() {
         surface="chrome-2"
       >
         <Frame repos={REPOS_TYPICAL} width={480} />
+      </Specimen>
+      <Specimen
+        name="Dock overview · same palette"
+        note="The sidebar's Usage tab at its default 420px: agent bars, legend and cost-over-time columns all wear the orange and blue now."
+        surface="chrome-2"
+      >
+        <UsageDockOverviewSpecimen />
       </Specimen>
     </>
   );

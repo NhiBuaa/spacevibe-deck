@@ -561,8 +561,14 @@ comes from limit readings, cost from recorded token history; neither is a subscr
   full-width track 4px tall, radius 2px (a capsule, not a DL-20.1 value),
   `color-mix(in srgb, var(--fg) 8%, transparent)`, filled left to right by the share. No
   gradient, shadow or animation (DL-1.3, DL-1.2).
-- **DL-16.4** The fill takes the subject's established colour; for an agent, the `dotColor` of
-  its pane dot and tab (`src/lib/process-info.ts`). It adds no colour role and no logo colour.
+- **DL-16.4** The fill takes the subject's colour on this page; for an agent, the Usage palette
+  ([`usage-agent-colors.ts`](../src/ui/usage/usage-agent-colors.ts)): a fixed orange for Claude
+  and a fixed blue for Codex, each mixed 26% toward the theme foreground so it holds 3:1 on
+  `chrome2` in every built-in theme. The bars, the cost timeline's columns and its legend share it;
+  the tab dot and the rail keep the theme's ANSI colours. It adds no colour role and no logo
+  colour, and stays clear of green, red and yellow (DL-3.2).
+  Why: the ANSI pair drifted with the theme (pale pink on Catppuccin, neon green on Dracula), and
+  green reads as "success" beside a cost.
 - **DL-16.5** A share bar is drawn only when its stated total is on screen, and is not a gauge
   or a meter against a budget. With no total, every bar is an empty track and no percentage is
   printed.
