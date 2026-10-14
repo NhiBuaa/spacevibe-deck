@@ -319,7 +319,17 @@ Run in order; the first row not Done is the next work. Each slice gets its own p
 - **RISK4 — Deck code runs inside opencode.** The plugin runs in the opencode process with the
   user's privileges; it must stay minimal and post only to the loopback endpoint.
 - **RISK5 — A user's own `OPENCODE_CONFIG_DIR` is replaced inside Deck panes.** Their agents,
-  commands and plugins from that directory do not load there.
+  commands, plugins and `AGENTS.md` from that directory do not load there.
+  - Found in the 2.11 release review (2026-10-13): any `OPENCODE_CONFIG_DIR` also moves
+    opencode's global-instructions lookup, so with Deck's directory opencode 1.19.0 read
+    `~/.claude/CLAUDE.md` instead of `~/.config/opencode/AGENTS.md` for every user.
+  - Decision (owner, 2026-10-14): Deck's directory carries an `AGENTS.md` symlink to
+    `${XDG_CONFIG_HOME:-~/.config}/opencode/AGENTS.md`, made at boot. Turned down: switching
+    opencode Signals off by default, and loading the plugin through `OPENCODE_CONFIG_CONTENT`
+    (unverified that opencode loads a plugin that way).
+  - Limits: the target comes from main's env, so an `XDG_CONFIG_HOME` set only in a shell rc
+    is missed. Config, agents and skills were checked unaffected: `opencode debug config`,
+    `debug agent build` and the `debug skill` set match with and without the variable.
 - **RISK6 — Every pane shell starts through Deck's bootstrap.** A startup file that inspects
   `ZDOTDIR` or `$0`, or a `precmd` that rewrites PATH, can behave differently. Superset ships
   the same bootstrap; slice 1's tests cover the known cases.
