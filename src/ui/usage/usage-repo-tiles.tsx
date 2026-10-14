@@ -1,5 +1,5 @@
 import { useId } from "preact/hooks";
-import { AGENT_LOGOS } from "../../lib/agent-logos";
+import { AgentGlyph } from "../controls/agent-glyph";
 import { formatUsd } from "../../lib/usage-pricing";
 import { usageAgentColor } from "./usage-agent-colors";
 import { EM_DASH, ESTIMATE_NOTE, formatTokensCompact, USAGE_AGENT_LABEL } from "./usage-format";
@@ -74,15 +74,19 @@ function Tile({ row, scale }: { readonly row: RepoRow; readonly scale: number })
       <MagnitudeBar row={row} scale={scale} />
       <p class="usage-tile__summary">{summarizeRepo(row)}</p>
       <p class="usage-tile__meta">
-        {agents.map((agent) => {
-          const logo = AGENT_LOGOS[agent];
-          return (
-            <span key={agent} class="usage-tile__agent">
-              <i style={{ background: usageAgentColor(agent) }} aria-hidden="true" />
-              {logo === undefined ? null : <img src={logo} alt={USAGE_AGENT_LABEL[agent]} />}
-            </span>
-          );
-        })}
+        {agents.map((agent) => (
+          // One named picture per agent: the swatch and the mark are decoration
+          // inside it, so a screen reader hears "Codex" once.
+          <span
+            key={agent}
+            class="usage-tile__agent"
+            role="img"
+            aria-label={USAGE_AGENT_LABEL[agent]}
+          >
+            <i style={{ background: usageAgentColor(agent) }} aria-hidden="true" />
+            <AgentGlyph agent={agent} className="usage-tile__logo" />
+          </span>
+        ))}
         <span>
           {formatTokensCompact(row.tokens)} tokens
           {unpricedNote(row)}

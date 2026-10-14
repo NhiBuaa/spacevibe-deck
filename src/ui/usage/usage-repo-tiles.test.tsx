@@ -51,6 +51,10 @@ describe("UsageRepoTiles", () => {
     expect(host.querySelectorAll("ul.usage-tiles > li")).toHaveLength(1);
     expect(host.querySelector("button, a, [tabindex], input")).toBeNull();
     expect(host.querySelector(".usage-tile__bar")?.getAttribute("aria-hidden")).toBe("true");
+    // An agent is named once, by its picture, however many marks draw it.
+    expect(host.querySelector(".usage-tile__agent")?.getAttribute("aria-label")).toBe(
+      "Claude Code",
+    );
   });
 
   it("shows cost, share and the model summary, and a dash plus a note when unpriced", () => {
