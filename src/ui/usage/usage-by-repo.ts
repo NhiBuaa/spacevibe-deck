@@ -219,3 +219,30 @@ export function buildRepoTable(repos: readonly RepoUsage[]): RepoTable {
     unpricedModels,
   };
 }
+
+const SUMMARY_MODELS = 2;
+
+/**
+ * What a repository ran, as one faint line: `claude-opus-5-5 82% · gpt-5 14% ·
+ * +1`. The percentages are shares of THIS repo's priced cost, biggest first.
+ * A repo with nothing priced names its models without percentages, because a
+ * share of an unknown cost is not a number.
+ */
+export function summarizeRepo(row: RepoRow): string {
+  const priced = row.lines.filter((line) => line.costUsd !== null);
+  const named = priced.length > 0 ? priced : row.lines;
+  const shown = named.slice(0, SUMMARY_MODELS).map((line) => {
+    if (priced.length === 0 || row.costUsd === null || row.costUsd === 0) {
+      return line.model;
+    }
+    const share = Math.round(((line.costUsd ?? 0) / row.costUsd) * 100);
+    return `${line.model} ${share < 1 ? "<1" : share}%`;
+  });
+  const rest = row.lines.length - shown.length;
+  return rest > 0 ? [...shown, `+${rest}`].join(" · ") : shown.join(" · ");
+}
+
+/** The biggest priced cost among the rows: the length every bar is scaled against. */
+export function maxRepoCost(table: RepoTable): number {
+  return Math.max(0, ...table.rows.map((row) => row.costUsd ?? 0));
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRepoTable, type RepoUsage } from "./usage-by-repo";
+import { buildRepoTable, summarizeRepo, type RepoUsage } from "./usage-by-repo";
 
 const tokens = (output: number) => ({
   inputUncached: 0,
@@ -107,5 +107,26 @@ describe("buildRepoTable", () => {
   it("drops repos with no tokens and reports no total when nothing is priced", () => {
     expect(buildRepoTable([]).rows).toEqual([]);
     expect(buildRepoTable([]).totalCostUsd).toBeNull();
+  });
+});
+
+describe("summarizeRepo", () => {
+  it("names the top two priced models by share of the repo and counts the rest", () => {
+    const [row] = buildRepoTable([
+      repo(
+        "/x",
+        "x",
+        ["claude-opus-5-5", 3_000_000],
+        ["gpt-5", 1_000_000],
+        ["claude-haiku-5-5", 10_000],
+      ),
+    ]).rows;
+    const text = summarizeRepo(row);
+    expect(text).toMatch(/^claude-opus-5-5 \d+% · gpt-5 \d+% · \+1$/);
+  });
+
+  it("names models without percentages when nothing in the repo is priced", () => {
+    const [row] = buildRepoTable([repo("/x", "x", ["gpt-6-preview", 5_000])]).rows;
+    expect(summarizeRepo(row)).toBe("gpt-6-preview");
   });
 });
