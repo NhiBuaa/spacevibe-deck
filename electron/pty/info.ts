@@ -23,16 +23,38 @@ import type { PtySessionSnapshot } from "./session-store";
 
 export interface PtyInfoPlatform {
   readProcessTable(): Promise<macos.PsRow[]>;
+  /** `prefer` matters only to the Windows tree walk; macOS asks the tty. */
   foregroundProcess(
     rows: readonly macos.PsRow[],
     ttyName: string,
     shellPid: number,
+    prefer?: (name: string | null, commandLine: string) => boolean,
   ): macos.ForegroundProcess | null;
   processCwds(pids: readonly number[]): Promise<Map<number, string>>;
 }
 
 function platform(): PtyInfoPlatform {
   return process.platform === "win32" ? windows : macos;
+}
+
+/**
+ * The pane's foreground process, preferring one that classifies as an agent.
+ *
+ * Both readings go through here: the reader keys its cwd cache on the pid it
+ * picks, so a second walk with another rule would never find the cwd.
+ */
+function foregroundOf(
+  processPlatform: PtyInfoPlatform,
+  rows: readonly macos.PsRow[],
+  snapshot: PtySessionSnapshot,
+  agentMatchers: readonly AgentProcessMatcher[],
+): macos.ForegroundProcess | null {
+  return processPlatform.foregroundProcess(
+    rows,
+    snapshot.ttyName,
+    snapshot.pid,
+    (name, commandLine) => classifyProcess(name, true, commandLine, agentMatchers).kind === "agent",
+  );
 }
 
 export interface PtyInfo {
@@ -71,7 +93,7 @@ export function buildPtyInfo(
   agentMatchers: readonly AgentProcessMatcher[] = [],
 ): PtyInfo[] {
   return snapshots.map((snapshot) => {
-    const foreground = processPlatform.foregroundProcess(rows, snapshot.ttyName, snapshot.pid);
+    const foreground = foregroundOf(processPlatform, rows, snapshot, agentMatchers);
     if (foreground === null) {
       return unknownInfo(snapshot);
     }
@@ -239,7 +261,7 @@ export function createPtyInfoReader(
       const cachedCwds = new Map<number, string>();
       const foregroundTargets = new Map<number, number>();
       for (const snapshot of snapshots) {
-        const foreground = processPlatform.foregroundProcess(rows, snapshot.ttyName, snapshot.pid);
+        const foreground = foregroundOf(processPlatform, rows, snapshot, agentMatchers);
         if (foreground === null) {
           continue;
         }

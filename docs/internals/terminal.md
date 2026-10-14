@@ -55,8 +55,11 @@ Ids are process-local integers from 1, never reused.
   `.process` getter, which reads a truncated `p_comm` and once answered a version string for
   a `claude` pane. macOS runs `/bin/ps -A -o pid=,pgid=,tpgid=,tty=,args=` and joins on the
   pane's tty; `tpgid` names the foreground group. Windows runs one `Get-CimInstance
-  Win32_Process` snapshot and walks the shell's descendant tree, picking the deepest, newest
-  process. Both reads reject rather than answer when the table cannot be read.
+  Win32_Process` snapshot and walks the shell's descendant tree. `pty_info` picks the
+  shallowest descendant that classifies as an agent, because an agent's long-lived children
+  (stdio MCP servers, Codex's code-mode host) sit deeper than the agent. With no agent in the
+  tree it picks the deepest, newest process, which Stop and close always target. Both reads
+  reject rather than answer when the table cannot be read.
 - Classification ([`platform/classify.ts`](../../electron/platform/classify.ts)): a built-in
   agent by binary name or by the script an interpreter is running, then a user-declared
   matcher (label as identity), then a shell name → `idle-shell`, otherwise `busy`. An

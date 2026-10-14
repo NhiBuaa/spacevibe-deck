@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { buildPtyInfo, createPtyInfoReader } from "./info";
 import { foregroundProcess, parsePsTable } from "../platform/macos";
 import * as macos from "../platform/macos";
+import * as windows from "../platform/windows";
+import type { WindowsProcessRow } from "../platform/windows";
 import type { PtySessionSnapshot } from "./session-store";
 
 const rows = parsePsTable(
@@ -108,6 +110,141 @@ describe("buildPtyInfo", () => {
 
   it("returns an empty list for no snapshots", () => {
     expect(buildPtyInfo([], rows, new Map(), macos)).toEqual([]);
+  });
+});
+
+describe("buildPtyInfo on Windows", () => {
+  const winRow = (
+    pid: number,
+    ppid: number,
+    executable: string,
+    creationDate: number,
+    args = executable,
+  ): WindowsProcessRow => ({
+    pid,
+    pgid: ppid,
+    tpgid: -1,
+    tty: "",
+    args,
+    ppid,
+    creationDate,
+    executable,
+  });
+  const shell = winRow(
+    100,
+    1,
+    "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+    10,
+    "pwsh.exe -NoLogo",
+  );
+  const claude = winRow(101, 100, "C:\\Users\\a\\.local\\bin\\claude.exe", 20, "claude");
+  const codex = winRow(101, 100, "C:\\tools\\codex.exe", 20, "codex");
+  const claudeWithMcp = [
+    shell,
+    claude,
+    winRow(
+      102,
+      101,
+      "C:\\Windows\\System32\\cmd.exe",
+      30,
+      'cmd.exe /d /s /c "npx -y @modelcontextprotocol/server-filesystem C:\\repo"',
+    ),
+    winRow(
+      103,
+      102,
+      "C:\\Program Files\\nodejs\\node.exe",
+      40,
+      "node C:\\Users\\a\\AppData\\Local\\npm-cache\\_npx\\1f2e\\node_modules\\@modelcontextprotocol\\server-filesystem\\dist\\index.js C:\\repo",
+    ),
+  ];
+
+  it.each([
+    ["claude.exe → cmd.exe → node.exe (MCP)", claudeWithMcp, 101, "claude.exe", "claude"],
+    [
+      "codex.exe → codex-code-mode-host.exe",
+      [shell, codex, winRow(102, 101, "C:\\tools\\codex-code-mode-host.exe", 30)],
+      101,
+      "codex.exe",
+      "codex",
+    ],
+    [
+      "claude.exe → bash.exe → codex.exe",
+      [
+        shell,
+        claude,
+        winRow(
+          102,
+          101,
+          "C:\\Program Files\\Git\\bin\\bash.exe",
+          30,
+          'bash.exe -c -l "codex exec"',
+        ),
+        winRow(103, 102, "C:\\tools\\codex.exe", 40, "codex exec"),
+      ],
+      101,
+      "claude.exe",
+      "claude",
+    ],
+    [
+      "node.exe → claude.exe",
+      [
+        shell,
+        winRow(101, 100, "C:\\node.exe", 20),
+        winRow(102, 101, "C:\\Users\\a\\claude.exe", 30),
+      ],
+      102,
+      "claude.exe",
+      "claude",
+    ],
+  ] as const)("classifies %s as the agent", (_tree, tree, processId, process, agent) => {
+    const [info] = buildPtyInfo([snapshot(1, 100, "")], tree, new Map(), windows);
+
+    expect(info).toMatchObject({ processId, process, kind: "agent", agent });
+  });
+
+  it("reports the deepest process as busy when no agent is running", () => {
+    const tree = [
+      shell,
+      winRow(101, 100, "C:\\Windows\\System32\\cmd.exe", 20, "cmd.exe /d /s /c npm run build"),
+      winRow(102, 101, "C:\\node.exe", 30, "node C:\\repo\\node_modules\\vite\\bin\\vite.js build"),
+    ];
+
+    const [info] = buildPtyInfo([snapshot(1, 100, "")], tree, new Map(), windows);
+
+    expect(info).toMatchObject({ processId: 102, process: "node.exe", kind: "busy", agent: null });
+  });
+
+  it("prefers a user-declared agent too", () => {
+    const tree = [
+      shell,
+      winRow(101, 100, "C:\\tools\\aider.exe", 20, "aider --watch"),
+      winRow(102, 101, "C:\\Windows\\System32\\git.exe", 30, "git status"),
+    ];
+
+    const [info] = buildPtyInfo([snapshot(1, 100, "")], tree, new Map(), windows, [
+      { binary: "aider", agent: "Aider" },
+    ]);
+
+    expect(info).toMatchObject({ processId: 101, kind: "agent", agent: "Aider" });
+  });
+
+  it("keys the reader's cwd lookup on the same agent pid it reports", async () => {
+    // The cwd cache is keyed on the pid the reader picks; a reader that walked
+    // to the MCP server would look up its cwd and never find the agent's.
+    const processCwds = vi.fn(async () => new Map([[101, "C:\\repo"]]));
+    const reader = createPtyInfoReader(
+      () => ({
+        readProcessTable: async () => claudeWithMcp,
+        foregroundProcess: windows.foregroundProcess,
+        processCwds,
+      }),
+      async () => new Map(),
+    );
+
+    const [info] = await reader.read([snapshot(1, 100, "", "C:\\stale")], [], true);
+
+    expect(processCwds).toHaveBeenCalledWith([101]);
+    expect(info).toMatchObject({ processId: 101, cwd: "C:\\repo", agent: "claude" });
   });
 });
 

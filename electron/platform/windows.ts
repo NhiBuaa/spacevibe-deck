@@ -10,7 +10,8 @@
  *
  * **What is faithful.** The snapshot reads the identical WMI fields; the
  * descendant walk, the creation-date filter and the deepest-newest tie-break
- * are ported case for case from `classify_root`/`collect_descendants`; the
+ * are ported case for case from `classify_root`/`collect_descendants` (the
+ * agent preference in `foregroundProcess` is Deck's own, added on top); the
  * shell launch reproduces `shell.rs` exactly, including the injected prompt
  * that makes OSC 133 and OSC 9;9 work.
  *
@@ -428,9 +429,18 @@ export function collectDescendants(
  * What is running in a pane, from a table snapshot.
  *
  * `ttyName` is ignored: Windows has no controlling terminal, so the question
- * "what holds the tty" has no answer here and the tree is walked instead. The
- * deepest-then-newest tie-break is `classify_root`'s, and it is what makes
- * `claude` win over the `node.exe` that launched it.
+ * "what holds the tty" has no answer here and the tree is walked instead.
+ *
+ * With `prefer`, the SHALLOWEST descendant it accepts wins. `info.ts` passes
+ * "classifies as an agent", because an agent's long-lived children sit deeper
+ * than the agent itself — stdio MCP servers, Codex's code-mode host — and a
+ * deepest-first walk reported every such pane as that busy child. Shallowest
+ * also keeps the outer agent when it runs another one.
+ *
+ * Without a match, or without `prefer`, it is `classify_root`'s
+ * deepest-then-newest rule, so a plain job still reports `busy` and an agent
+ * still beats the `node.exe` that launched it. Stop and close call this
+ * without `prefer`, so they keep terminating the deepest process.
  *
  * No descendants means the shell itself is in front — reported with the
  * shell's own name, which `classifyProcess` resolves to `idle-shell` through
@@ -440,6 +450,7 @@ export function foregroundProcess(
   rows: readonly PsRow[],
   _ttyName: string,
   shellPid: number,
+  prefer?: (name: string | null, commandLine: string) => boolean,
 ): ForegroundProcess | null {
   const windowsRows = rows.filter(isWindowsRow);
   const shell = windowsRows.find((row) => row.pid === shellPid);
@@ -450,29 +461,35 @@ export function foregroundProcess(
   if (descendants.length === 0) {
     return { pid: shell.pid, group: null, name: processName(shell) };
   }
-  const deepest = descendants.reduce((best, candidate) =>
-    outranks(candidate, best) ? candidate : best,
-  );
+  const preferred =
+    prefer === undefined ? [] : descendants.filter(({ row }) => prefer(processName(row), row.args));
+  const chosen =
+    preferred.length > 0
+      ? preferred.reduce((best, candidate) => (outranks(candidate, best, false) ? candidate : best))
+      : descendants.reduce((best, candidate) =>
+          outranks(candidate, best, true) ? candidate : best,
+        );
   // `group` carries the pid to terminate, not a POSIX group id: `taskkill /T`
   // takes the root of a tree, which is exactly this process.
   return {
-    pid: deepest.row.pid,
-    group: deepest.row.pid,
-    name: processName(deepest.row),
+    pid: chosen.row.pid,
+    group: chosen.row.pid,
+    name: processName(chosen.row),
   };
 }
 
 /**
- * `(depth, creation_date, process_id)` compared in that order — the tuple
- * `classify_root` maximises over.
+ * `(depth, creation_date, process_id)` compared in that order, newest and
+ * highest pid winning a tie. `deeper` picks the depth direction: true is the
+ * tuple `classify_root` maximises over, false is the agent preference.
  *
  * Compared field by field rather than folded into one number: a FILETIME is
  * ~1.3e17, and any weighting that puts depth above it lands outside a double's
  * 53-bit integer range, where the creation date silently stops counting.
  */
-function outranks(candidate: Descendant, best: Descendant): boolean {
+function outranks(candidate: Descendant, best: Descendant, deeper: boolean): boolean {
   if (candidate.depth !== best.depth) {
-    return candidate.depth > best.depth;
+    return deeper ? candidate.depth > best.depth : candidate.depth < best.depth;
   }
   if (candidate.row.creationDate !== best.row.creationDate) {
     return candidate.row.creationDate > best.row.creationDate;

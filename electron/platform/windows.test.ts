@@ -11,6 +11,7 @@
  * Gate C is open — a green run here is not Windows evidence.
  */
 import { describe, expect, it, vi } from "vitest";
+import { classifyProcess } from "./classify";
 import {
   buildShellLaunch,
   collectDescendants,
@@ -346,6 +347,121 @@ describe("foregroundProcess", () => {
     };
 
     expect(foregroundProcess([posix], "ttys1", 100)).toBeNull();
+  });
+});
+
+describe("foregroundProcess with an agent preference", () => {
+  // The predicate `info.ts` passes.
+  const isAgent = (name: string | null, commandLine: string) =>
+    classifyProcess(name, true, commandLine).kind === "agent";
+
+  const shell = row(100, 1, "C:\\Program Files\\PowerShell\\7\\pwsh.exe", 10);
+  const claude = row(101, 100, "C:\\Users\\a\\.local\\bin\\claude.exe", 20, "claude");
+  const mcpLauncher = row(
+    102,
+    101,
+    "C:\\Windows\\System32\\cmd.exe",
+    30,
+    'cmd.exe /d /s /c "npx -y @modelcontextprotocol/server-filesystem C:\\repo"',
+  );
+  const mcpServer = row(
+    103,
+    102,
+    "C:\\Program Files\\nodejs\\node.exe",
+    40,
+    "node C:\\Users\\a\\AppData\\Local\\npm-cache\\_npx\\1f2e\\node_modules\\@modelcontextprotocol\\server-filesystem\\dist\\index.js C:\\repo",
+  );
+  const claudeWithMcp = [shell, claude, mcpLauncher, mcpServer];
+
+  it("picks the agent over the MCP server it spawned", () => {
+    expect(foregroundProcess(claudeWithMcp, "", 100, isAgent)).toEqual({
+      pid: 101,
+      group: 101,
+      name: "claude.exe",
+    });
+  });
+
+  it("picks Codex over its code-mode host", () => {
+    const rows = [
+      shell,
+      row(101, 100, "C:\\tools\\codex.exe", 20, "codex"),
+      row(102, 101, "C:\\tools\\codex-code-mode-host.exe", 30),
+    ];
+
+    expect(foregroundProcess(rows, "", 100, isAgent)).toEqual({
+      pid: 101,
+      group: 101,
+      name: "codex.exe",
+    });
+  });
+
+  it("keeps the outer agent when it runs another one", () => {
+    const rows = [
+      shell,
+      claude,
+      row(
+        102,
+        101,
+        "C:\\Program Files\\Git\\bin\\bash.exe",
+        30,
+        '"C:\\Program Files\\Git\\bin\\bash.exe" -c -l "codex exec review"',
+      ),
+      row(103, 102, "C:\\tools\\codex.exe", 40, "codex exec review"),
+    ];
+
+    expect(foregroundProcess(rows, "", 100, isAgent)?.name).toBe("claude.exe");
+  });
+
+  it("still finds an agent below its launcher", () => {
+    const rows = [
+      shell,
+      row(101, 100, "C:\\node.exe", 20),
+      row(102, 101, "C:\\Users\\a\\claude.exe", 30),
+    ];
+
+    expect(foregroundProcess(rows, "", 100, isAgent)?.pid).toBe(102);
+  });
+
+  it("breaks a tie between agents at one depth by creation time, then by pid", () => {
+    const rows = [
+      shell,
+      row(101, 100, "C:\\tools\\codex.exe", 30),
+      row(102, 100, "C:\\Users\\a\\claude.exe", 20),
+      row(103, 102, "C:\\node.exe", 40),
+    ];
+
+    expect(foregroundProcess(rows, "", 100, isAgent)?.name).toBe("codex.exe");
+
+    const sameInstant = [
+      shell,
+      row(101, 100, "C:\\Users\\a\\claude.exe", 20),
+      row(102, 100, "C:\\tools\\codex.exe", 20),
+    ];
+
+    expect(foregroundProcess(sameInstant, "", 100, isAgent)?.name).toBe("codex.exe");
+  });
+
+  it("falls back to the deepest, newest process when no agent is running", () => {
+    const rows = [
+      shell,
+      row(101, 100, "C:\\Windows\\System32\\cmd.exe", 20, "cmd.exe /d /s /c npm run build"),
+      row(102, 101, "C:\\node.exe", 30, "node C:\\repo\\node_modules\\vite\\bin\\vite.js build"),
+      row(103, 102, "C:\\repo\\esbuild.exe", 40, "esbuild.exe --service=0.21.5 --ping"),
+    ];
+
+    expect(foregroundProcess(rows, "", 100, isAgent)).toEqual({
+      pid: 103,
+      group: 103,
+      name: "esbuild.exe",
+    });
+  });
+
+  it("is ignored when absent — Stop still targets the deepest process", () => {
+    expect(foregroundProcess(claudeWithMcp, "", 100)).toEqual({
+      pid: 103,
+      group: 103,
+      name: "node.exe",
+    });
   });
 });
 
