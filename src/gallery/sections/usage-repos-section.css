@@ -70,7 +70,7 @@
   border: 1px solid var(--hair);
   border-radius: var(--radius-control);
 }
-.ur-tile p {
+.ur-tile :where(p) {
   margin: 0;
 }
 .ur-tile__cost {
@@ -117,4 +117,13 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
+}
+.ur-tile .usage-repos__parent {
+  margin-top: 1px;
+}
+.ur-tile .ur-summary {
+  margin-top: 0;
+}
+.ur-tile__marks {
+  margin-top: 10px;
 }

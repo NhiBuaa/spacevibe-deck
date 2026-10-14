@@ -17,6 +17,11 @@ function percent(tenths: number | null): string {
   return tenths === null ? EM_DASH : `${(tenths / 10).toFixed(1)}%`;
 }
 
+/** A real but tiny share reads `<0.1%`, never `0.0%`, which says nothing was spent. */
+function tileShare(row: RepoRow): string {
+  return row.shareTenths === 0 && (row.costUsd ?? 0) > 0 ? "<0.1%" : percent(row.shareTenths);
+}
+
 /** `claude-opus-5-5 82% · gpt-5 14% · +2`: what the repo ran, biggest first. */
 function summary(row: RepoRow): string {
   const priced = row.lines.filter((line) => line.costUsd !== null);
@@ -140,6 +145,9 @@ export function OneLineLayout({ table }: { readonly table: RepoTable }) {
 
 /** F: tiles, two across. Reads like a grid of projects rather than a ledger. */
 export function TilesLayout({ table }: { readonly table: RepoTable }) {
+  // The bar shows magnitude (scaled to the biggest repo, as in D) with the
+  // agent split inside the filled part. A full bar beside "0.0%" would lie.
+  const scale = maxCost(table);
   return (
     <ul class="ur-tiles" aria-label="Usage by repository">
       {table.rows.map((row) => (
@@ -148,9 +156,9 @@ export function TilesLayout({ table }: { readonly table: RepoTable }) {
           {row.parent === null ? null : <p class="usage-repos__parent">{row.parent}</p>}
           <p class="ur-tile__cost">
             {row.costUsd === null ? EM_DASH : formatUsd(row.costUsd)}
-            <span class="ur-tile__share">{percent(row.shareTenths)}</span>
+            <span class="ur-tile__share">{tileShare(row)}</span>
           </p>
-          <AgentBar row={row} scale={row.costUsd ?? 0} />
+          <AgentBar row={row} scale={scale} />
           <p class="ur-summary">{summary(row)}</p>
           <p class="ur-tile__marks" aria-hidden="true">
             {[...new Set(row.lines.map((line) => line.agent))].map((agent) => {
