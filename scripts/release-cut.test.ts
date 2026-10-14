@@ -84,6 +84,8 @@ describe("release cut pure contracts", () => {
       [["--bump", "major"], "--bump must"],
       [["--resume", "HEAD"], "--resume must"],
       [["--force"], "Unknown argument"],
+      [["--expect-sha", "HEAD"], "--expect-sha must"],
+      [["--resume", "a".repeat(40), "--expect-sha", "b".repeat(40)], "Resume already names"],
       [["--resume", "a".repeat(40), "--bump", "patch"], "Resume cannot bump"],
     ] as const) {
       expect(() => parseArguments([...args])).toThrow(message);
@@ -219,6 +221,20 @@ describe("release cut with real disposable git repositories", () => {
     expect(f.git("rev-parse", "HEAD")).toBe(f.original);
     expect(f.git("status", "--porcelain")).not.toBe("");
     expect(f.calls.some(([cmd, op]) => cmd === "git" && op === "push")).toBe(false);
+  });
+  it("refuses a HEAD that is not the verified commit before any edit", async () => {
+    const f = fixture();
+    await expect(runReleaseCut(["--expect-sha", "a".repeat(40)], f)).rejects.toThrow(
+      "not the verified commit",
+    );
+    expect(f.git("rev-parse", "HEAD")).toBe(f.original);
+    expect(f.git("status", "--porcelain")).toBe("");
+    expect(f.calls.some(([cmd, op]) => cmd === "git" && op === "push")).toBe(false);
+  });
+  it("accepts a dry run at exactly the verified commit", async () => {
+    const f = fixture();
+    const result = await runReleaseCut(["--dry-run", "--expect-sha", f.original], f);
+    expect(result.dryRun).toBe(true);
   });
   it("refuses a second cut's shared lock without changing version files", async () => {
     const f = fixture();

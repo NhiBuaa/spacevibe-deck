@@ -21,22 +21,26 @@ export function parseArguments(args) {
       options = { ...options, dryRun: true };
     } else if (argument === "--backend-compatible") {
       options = { ...options, backendCompatible: true };
-    } else if (argument === "--bump" || argument === "--resume") {
+    } else if (argument === "--bump" || argument === "--resume" || argument === "--expect-sha") {
       const value = args[index + 1];
       if (value === undefined) throw new Error(`Missing ${argument} value`);
       if (argument === "--bump" && !["patch", "minor"].includes(value)) {
         throw new Error("--bump must be patch or minor");
       }
-      if (argument === "--resume" && !SHA.test(value)) {
-        throw new Error("--resume must be a full commit SHA");
+      if ((argument === "--resume" || argument === "--expect-sha") && !SHA.test(value)) {
+        throw new Error(`${argument} must be a full commit SHA`);
       }
-      options = { ...options, [argument.slice(2)]: value };
+      options = {
+        ...options,
+        [argument === "--expect-sha" ? "expectSha" : argument.slice(2)]: value,
+      };
       index += 1;
     } else {
       throw new Error(`Unknown argument ${argument}`);
     }
   }
   if (options.resume && options.bump) throw new Error("Resume cannot bump again");
+  if (options.resume && options.expectSha) throw new Error("Resume already names its commit");
   return options;
 }
 

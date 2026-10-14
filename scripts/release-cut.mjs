@@ -255,6 +255,11 @@ export async function runReleaseCut(
       g.git("fetch", "origin", "main", "--tags");
     }
     const original = g.capture();
+    // The freeze: only the commit a preview build verified may be cut.
+    if (options.expectSha && original !== options.expectSha)
+      throw new Error(
+        `HEAD ${original} is not the verified commit ${options.expectSha}; build a preview of HEAD, verify it, and pass its SHA`,
+      );
     const remoteMain = g.remoteRef("refs/heads/main");
     if (!remoteMain) throw new Error("Remote main is missing");
     if (!options.resume) {
