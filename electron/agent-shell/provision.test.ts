@@ -1,10 +1,20 @@
-import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import {
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { WRAPPED_AGENTS, agentWrapperSource } from "./agent-wrappers";
 import { OPENCODE_PLUGIN_FILE, opencodePluginSource } from "./opencode-plugin";
-import { provisionAgentShell, wrapperOptions } from "./provision";
+import { provisionAgentShell, userOpencodeInstructions, wrapperOptions } from "./provision";
 import { opencodeConfigDir } from "./shell-bootstrap";
 
 const ROOT = mkdtempSync(path.join(tmpdir(), "deck-provision-"));
@@ -59,5 +69,41 @@ describe("provisionAgentShell", () => {
     const log = vi.fn();
     expect(await provisionAgentShell(blocker, log)).toBeNull();
     expect(log).toHaveBeenCalledTimes(1);
+  });
+});
+
+// POSIX only: Deck makes no link on Windows, where panes get no wrappers.
+describe.skipIf(process.platform === "win32")("the opencode global AGENTS.md link", () => {
+  const linkIn = (userData: string) => path.join(opencodeConfigDir(userData), "AGENTS.md");
+
+  it("points Deck's opencode config dir at the user's XDG_CONFIG_HOME AGENTS.md", async () => {
+    const userData = path.join(ROOT, "link-xdg");
+    const configHome = path.join(ROOT, "xdg-config");
+    await provisionAgentShell(userData, vi.fn(), { XDG_CONFIG_HOME: configHome });
+    expect(readlinkSync(linkIn(userData))).toBe(path.join(configHome, "opencode", "AGENTS.md"));
+  });
+
+  it("falls back to ~/.config like opencode when XDG_CONFIG_HOME is unset or empty", () => {
+    const expected = path.join(homedir(), ".config", "opencode", "AGENTS.md");
+    expect(userOpencodeInstructions({})).toBe(expected);
+    expect(userOpencodeInstructions({ XDG_CONFIG_HOME: "" })).toBe(expected);
+  });
+
+  it("makes the link even while the user has no AGENTS.md, and replaces an old one", async () => {
+    const userData = path.join(ROOT, "link-replace");
+    await provisionAgentShell(userData, vi.fn(), { XDG_CONFIG_HOME: path.join(ROOT, "first") });
+    await provisionAgentShell(userData, vi.fn(), { XDG_CONFIG_HOME: path.join(ROOT, "second") });
+    expect(readlinkSync(linkIn(userData))).toBe(path.join(ROOT, "second", "opencode", "AGENTS.md"));
+    expect(readdirSync(opencodeConfigDir(userData)).filter((n) => n.endsWith(".tmp"))).toEqual([]);
+  });
+
+  it("keeps the wrappers when the link cannot be made", async () => {
+    const userData = path.join(ROOT, "link-blocked");
+    mkdirSync(path.join(linkIn(userData), "occupied"), { recursive: true });
+    const log = vi.fn();
+    const paths = await provisionAgentShell(userData, log);
+    expect(paths).not.toBeNull();
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(lstatSync(linkIn(userData)).isDirectory()).toBe(true);
   });
 });
