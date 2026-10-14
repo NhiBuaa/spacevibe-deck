@@ -267,6 +267,18 @@ interface TaskLaunchAttempt {
   readonly outcome: LaunchTaskOutcome;
 }
 
+/**
+ * Whether the dock and a docked diff column are under the open usage page.
+ * They stay mounted so their state survives, but nobody can see them.
+ */
+function setUsageCoverInert(covered: boolean): void {
+  for (const element of document.querySelectorAll<HTMLElement>(
+    ".stage > .dock-panel, .stage > .diff-column",
+  )) {
+    element.inert = covered;
+  }
+}
+
 function attemptMatchesDraft(attempt: TaskLaunchAttempt, draft: NewTaskDraft): boolean {
   return (
     attempt.prompt === draft.prompt.trim() &&
@@ -539,6 +551,10 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
   };
   const closeUsage = (): void => {
     usageOpen.value = false;
+    // Before the focus call, not in the effect: the Details control that
+    // opened the page lives in the covered dock, and an inert element refuses
+    // focus, so waiting for the render would drop focus on the floor.
+    setUsageCoverInert(false);
     const target = usageReturnFocusRef.current;
     usageReturnFocusRef.current = null;
     if (target?.isConnected === true) {
@@ -2293,6 +2309,16 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
   // it can animate out instead of blinking away. `mounted` is what decides
   // whether the panel is in the DOM; `entered` is what it is painted at.
   const dockPresence = useDockPresence(dockPainted, dockDragging);
+
+  // The page covers the dock and a docked diff column; inert keeps Tab and
+  // assistive tech off controls nobody can see. Re-run when the dock mounts
+  // under an open page (its toggle chord stays live).
+  const usageCovering = usageOpen.value;
+  useLayoutEffect(() => {
+    setUsageCoverInert(usageCovering);
+    return () => setUsageCoverInert(false);
+  }, [usageCovering, dockPresence.mounted, dockPresence.entered]);
+
   // After `dockPainted`, which is half of what decides the corner's colour.
   useTitleBarOverlaySync({
     settings: settings.value,

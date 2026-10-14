@@ -361,7 +361,8 @@ selection wash on the selected card. Anchors: [Studio styles](../src/styles/11-s
 A full-window screen covers the stage instead of sitting beside it: full-bleed (no inset, no
 radius, no raised seam; DL-20.1) with a fixed nav rail beside a section area. Settings is the only
 one; the docked side panel displaces the terminal grid instead (DL-19.1, DL-19.7). The usage
-details page (DL-16.8) is not one: it covers only the stage's content area.
+details page (DL-16.8) is not one: it covers the stage's content area and the dock, never the
+rail or the strip.
 
 - **DL-11.1** The shell is a fixed 220px nav rail plus a section area that owns all scrolling; the
   rail never scrolls with the content. Settings covers the whole window, frame row included:
@@ -581,8 +582,9 @@ comes from limit readings, cost from recorded token history; neither is a subscr
   resets when the screen closes (DL-13.6).
 - **DL-16.8** The dock's Usage tab stays a summary and carries one quiet **Details** control that
   opens the [usage page](../src/ui/usage/usage-page.tsx). The page is a card on the stage gutter
-  laid over the content area in the rectangle of the document surface: the rail and the stage
-  strip stay uncovered, an open dock keeps showing its summary beside it, and no pane is
+  laid over the content area to the window's right edge: the rail and the stage strip stay
+  uncovered, an open dock and diff column are covered and inert until it closes (owner,
+  2026-10-15: a page that takes the content area leaves no side panel showing), and no pane is
   unmounted or resized. Its header is **Back**, the title **Usage** and a faint scope note; Back
   and an unclaimed Escape close it and return focus to the control that opened it. Tab is not
   trapped, because the rail stays live; pressing a rail card, a strip tab or a new tab closes the

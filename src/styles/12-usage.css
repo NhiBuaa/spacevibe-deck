@@ -1,10 +1,11 @@
 /* ── Usage page: the stage-content shell (usage-page.tsx, DL-11.1) ─────── */
 
-/* Laid over the stage's content area, the way `.stage__surface` is: the rail
-   and the stage strip stay uncovered, and the terminal grid underneath keeps
-   its measured size, so opening and closing costs no pane a resize. The
-   rectangle follows `.stage__surface` exactly — `--frame-h` under the strip,
-   `--stage-inset` clear of an open dock — or the handover would jump. */
+/* Laid over the stage's content area: the rail and the stage strip stay
+   uncovered, and the terminal grid underneath keeps its measured size, so
+   opening and closing costs no pane a resize. It runs to the window's right
+   edge, over an open dock and diff column too (owner, 2026-10-15): a page that
+   takes the content area leaves no side panel showing. The dock stays mounted
+   and keeps its state underneath; `App` makes it inert while covered. */
 
 .usage-screen {
   position: absolute;
@@ -34,10 +35,6 @@
 
 .stage--strip .usage-screen {
   top: var(--frame-h);
-}
-
-.stage--dock .usage-screen {
-  right: var(--stage-inset);
 }
 
 .usage-screen.is-open {
