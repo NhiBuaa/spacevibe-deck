@@ -1,6 +1,6 @@
 /* Shared design tokens for the landing prototype. direction-a.css (hero) and
-   tour.css (chapters + closing band + footer) both consume this set, which is
-   what keeps them in lockstep. */
+   everything below the hero (tour.css, finale.css and the chapters' own
+   sheets) consume this set, which is what keeps them in lockstep. */
 
 :root {
   /* ---- the editorial frame ----

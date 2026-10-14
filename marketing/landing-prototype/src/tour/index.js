@@ -1,23 +1,21 @@
 /**
- * The muted demo loop, the feature chapters, the closing band and the footer.
+ * The page below the hero: the muted demo loop (currently hidden), the feature
+ * chapters, the closing band (finale.js) and the site footer, all inside one
+ * `<section class="tour">` that carries the dark ground and the light pools
+ * behind the last two.
  *
  * The features were a scroll tour until 2026-08-19, then seven stacked panels
  * each carrying its own app-window mock. Since 2026-10-12 they are three
  * chapters of widgets (layout-chapters.js), so the hero holds the page's only
- * app window. The section class stays `.tour` because the closing band and
- * footer below it are `.tour__*` and did not change.
+ * app window. The section keeps the name `.tour`.
  */
 
-import { BRAND } from "../../../stage/brand.js";
 import { BRAND_ICON_SRC } from "../appwin.js";
 import { mountDemoLoop, renderDemoLoop } from "../demo-loop.js";
-import { PROOF_TERM_STEPS } from "./stage-states.js";
 import { RELEASES_URL, REPO_URL, WINDOWS_FALLBACK_URL } from "../download-links.js";
 import { FEEDBACK_URL } from "../site-urls.js";
+import { mountFinale, renderFinale } from "./finale.js";
 import { renderChapters } from "./layout-chapters.js";
-import { renderAppleIcon, renderWindowsIcon } from "../os-icons.js";
-
-const PROMPT = "❯ ";
 
 /** Anchor on the first feature chapter; the hero CTA and the footer link to it. */
 const FEATURES_ID = "features";
@@ -29,8 +27,12 @@ const FEATURES_ID = "features";
  */
 const SHOW_DEMO_LOOP = false;
 
-/** Staggered reveal for the closing band's blocks. */
-function mountFinaleReveal(section) {
+/**
+ * Reveal-on-scroll for every `[data-reveal]` below the hero — chapter heads,
+ * widgets, the stat band and the closing band. Each sheet owns what the hidden
+ * and revealed states look like and its reduced-motion end state.
+ */
+function mountReveal(section) {
   const targets = [...section.querySelectorAll("[data-reveal]")];
   const observer = new IntersectionObserver(
     (entries) => {
@@ -47,222 +49,6 @@ function mountFinaleReveal(section) {
   targets.forEach((target) => observer.observe(target));
 
   return () => observer.disconnect();
-}
-
-/**
- * Proof terminal: once scrolled into view, type each command, print its
- * output, and light the matching proof chip. Runs once, then rests on a
- * blinking prompt. Reduced motion renders the finished session instantly.
- */
-function mountProofTerm(section, reduceMotion) {
-  const body = section.querySelector("[data-proof-term]");
-  const chips = new Map(
-    [...section.querySelectorAll("[data-proof]")].map((el) => [el.dataset.proof, el]),
-  );
-
-  if (!body) {
-    throw new Error("Proof terminal markup is missing.");
-  }
-
-  let timerId = null;
-  let started = false;
-  let disposed = false;
-
-  function addLine(cls) {
-    const line = document.createElement("div");
-    line.className = cls;
-    body.append(line);
-    return line;
-  }
-
-  function addIdlePrompt() {
-    addLine("tour__tl tour__tl--cmd tour__tl--idle").textContent = PROMPT;
-  }
-
-  function renderFinished() {
-    for (const step of PROOF_TERM_STEPS) {
-      addLine("tour__tl tour__tl--cmd").textContent = PROMPT + step.cmd;
-      for (const out of step.out) {
-        addLine("tour__tl tour__tl--out").textContent = out;
-      }
-      chips.get(step.chip)?.classList.add("is-lit");
-    }
-    addIdlePrompt();
-  }
-
-  function run(stepIndex) {
-    if (disposed) {
-      return;
-    }
-
-    if (stepIndex >= PROOF_TERM_STEPS.length) {
-      addIdlePrompt();
-      return;
-    }
-
-    const step = PROOF_TERM_STEPS[stepIndex];
-    const lineEl = addLine("tour__tl tour__tl--cmd tour__tl--typing");
-    lineEl.textContent = PROMPT;
-    let charIndex = 0;
-
-    function typeChar() {
-      if (disposed) {
-        return;
-      }
-
-      if (charIndex < step.cmd.length) {
-        charIndex += 1;
-        lineEl.textContent = PROMPT + step.cmd.slice(0, charIndex);
-        timerId = setTimeout(typeChar, 26 + Math.random() * 38);
-        return;
-      }
-
-      lineEl.classList.remove("tour__tl--typing");
-      printOut(0);
-    }
-
-    function printOut(outIndex) {
-      if (disposed) {
-        return;
-      }
-
-      if (outIndex < step.out.length) {
-        addLine("tour__tl tour__tl--out").textContent = step.out[outIndex];
-        timerId = setTimeout(() => printOut(outIndex + 1), 150);
-        return;
-      }
-
-      chips.get(step.chip)?.classList.add("is-lit");
-      timerId = setTimeout(() => run(stepIndex + 1), 680);
-    }
-
-    timerId = setTimeout(typeChar, 220);
-  }
-
-  const observer = new IntersectionObserver(
-    (entries) => {
-      if (started || !entries.some((entry) => entry.isIntersecting)) {
-        return;
-      }
-
-      started = true;
-      observer.disconnect();
-
-      if (reduceMotion.matches) {
-        renderFinished();
-      } else {
-        run(0);
-      }
-    },
-    { threshold: 0.35 },
-  );
-  observer.observe(body);
-
-  return () => {
-    disposed = true;
-    clearTimeout(timerId);
-    observer.disconnect();
-  };
-}
-
-function renderFinale(copy) {
-  const proofs = ["Pty", "Open", "Local"]
-    .map(
-      (key, index) => `
-        <article class="tour__proof" data-proof="${key}" data-reveal style="--reveal-delay: ${80 + index * 80}ms">
-          <strong data-copy="proof${key}Title">${copy[`proof${key}Title`]}</strong>
-          <p data-copy="proof${key}Body">${copy[`proof${key}Body`]}</p>
-        </article>
-      `,
-    )
-    .join("");
-
-  const shortcuts = [
-    ["⌘D", "scSplit"],
-    ["⌘⇧D", "scSplitH"],
-    ["⌘T", "scTab"],
-    ["⌘E", "scExpand"],
-    ["⌘F", "scFind"],
-    ["⌘K", "scClear"],
-    ["⌘⇧B", "scExplorer"],
-    ["⌘⇧Y", "scSessions"],
-  ]
-    .map(
-      ([keys, copyKey]) => `
-        <span class="tour__sc">
-          <kbd>${keys}</kbd>
-          <span data-copy="${copyKey}">${copy[copyKey]}</span>
-        </span>
-      `,
-    )
-    .join("");
-
-  return `
-    <footer class="tour__finale">
-      <div class="tour__band" data-reveal>
-        <h2 data-copy="finaleTitle">${copy.finaleTitle}</h2>
-      </div>
-      <div class="tour__finale-grid">
-        <div class="tour__proofs">${proofs}</div>
-        <figure
-          class="tour__proofterm"
-          data-reveal
-          style="--reveal-delay: 200ms"
-          aria-label="Terminal session proving the shell is untouched"
-        >
-          <div class="tour__proofterm-head" aria-hidden="true">
-            <i></i>zsh — ${BRAND.slug}
-          </div>
-          <div class="tour__proofterm-body" data-proof-term aria-hidden="true"></div>
-        </figure>
-      </div>
-      <div class="tour__shortcuts" data-reveal style="--reveal-delay: 120ms">${shortcuts}</div>
-      <div class="tour__ctas" data-reveal style="--reveal-delay: 220ms">
-        <!-- Same outline variant as the macOS anchor below (owner,
-             2026-08-20): two stable platforms, no primary one. -->
-        <a
-          class="tour__cta"
-          href="${WINDOWS_FALLBACK_URL}"
-          target="_blank"
-          rel="noreferrer"
-        >
-          <span class="a-cta-lead">
-            ${renderWindowsIcon()}
-            <span data-copy="downloadWin">${copy.downloadWin}</span>
-          </span>
-          <span aria-hidden="true">↓</span>
-        </a>
-        <!-- Mirrors the hero: an anchor again since 1.0.0 shipped stable
-             (2026-08-20) — server-rendered at the releases page, retargeted
-             at the newest stable .dmg by upgradeReleaseLinks. -->
-        <a
-          class="tour__cta"
-          href="${RELEASES_URL}"
-          target="_blank"
-          rel="noreferrer"
-        >
-          <span class="a-cta-lead">
-            ${renderAppleIcon()}
-            <span data-copy="downloadMac">${copy.downloadMac}</span>
-          </span>
-          <span aria-hidden="true">↓</span>
-        </a>
-
-        <p class="a-cta-note" data-copy="winUnsignedNote">
-          ${copy.winUnsignedNote}
-        </p>
-        <a
-          class="tour__cta"
-          href="${REPO_URL}"
-          target="_blank"
-          rel="noreferrer"
-        >
-          <span data-copy="secondaryCta">${copy.secondaryCta}</span>
-          <span aria-hidden="true">↗</span>
-        </a>
-      </div>
-    </footer>
-  `;
 }
 
 function renderFooter(copy) {
@@ -317,15 +103,13 @@ export function renderTour(copy) {
         throw new Error("Tour root is missing.");
       }
 
-      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+      mountFinale(section);
 
-      const disposeReveal = mountFinaleReveal(section);
-      const disposeProofTerm = mountProofTerm(section, reduceMotion);
+      const disposeReveal = mountReveal(section);
       const disposeDemoLoop = SHOW_DEMO_LOOP ? mountDemoLoop(section) : () => {};
 
       return () => {
         disposeDemoLoop();
-        disposeProofTerm();
         disposeReveal();
       };
     },
@@ -333,9 +117,8 @@ export function renderTour(copy) {
 }
 
 /**
- * Swap localized tour copy in place (same reasoning as the hero: keep the DOM,
- * the proof terminal's timers, and scroll state alive across a locale
- * toggle).
+ * Swap localized tour copy in place (same reasoning as the hero: keep the DOM
+ * and scroll state alive across a locale toggle).
  *
  * @param {Element} root
  * @param {Record<string, string>} copy

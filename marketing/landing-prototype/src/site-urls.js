@@ -29,3 +29,10 @@ export const CHANGELOG_URL = PROD ? "/changelog" : "/landing-prototype/changelog
 
 /** The feedback form and its public status board. */
 export const FEEDBACK_URL = PROD ? "/feedback" : "/landing-prototype/feedback/";
+
+/**
+ * The public privacy notice. Production serves the current version at
+ * `/privacy` (a `vercel.json` rewrite); dev has no rewrites, so it names the
+ * dated file that rewrite points at. Bump the date here when `vercel.json` does.
+ */
+export const PRIVACY_URL = PROD ? "/privacy" : "/privacy/2026-10-08/index.html";

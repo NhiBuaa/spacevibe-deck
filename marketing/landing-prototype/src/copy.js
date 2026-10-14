@@ -100,8 +100,6 @@ export const messages = {
     downloadWin: "Download for Windows",
     comingSoon: "coming soon",
     winPreviewTag: "preview",
-    winUnsignedNote:
-      "Unsigned build — Windows will show a SmartScreen warning. Choose More info → Run anyway.",
     finaleTitle: "Your shell, intact.",
     proofPtyTitle: "Real PTY, real shell",
     proofPtyBody:
@@ -109,16 +107,9 @@ export const messages = {
     proofOpenTitle: "Open source, MIT licensed",
     proofOpenBody: "The whole app is on GitHub — read it, build it, fork it, ship a patch.",
     proofLocalTitle: "Your work stays on your machine",
-    proofLocalBody:
-      "Your code, terminals and agent sessions stay local. Deck sends first-party usage analytics — always on, with no opt-out, never code, file paths or prompts — and Settings → Privacy states exactly what is sent.",
-    scSplit: "split",
-    scSplitH: "split down",
-    scTab: "new agent",
-    scExpand: "focus expand",
-    scFind: "find",
-    scClear: "clear",
-    scExplorer: "file explorer",
-    scSessions: "session history",
+    proofLocalNote:
+      "First-party usage analytics are always on, with no opt-out — never code, file paths or prompts.",
+    privacyLink: "What is sent",
     footerTagline: "A desktop terminal for running AI agent CLIs side by side.",
     footerColProduct: "Product",
     footerColProject: "Project",
@@ -243,8 +234,6 @@ export const messages = {
     // that reads the same either way, and "New" beside a Vietnamese CTA is
     // shorter and louder than "Mới".
     winPreviewTag: "thử nghiệm",
-    winUnsignedNote:
-      "Bản chưa ký — Windows sẽ hiện cảnh báo SmartScreen. Chọn More info → Run anyway.",
     finaleTitle: "Shell của bạn, nguyên vẹn.",
     proofPtyTitle: "PTY thật, shell thật",
     proofPtyBody:
@@ -252,16 +241,9 @@ export const messages = {
     proofOpenTitle: "Mã nguồn mở, giấy phép MIT",
     proofOpenBody: "Toàn bộ app nằm trên GitHub — đọc, tự build, fork hay gửi patch đều được.",
     proofLocalTitle: "Công việc của bạn ở lại trên máy bạn",
-    proofLocalBody:
-      "Code, terminal và phiên agent đều nằm local. Deck gửi usage analytics first-party — luôn bật, không tắt được, và không bao giờ kèm code, đường dẫn file hay prompt — Settings → Privacy ghi rõ những gì được gửi.",
-    scSplit: "chia dọc",
-    scSplitH: "chia ngang",
-    scTab: "agent mới",
-    scExpand: "focus expand",
-    scFind: "tìm kiếm",
-    scClear: "xoá buffer",
-    scExplorer: "cây file",
-    scSessions: "lịch sử session",
+    proofLocalNote:
+      "Usage analytics first-party luôn bật, không tắt được — không bao giờ kèm code, đường dẫn file hay prompt.",
+    privacyLink: "Những gì được gửi",
     footerTagline: "Terminal desktop để chạy song song nhiều AI agent CLI.",
     footerColProduct: "Sản phẩm",
     footerColProject: "Dự án",

@@ -315,34 +315,7 @@
   outline-offset: 4px;
 }
 
-/* The SmartScreen warning. The block it describes is full-screen and its
-   default button is "Don't run", so a visitor who is not warned reads it as the
-   app being unsafe and leaves — muted, but never hidden. It left the hero on
-   2026-08-19; the only element wearing this class now is the closing band's
-   copy, where it sits INSIDE the button row, hence the narrow measure and no
-   top margin. The rule stays in this file because the closing band borrows
-   `.a-cta-lead` and `.a-cta-tag` from here too. */
-.a-cta-note {
-  max-width: 34ch;
-  margin: 0;
-  color: var(--a-ink-faint);
-  font: 400 0.72rem/1.45 var(--a-font-mono);
-  letter-spacing: 0.01em;
-  text-wrap: pretty;
-}
-
-.a-cta-tag {
-  flex-shrink: 0;
-  padding: 0.22rem 0.42rem;
-  border: 1px solid var(--a-line);
-  border-radius: 2px;
-  color: var(--a-ink-faint);
-  font: 500 0.53rem/1 var(--a-font-mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-/* Tag and install glyph share the trailing slot and stay pinned together. */
+/* The trailing slot: the install glyph, pinned to the button's right edge. */
 .a-cta-trail {
   display: inline-flex;
   flex-shrink: 0;
@@ -456,10 +429,6 @@
     gap: 0.65rem;
     padding: 0.7rem 1rem;
     font-size: 0.78rem;
-  }
-
-  .a-cta-tag {
-    font-size: 0.48rem;
   }
 }
 

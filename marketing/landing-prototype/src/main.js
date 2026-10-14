@@ -13,6 +13,7 @@ import "../styles/widgets.css";
 import "../styles/widgets-launch.css";
 import "../styles/widgets-keep.css";
 import "../styles/layout-chapters.css";
+import "../styles/finale.css";
 
 import { messages } from "./copy.js";
 import { upgradeReleaseLinks } from "./download-links.js";
