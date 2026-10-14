@@ -7,6 +7,10 @@ the release PR, and frozen at the tag — never an auto-generated commit list.
 
 ## Unreleased
 
+- **A larger Usage view.** Details in the Usage tab, View → Usage Details, or ⌘⇧R
+  (Ctrl+Shift+R on Windows and Linux) opens usage across the content area while the sidebar
+  stays visible. Back or Escape returns to where you were; terminals keep running underneath.
+
 - **Usage remembers which project each token was spent in.** The token scanner now records the
   repository (or folder) an agent was working in, with worktrees counted under their
   repository, so usage can be broken down by project. The first launch after updating reads
