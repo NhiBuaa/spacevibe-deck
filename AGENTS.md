@@ -103,16 +103,11 @@ closure. Report checks actually performed without treating omitted checks as suc
 new user-facing feature or a change to a UI flow — a new surface, command or interaction, or a
 spec slice — is not reported done until an agent has driven the affected flows in the running
 Electron app with `playwright-core`, already a dev dependency. Bug fixes, styling, copy,
-refactors, tests and docs skip it. How to run it:
-
-- Write a scratch wrapper that calls `app.setPath("userData", <scratch dir>)` before requiring
-  `dist-electron/electron/main.cjs`, and drive it from a scratch script with
-  `_electron.launch({ executablePath: <node_modules/electron/dist/Electron.app/Contents/MacOS/Electron>, args: [<wrapper>] })`,
-  then `app.firstWindow()`. A plain `electron:dev` writes the owner's real `workspaces.json`
-  and `session.json`.
-- Do not test through Playwright MCP or a browser tab on `npm run dev`: those reach only the
-  browser preview and prove nothing about IPC, PTYs or persistence.
-- Report each flow walked and its result; screenshots go to scratch, not the repo.
+refactors, tests and docs skip it. The
+[`test-deck-app`](.claude/skills/test-deck-app/SKILL.md) skill holds the recipe: an isolated
+`userData` (a plain `electron:dev` writes the owner's real `workspaces.json` and
+`session.json`), never Playwright MCP or a browser tab on `npm run dev`, and a report of each
+flow walked with its result. Screenshots go to scratch, not the repo.
 
 ## Sessions and checkouts
 
