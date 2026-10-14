@@ -108,6 +108,7 @@ describe("startUsagePolling", () => {
     await vi.advanceTimersByTimeAsync(POLL_MS);
 
     expect(calls()).toBe(2);
+    stopUsagePolling(); // two holders, two releases: nothing leaks into the next test
   });
 
   it("does not stack a second scan on top of one still running", async () => {
@@ -193,6 +194,35 @@ describe("usageLoading", () => {
 });
 
 describe("stopUsagePolling", () => {
+  it("keeps polling for the surface that is still open", async () => {
+    const { client, calls } = queuedClient([() => Promise.resolve(first)]);
+
+    startUsagePolling(client); // the dock tab
+    startUsagePolling(client); // the details page
+    await vi.advanceTimersByTimeAsync(0);
+    stopUsagePolling(); // the page closes
+    await vi.advanceTimersByTimeAsync(POLL_MS);
+
+    expect(calls()).toBe(2);
+
+    stopUsagePolling(); // the dock closes too
+    await vi.advanceTimersByTimeAsync(POLL_MS * 3);
+
+    expect(calls()).toBe(2);
+  });
+
+  it("keeps polling for the page when the dock tab closes first", async () => {
+    const { client, calls } = queuedClient([() => Promise.resolve(first)]);
+
+    startUsagePolling(client);
+    startUsagePolling(client);
+    stopUsagePolling();
+    await vi.advanceTimersByTimeAsync(POLL_MS * 2);
+
+    expect(calls()).toBe(3);
+    stopUsagePolling();
+  });
+
   it("stops further polls and is idempotent", async () => {
     const { client, calls } = queuedClient([() => Promise.resolve(first)]);
 

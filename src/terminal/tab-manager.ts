@@ -133,6 +133,7 @@ import {
   saveDialogOpen,
   settingsOpen,
   shortcutCaptureActive,
+  usageOpen,
 } from "../chrome/events";
 import { INERT_SURFACES, type SurfaceEditCommand } from "./surface-strip";
 import {
@@ -2669,6 +2670,9 @@ export function createTabManager(
     // three live in App; splitting them would put the mutual-exclusion rule
     // in two files. Missing `onToggleUsage` = safe no-op, never a direct write.
     "toggle-usage": () => deps.onToggleUsage?.(),
+    // Seam style, for `toggle-usage`'s reason: the preflight (refuse over
+    // Settings, the board and modals) and the focus return both live in App.
+    "open-usage": () => deps.onOpenUsage?.(),
     // Writes the signal directly rather than routing through an App seam
     // (unlike toggle-settings): the popover has no draft to protect and no
     // overlay stack to keep consistent.
@@ -2827,8 +2831,17 @@ export function createTabManager(
    * such rank is a documented deliberate gap; two is a pattern nobody can
    * explain.
    */
-  function openOverlayRanks(): readonly number[] {
+  function openOverlayRanks(
+    options: { readonly ignoreUsagePage?: boolean } = {},
+  ): readonly number[] {
     const ranks: number[] = [];
+    // The usage details page covers the stage's content area only (spec R2),
+    // so a pane chord behind it would act on a terminal nobody can see. It
+    // leaves the dock beside the stage live, so the chrome-scoped dock actions
+    // ask to ignore it (`overlayBlocksAction`).
+    if (usageOpen.value && options.ignoreUsagePage !== true) {
+      ranks.push(TIER_RANK.settings);
+    }
     // Settings alone since 2026-08-16: token usage and session history left
     // full-window for tabs of the dock, and a docked column displaces the
     // terminal grid instead of covering it (DL-19.1). A pane-scoped shortcut
@@ -2941,7 +2954,9 @@ export function createTabManager(
       return true;
     }
     const targetRank = TIER_RANK[scope];
-    return openOverlayRanks().some((rank) => rank >= targetRank);
+    return openOverlayRanks({ ignoreUsagePage: isChromeScopedAction(action) }).some(
+      (rank) => rank >= targetRank,
+    );
   }
 
   /**

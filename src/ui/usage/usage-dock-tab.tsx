@@ -1,6 +1,22 @@
-import { useEffect } from "preact/hooks";
+import { CaretRight } from "@phosphor-icons/react";
+import { useEffect, useRef } from "preact/hooks";
+import { shortcutLabel } from "../../lib/shortcut-label";
 import { startUsagePolling, stopUsagePolling } from "../../usage/usage-store";
+import {
+  ActionTooltip,
+  tooltipTriggerProps,
+  useTooltipVisibility,
+} from "../controls/action-tooltip";
+import { DeckIcon, ROW_ICON } from "../controls/deck-icon";
+import { toolbarLabel } from "../toolbar/toolbar-label";
 import { UsageBody } from "./usage-body";
+
+interface UsageDockTabProps {
+  /** Opens the details page; `App` routes it through the `open-usage` action. */
+  readonly onOpenDetails: () => void;
+}
+
+const DETAILS_TIP_ID = "usage-details-tip";
 
 /**
  * Token usage as a tab of the docked side panel (DL-19.7).
@@ -11,13 +27,46 @@ import { UsageBody } from "./usage-body";
  * component rather than an effect inside `App` so the lifecycle is tied to the
  * tab being MOUNTED. Mount/unmount is exactly the transition that should start
  * and stop the poll: an effect keyed off settings would restart the poll on
- * every unrelated settings write.
+ * every unrelated settings write. The details page holds its own claim on the
+ * same poll, so closing either leaves the other running.
+ *
+ * The one control above the summary is the way into the page. Its tooltip is
+ * the registry's own label and the live chord (DL-23), so a rebind reaches it.
  */
-export function UsageDockTab() {
+export function UsageDockTab({ onOpenDetails }: UsageDockTabProps) {
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const tooltip = useTooltipVisibility();
+
   useEffect(() => {
     startUsagePolling();
     return () => stopUsagePolling();
   }, []);
 
-  return <UsageBody variant="dock" />;
+  return (
+    <>
+      <div class="usage-dock__bar">
+        <button
+          ref={buttonRef}
+          type="button"
+          class="usage-dock__details"
+          aria-describedby={tooltip.anchor !== null ? DETAILS_TIP_ID : undefined}
+          {...tooltipTriggerProps(tooltip, buttonRef)}
+          onClick={onOpenDetails}
+        >
+          Details
+          <DeckIcon icon={CaretRight} size={ROW_ICON} />
+        </button>
+        {tooltip.anchor !== null && (
+          <ActionTooltip
+            id={DETAILS_TIP_ID}
+            label={toolbarLabel("open-usage")}
+            shortcut={shortcutLabel("open-usage")}
+            reason={null}
+            anchor={tooltip.anchor}
+          />
+        )}
+      </div>
+      <UsageBody variant="dock" />
+    </>
+  );
 }

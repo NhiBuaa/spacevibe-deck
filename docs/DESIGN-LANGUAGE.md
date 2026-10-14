@@ -360,7 +360,8 @@ selection wash on the selected card. Anchors: [Studio styles](../src/styles/11-s
 
 A full-window screen covers the stage instead of sitting beside it: full-bleed (no inset, no
 radius, no raised seam; DL-20.1) with a fixed nav rail beside a section area. Settings is the only
-one; the docked side panel displaces the terminal grid instead (DL-19.1, DL-19.7).
+one; the docked side panel displaces the terminal grid instead (DL-19.1, DL-19.7). The usage
+details page (DL-16.8) is not one: it covers only the stage's content area.
 
 - **DL-11.1** The shell is a fixed 220px nav rail plus a section area that owns all scrolling; the
   rail never scrolls with the content. Settings covers the whole window, frame row included:
@@ -578,6 +579,15 @@ comes from limit readings, cost from recorded token history; neither is a subscr
   with no filled pill, chip, underline, border or shadow. The selected option stays visible
   beside every historical figure, an empty period says which period is empty, and the selection
   resets when the screen closes (DL-13.6).
+- **DL-16.8** The dock's Usage tab stays a summary and carries one quiet **Details** control that
+  opens the [usage page](../src/ui/usage/usage-page.tsx). The page is a card on the stage gutter
+  laid over the content area in the rectangle of the document surface: the rail and the stage
+  strip stay uncovered, an open dock keeps showing its summary beside it, and no pane is
+  unmounted or resized. Its header is **Back**, the title **Usage** and a faint scope note; Back
+  and an unclaimed Escape close it and return focus to the control that opened it. Tab is not
+  trapped, because the rail stays live; pressing a rail card, a strip tab or a new tab closes the
+  page and then navigates. It fades and settles under DL-1.2 and sits at the document surface's
+  layer, below the board, Settings and the modals.
 
 ## 17. Shortcut rows
 

@@ -66,6 +66,7 @@ straight to it, or press Esc to go back unchanged. Nothing stops or restarts whi
 | Toggle the side panel      | ⌘⇧J   | Ctrl+Shift+J |
 | File explorer              | ⌘⇧B   | Ctrl+Shift+B |
 | Token usage                | ⌘⇧U   | Ctrl+Shift+U |
+| Usage details page         | ⌘⇧R   | Ctrl+Shift+R |
 | Session history            | ⌘⇧Y   | Ctrl+Shift+Y |
 | Browser tab                | ⌘⇧I   | Ctrl+Shift+I |
 | Prompt Board               | ⌘⇧P   | Ctrl+Shift+P |

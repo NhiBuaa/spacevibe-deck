@@ -501,6 +501,17 @@ export const ACTION_REGISTRY = [
     menu: { submenu: "View", group: "explorer" },
   },
   {
+    id: "open-usage",
+    label: "Usage Details",
+    // `"always"`, `toggle-settings`'s reason: the page ranks as an overlay while
+    // open (`openOverlayRanks`), so any tier would let its own open page block
+    // the chord that re-opens or leaves it. The open half has its own preflight
+    // in `App` — it refuses over Settings, the board, a launch page and every
+    // modal. The dock's Details control and this item are one command (spec R4).
+    scope: "always",
+    menu: { submenu: "View", group: "explorer" },
+  },
+  {
     id: "toggle-sessions",
     label: "Session History",
     // Tier "pane", same overlay reasoning as its two sibling tabs above: the

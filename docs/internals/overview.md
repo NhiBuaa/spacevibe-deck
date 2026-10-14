@@ -74,9 +74,13 @@ The sidebar and mounted Usage Overview share one renderer allowance poll and foc
 listener through [the reference-counted observer](../../src/usage/agent-limits-store.ts).
 Only the final subscriber stops it; a reply from a stopped generation cannot update a
 reopened view. [The shared hook](../../src/ui/usage/use-agent-limits.ts) applies the same
-reset/TTL boundaries in both surfaces. Token polling remains owned by
-[UsageDockTab](../../src/ui/usage/usage-dock-tab.tsx), so token errors and limit errors
-must not hide the other source. Gallery specimens use
+reset/TTL boundaries in both surfaces. Token polling is
+[reference-counted](../../src/usage/usage-store.ts): the dock's
+[UsageDockTab](../../src/ui/usage/usage-dock-tab.tsx) and the open
+[UsagePage](../../src/ui/usage/usage-page.tsx) each hold it, so closing one never freezes the
+other. Token errors and limit errors must not hide the other source. The page is an overlay
+that ranks as `settings` while open but leaves the dock's chrome actions live
+(`overlayBlocksAction`), and `open-usage` is `"always"` with its preflight in `App`. Gallery specimens use
 [OverviewContent](../../src/ui/usage/sections/overview-section.tsx) with injected data,
 never the store-connected wrapper: a live limit read can activate a collector.
 

@@ -84,8 +84,20 @@ async function poll(client: UsageClient, forGeneration: number): Promise<void> {
   }
 }
 
-/** Fetch now, then every 5 s. Calling it while already polling does nothing. */
+/**
+ * Surfaces currently asking for the poll: the dock's Usage tab and the details
+ * page can both be mounted at once, so the poll runs while at least one holds
+ * it. A bare "running" flag made whichever closed first freeze the other.
+ */
+let holders = 0;
+
+/**
+ * Take a hold on the poll: fetch now, then every 5 s. Each call must be paired
+ * with one `stopUsagePolling`. A second holder joins the running poll without
+ * restarting it.
+ */
 export function startUsagePolling(client: UsageClient = defaultUsageClient): void {
+  holders += 1;
   if (timer !== null) {
     return;
   }
@@ -98,12 +110,16 @@ export function startUsagePolling(client: UsageClient = defaultUsageClient): voi
 }
 
 /**
- * Stop polling. Idempotent: the generation bump is unconditional, so a scan
- * still in flight can never land afterwards and a second call has nothing
- * left to do. `usageSnapshot` and `usageStale` are deliberately left alone —
- * reopening the screen should show the data it had, not a blank.
+ * Release one hold; the poll stops when the last holder lets go. Safe on an
+ * unbalanced call: with no holder it still tears down, so a scan in flight can
+ * never land afterwards. `usageSnapshot` and `usageStale` are deliberately left
+ * alone — reopening a surface should show the data it had, not a blank.
  */
 export function stopUsagePolling(): void {
+  holders = Math.max(0, holders - 1);
+  if (holders > 0) {
+    return;
+  }
   if (timer !== null) {
     clearInterval(timer);
     timer = null;

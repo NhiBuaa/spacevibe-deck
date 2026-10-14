@@ -149,3 +149,7 @@ The Token usage tab (**⌘⇧U**) reads the local session logs of Claude Code an
 Claude Code's sub-agent logs, and groups tokens and estimated cost by agent and day. Ranges
 are local calendar days: Today, 7 days, 30 days, All. Costs use a pricing snapshot that ships
 with Deck.
+
+**Details** at the top of the tab opens a larger Usage page over the main area, with the rail
+still in view (**⌘⇧R**, or View → Usage Details). **Back** or Escape returns you to where you
+were; choosing a tab or an agent in the rail closes it and goes there.
