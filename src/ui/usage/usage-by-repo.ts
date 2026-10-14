@@ -62,7 +62,12 @@ export interface RepoRow {
   /** The agent that spent the most here; the colour a single-hue bar takes. */
   readonly dominantAgent: UsageAgent;
   /** Each agent's priced cost, in tokens when nothing is priced, for a mix strip. */
-  readonly agentWeights: readonly { readonly agent: UsageAgent; readonly weight: number }[];
+  readonly agentWeights: readonly {
+    readonly agent: UsageAgent;
+    readonly weight: number;
+    /** `weight` over the sum of weights; the fractions add to 1. */
+    readonly fraction: number;
+  }[];
   readonly lines: readonly RepoRowLine[];
 }
 
@@ -136,8 +141,15 @@ function dominantOf(lines: readonly DraftLine[]): {
     const weight = priced ? (line.costUsd ?? 0) : line.tokens;
     weights.set(line.agent, (weights.get(line.agent) ?? 0) + weight);
   }
+  const sum = [...weights.values()].reduce((running, weight) => running + weight, 0);
   const agentWeights = [...weights.entries()]
-    .map(([agent, weight]) => ({ agent, weight }))
+    .map(([agent, weight]) => ({
+      agent,
+      weight,
+      // A fraction of the whole, so a segment can take `width: N%`. Raw weights
+      // under 1 (a $0.30 repo) would make `flex-grow` fill only part of the bar.
+      fraction: sum > 0 ? weight / sum : 1 / weights.size,
+    }))
     .sort((left, right) => right.weight - left.weight || left.agent.localeCompare(right.agent));
   return { dominantAgent: agentWeights[0].agent, agentWeights };
 }

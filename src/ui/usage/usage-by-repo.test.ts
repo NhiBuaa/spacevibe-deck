@@ -96,6 +96,14 @@ describe("buildRepoTable", () => {
     expect(table.rows.at(-1)?.unattributed).toBe(true);
   });
 
+  it("agent fractions add to 1 even for a repo that cost under a dollar", () => {
+    const [row] = buildRepoTable([
+      repo("/tiny", "tiny", ["claude-haiku-5-5", 1_000], ["gpt-5", 2_000]),
+    ]).rows;
+    expect(row.agentWeights).toHaveLength(2);
+    expect(row.agentWeights.reduce((sum, part) => sum + part.fraction, 0)).toBeCloseTo(1, 10);
+  });
+
   it("drops repos with no tokens and reports no total when nothing is priced", () => {
     expect(buildRepoTable([]).rows).toEqual([]);
     expect(buildRepoTable([]).totalCostUsd).toBeNull();

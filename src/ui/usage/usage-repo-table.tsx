@@ -72,7 +72,7 @@ function MixStrip({ row }: { readonly row: RepoRow }) {
       {row.agentWeights.map((part) => (
         <span
           key={part.agent}
-          style={{ flexGrow: Math.max(part.weight, 0.0001), background: dotColor(part.agent) }}
+          style={{ width: `${part.fraction * 100}%`, background: dotColor(part.agent) }}
         />
       ))}
     </span>

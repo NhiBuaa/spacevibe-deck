@@ -5,7 +5,8 @@
  * the states below use the plain look. Never imported by shipping code (R7).
  */
 import { formatUsd } from "../../lib/usage-pricing";
-import { buildRepoTable, type RepoUsage } from "../../ui/usage/usage-by-repo";
+import type { ComponentChildren } from "preact";
+import { buildRepoTable, type RepoTable, type RepoUsage } from "../../ui/usage/usage-by-repo";
 import { EM_DASH } from "../../ui/usage/usage-format";
 import {
   DEFAULT_REPO_LOOK,
@@ -16,9 +17,11 @@ import { SectionHead, Specimen } from "../specimen";
 import {
   REPOS_AWKWARD,
   REPOS_MANY_LINES,
+  REPOS_MIXED,
   REPOS_NO_REPO_DATA,
   REPOS_TYPICAL,
 } from "./usage-repos-data";
+import { LeadBarsLayout, OneLineLayout, TilesLayout } from "./usage-repos-layouts";
 import "./usage-repos-section.css";
 
 const LOOK_B: RepoTableLook = {
@@ -40,6 +43,8 @@ interface FrameProps {
   readonly width?: number;
   readonly emptyLabel?: string;
   readonly note?: string;
+  /** Replaces the stacked table with another layout of the same rows. */
+  readonly render?: (table: RepoTable) => ComponentChildren;
 }
 
 /** The totals line the page puts above the table, then the table. */
@@ -49,6 +54,7 @@ function Frame({
   width = 760,
   emptyLabel = "No usage in the last 7 local days",
   note,
+  render,
 }: FrameProps) {
   const table = buildRepoTable(repos);
   return (
@@ -62,7 +68,11 @@ function Frame({
         </p>
         <p class="usage-hero__footnote">API equivalent, not your subscription bill</p>
       </div>
-      <UsageRepoTable table={table} look={look} emptyLabel={emptyLabel} note={note} />
+      {render === undefined ? (
+        <UsageRepoTable table={table} look={look} emptyLabel={emptyLabel} note={note} />
+      ) : (
+        render(table)
+      )}
     </div>
   );
 }
@@ -75,7 +85,40 @@ export function UsageReposSection() {
         blurb="The details page's table over fixture data. Three looks on the same repos, then the states. Cost is the priced part; a dash means no price, never zero."
       />
       <Specimen
-        name="A · plain indent, one neutral bar, regular name"
+        name="D · bars lead: one row per repo, agent-coloured bar scaled to the biggest repo"
+        note="The eye reads the bars first and the numbers second. Models fold into one faint line, so a twelve-model repo is no taller than a one-model repo."
+        surface="chrome-2"
+      >
+        <Frame
+          repos={REPOS_MIXED}
+          width={880}
+          render={(table) => <LeadBarsLayout table={table} />}
+        />
+      </Specimen>
+      <Specimen
+        name="E · one line per repo, no bars"
+        note="Quietest layout: a narrow table so each number sits close to its name, tokens shortened (466.6M, not 466,617,000)."
+        surface="chrome-2"
+      >
+        <Frame
+          repos={REPOS_MIXED}
+          width={680}
+          render={(table) => <OneLineLayout table={table} />}
+        />
+      </Specimen>
+      <Specimen
+        name="F · tiles, two across"
+        note="Reads as a set of projects rather than a ledger. Each tile carries cost, share, the agent split and what it ran."
+        surface="chrome-2"
+      >
+        <Frame
+          repos={REPOS_TYPICAL}
+          width={760}
+          render={(table) => <TilesLayout table={table} />}
+        />
+      </Specimen>
+      <Specimen
+        name="A · plain indent, one neutral bar, regular name (the stacked list)"
         note="Quietest. Children hang by indent alone; hierarchy is ink and size."
         surface="chrome-2"
       >

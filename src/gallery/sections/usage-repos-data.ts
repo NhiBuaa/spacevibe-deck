@@ -195,3 +195,6 @@ export const REPOS_MANY_LINES: readonly RepoUsage[] = [
   },
   REPOS_TYPICAL[1],
 ];
+
+/** The typical month, but with the first repo having run twelve agent/model pairs. */
+export const REPOS_MIXED: readonly RepoUsage[] = [REPOS_MANY_LINES[0], ...REPOS_TYPICAL.slice(1)];
