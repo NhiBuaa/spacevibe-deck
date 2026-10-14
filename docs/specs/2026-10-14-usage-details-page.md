@@ -44,8 +44,8 @@ usage in more detail, including usage per repository.
 - `31c74765` removed the Daily and Breakdown views and their aggregation helpers, keeping the
   overview only. The details page is the owner reintroducing detail on purpose; its content
   session should read that commit's message before re-adding a breakdown.
-- DL §15: a page of measured numbers is a read-only table; absent values show an em dash, not
-  zero.
+- DL §15 (a Part II pattern, replaceable by an eye-reviewed redesign): a page of measured
+  numbers is a read-only table; absent values show an em dash, not zero.
 
 ## Out of scope
 
