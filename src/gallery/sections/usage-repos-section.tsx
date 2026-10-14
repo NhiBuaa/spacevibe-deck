@@ -8,7 +8,7 @@
 import { formatUsd } from "../../lib/usage-pricing";
 import { buildRepoTable, type RepoUsage } from "../../ui/usage/usage-by-repo";
 import { EM_DASH } from "../../ui/usage/usage-format";
-import { UsageRepoTiles, type AgentColor } from "../../ui/usage/usage-repo-tiles";
+import { UsageRepoTiles } from "../../ui/usage/usage-repo-tiles";
 import { SectionHead, Specimen } from "../specimen";
 import {
   REPOS_AWKWARD,
@@ -26,18 +26,7 @@ interface FrameProps {
   readonly note?: string;
   readonly loading?: boolean;
   readonly reloading?: boolean;
-  readonly agentColor?: AgentColor;
 }
-
-/**
- * Candidate palettes for the agent colours on this page only (the tab dot and
- * rail keep theirs). Both hues pass 3:1 against all six gallery themes' stage
- * backgrounds (lowest measured 3.59 for the orange, 4.03 for the blue).
- */
-const ORANGE = "#c96442";
-const BLUE = "#3d8fd1";
-const orangeAndInk: AgentColor = (agent) => (agent === "claude" ? ORANGE : "var(--text-muted)");
-const orangeAndBlue: AgentColor = (agent) => (agent === "claude" ? ORANGE : BLUE);
 
 /** The totals line the page puts above the tiles, then the tiles. */
 function Frame({
@@ -47,7 +36,6 @@ function Frame({
   note,
   loading,
   reloading,
-  agentColor,
 }: FrameProps) {
   const table = buildRepoTable(repos);
   return (
@@ -67,7 +55,6 @@ function Frame({
         note={note}
         loading={loading}
         reloading={reloading}
-        agentColor={agentColor}
       />
     </div>
   );
@@ -82,31 +69,10 @@ export function UsageReposSection() {
       />
       <Specimen
         name="Typical month"
-        note="The default view: cost and share, a magnitude bar split by agent, the models it ran, tokens."
+        note="The default view: cost and share, a magnitude bar split by agent (orange Claude, blue Codex, the same in every theme), the models it ran, tokens. Switch themes in the top bar."
         surface="chrome-2"
       >
         <Frame repos={REPOS_MIXED} />
-      </Specimen>
-      <Specimen
-        name="Colour 1 · the tab-dot colours (today)"
-        note="Theme ANSI magenta and green: the hue moves with the theme, and green is the 'on / success' colour (DL-3.2). Switch themes in the top bar to see it."
-        surface="chrome-2"
-      >
-        <Frame repos={REPOS_MIXED} />
-      </Specimen>
-      <Specimen
-        name="Colour 2 · orange and neutral ink"
-        note="Claude takes the orange of its own logo; Codex takes the neutral ink of its logo. One hue, so nothing competes with the status colours."
-        surface="chrome-2"
-      >
-        <Frame repos={REPOS_MIXED} agentColor={orangeAndInk} />
-      </Specimen>
-      <Specimen
-        name="Colour 3 · orange and blue"
-        note="Two fixed hues that stay apart for colour-blind readers and keep clear of green, red and yellow. Same in every theme."
-        surface="chrome-2"
-      >
-        <Frame repos={REPOS_MIXED} agentColor={orangeAndBlue} />
       </Specimen>
       <Specimen
         name="Same name, unpriced model, long path"

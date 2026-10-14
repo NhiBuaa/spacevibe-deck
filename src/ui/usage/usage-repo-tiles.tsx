@@ -1,8 +1,7 @@
 import { useId } from "preact/hooks";
 import { AGENT_LOGOS } from "../../lib/agent-logos";
-import { dotColor } from "../../lib/process-info";
 import { formatUsd } from "../../lib/usage-pricing";
-import type { UsageAgent } from "../../lib/usage-snapshot";
+import { usageAgentColor } from "./usage-agent-colors";
 import { EM_DASH, ESTIMATE_NOTE, formatTokensCompact, USAGE_AGENT_LABEL } from "./usage-format";
 import { maxRepoCost, summarizeRepo, type RepoRow, type RepoTable } from "./usage-by-repo";
 
@@ -19,11 +18,7 @@ interface UsageRepoTilesProps {
   readonly reloading?: boolean;
   /** One more sentence under the list, for a state the data cannot say itself. */
   readonly note?: string;
-  /** The colour an agent wears on the bar and its swatch; the tab dot's colour by default. */
-  readonly agentColor?: AgentColor;
 }
-
-export type AgentColor = (agent: UsageAgent) => string;
 
 /** A real but tiny share reads `<0.1%`; `0.0%` would say nothing was spent. */
 function shareLabel(row: RepoRow): string {
@@ -50,15 +45,7 @@ function unpricedNote(row: RepoRow): string {
  * own colours splitting the filled part (DL-16.4). A bar that always filled
  * would sit beside "<0.1%" and read as large.
  */
-function MagnitudeBar({
-  row,
-  scale,
-  agentColor,
-}: {
-  readonly row: RepoRow;
-  readonly scale: number;
-  readonly agentColor: AgentColor;
-}) {
+function MagnitudeBar({ row, scale }: { readonly row: RepoRow; readonly scale: number }) {
   const width = row.costUsd === null || scale === 0 ? 0 : (row.costUsd / scale) * 100;
   return (
     <span class="usage-tile__bar" aria-hidden="true">
@@ -66,7 +53,7 @@ function MagnitudeBar({
         {row.agentWeights.map((part) => (
           <span
             key={part.agent}
-            style={{ width: `${part.fraction * 100}%`, background: agentColor(part.agent) }}
+            style={{ width: `${part.fraction * 100}%`, background: usageAgentColor(part.agent) }}
           />
         ))}
       </span>
@@ -74,15 +61,7 @@ function MagnitudeBar({
   );
 }
 
-function Tile({
-  row,
-  scale,
-  agentColor,
-}: {
-  readonly row: RepoRow;
-  readonly scale: number;
-  readonly agentColor: AgentColor;
-}) {
+function Tile({ row, scale }: { readonly row: RepoRow; readonly scale: number }) {
   const agents = [...new Set(row.lines.map((line) => line.agent))];
   return (
     <li class="usage-tile">
@@ -92,14 +71,14 @@ function Tile({
         {row.costUsd === null ? EM_DASH : formatUsd(row.costUsd)}
         <span class="usage-tile__share">{shareLabel(row)}</span>
       </p>
-      <MagnitudeBar row={row} scale={scale} agentColor={agentColor} />
+      <MagnitudeBar row={row} scale={scale} />
       <p class="usage-tile__summary">{summarizeRepo(row)}</p>
       <p class="usage-tile__meta">
         {agents.map((agent) => {
           const logo = AGENT_LOGOS[agent];
           return (
             <span key={agent} class="usage-tile__agent">
-              <i style={{ background: agentColor(agent) }} aria-hidden="true" />
+              <i style={{ background: usageAgentColor(agent) }} aria-hidden="true" />
               {logo === undefined ? null : <img src={logo} alt={USAGE_AGENT_LABEL[agent]} />}
             </span>
           );
@@ -126,7 +105,6 @@ export function UsageRepoTiles({
   loading = false,
   reloading = false,
   note,
-  agentColor = dotColor,
 }: UsageRepoTilesProps) {
   const id = useId();
   const unpriced = table.unpricedModels.length;
@@ -145,7 +123,7 @@ export function UsageRepoTiles({
       ) : (
         <ul class="usage-tiles" aria-labelledby={`${id}-title`}>
           {table.rows.map((row) => (
-            <Tile key={row.key} row={row} scale={scale} agentColor={agentColor} />
+            <Tile key={row.key} row={row} scale={scale} />
           ))}
         </ul>
       )}
