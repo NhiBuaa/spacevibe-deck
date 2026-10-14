@@ -7,6 +7,15 @@ the release PR, and frozen at the tag — never an auto-generated commit list.
 
 ## Unreleased
 
+- **Windows: Deck finds Claude Code, and agents you install while it runs.** Claude Code's
+  Windows installer puts `claude.exe` in `%USERPROFILE%\.local\bin` without adding that folder
+  to `PATH`, so Deck listed Codex as installed and Claude Code as missing. Deck now looks there
+  too, and the terminals it opens can run `claude`. An agent installed while Deck is open is
+  found the next time Deck looks, without a restart; a terminal that was already open keeps its
+  old `PATH`, so start the new agent from a new terminal. A pane running Claude Code or Codex
+  now shows that agent instead of reading as busy once the agent starts helpers such as MCP
+  servers.
+
 ## 2.10.0
 
 This update stops undo from emptying a file you just opened, lets you install a
