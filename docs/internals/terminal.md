@@ -445,8 +445,14 @@ runs independently of the switch. Without hooks, API failures cannot produce the
     never shells out. It returns before the post finishes and drops a failed one.
   - *Stays inferred:* Windows, a shell without a bootstrap, a typed absolute path, and any
     opencode started outside the wrapper's reach.
+  - *The user's global `AGENTS.md` comes along by link.* opencode reads its global
+    instructions from the config directory the variable replaces; finding none in Deck's, it
+    fell back to `~/.claude/CLAUDE.md` (opencode 1.19.0). Boot links `AGENTS.md` there to
+    `$XDG_CONFIG_HOME/opencode/AGENTS.md` (default `~/.config`), resolved from main's env
+    ([`provision.ts`](../../electron/agent-shell/provision.ts)). A dangling link reads as
+    absent, so a user with no file keeps plain opencode's fallback.
   - *A user's own `OPENCODE_CONFIG_DIR` is replaced* inside Deck panes while opencode Signals
-    is on, so agents, commands and plugins from that directory do not load there
+    is on, so agents, commands, plugins and `AGENTS.md` from that directory do not load there
     ([RISK5](../specs/2026-10-11-agent-status-hooks-by-default.md#risks)).
 - **Codex turn state belongs to the reducer.** A `Stop` ends the current response; if another
   hook requests continuation, Codex emits `UserPromptSubmit` for the continuation turn. The
