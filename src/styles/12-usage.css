@@ -695,3 +695,14 @@
   font-size: var(--type-micro);
   color: var(--text-faint);
 }
+.usage-tile__agent {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.usage-tile__agent i {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
