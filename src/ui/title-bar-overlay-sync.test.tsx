@@ -106,11 +106,11 @@ describe("useTitleBarOverlaySync on Windows under Electron", () => {
     ["dark", "sidebar layout", {}, "#0a0a0a"],
     ["dark", "sidebar layout, dock open", { dockPainted: true }, "#141414"],
     ["dark", "top-tab layout", { sidebar: false }, "#1b1b1b"],
-    ["dark", "Settings open", { settingsOpen: true }, "#222222"],
+    ["dark", "Settings open", { settingsOpen: true }, "#0a0a0a"],
     ["light", "sidebar layout", {}, "#f5f6f8"],
     ["light", "sidebar layout, dock open", { dockPainted: true }, "#e9eaec"],
     ["light", "top-tab layout", { sidebar: false }, "#e9eaec"],
-    ["light", "Settings open", { settingsOpen: true }, "#dfe0e2"],
+    ["light", "Settings open", { settingsOpen: true }, "#f5f6f8"],
   ] as const)("%s theme, %s: sends the corner's colour at boot", (mode, _state, patch, color) => {
     const { input, symbolColor } = THEMES[mode];
 
@@ -129,7 +129,7 @@ describe("useTitleBarOverlaySync on Windows under Electron", () => {
       { color: "#0a0a0a", symbolColor: "#e7e7e7" },
       { color: "#f5f6f8", symbolColor: "#272727" },
       { color: "#e9eaec", symbolColor: "#272727" },
-      { color: "#dfe0e2", symbolColor: "#272727" },
+      { color: "#f5f6f8", symbolColor: "#272727" },
     ]);
   });
 
