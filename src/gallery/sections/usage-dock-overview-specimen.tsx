@@ -35,7 +35,30 @@ function history(): readonly UsageBucket[] {
   }).flat();
 }
 
-const LIMITS = { snapshot: [], nowMs: NOW, available: true, loading: false, error: false };
+const HOUR_MS = 3_600_000;
+const LIMITS = {
+  snapshot: [
+    {
+      agent: "claude" as const,
+      state: "ready" as const,
+      observedAtMs: NOW,
+      windows: [
+        { durationMinutes: 300, usedPercent: 91, resetsAtMs: NOW + 2 * HOUR_MS },
+        { durationMinutes: 10080, usedPercent: 46, resetsAtMs: NOW + 35 * HOUR_MS },
+      ],
+    },
+    {
+      agent: "codex" as const,
+      state: "ready" as const,
+      observedAtMs: NOW,
+      windows: [{ durationMinutes: 10080, usedPercent: 38, resetsAtMs: NOW + 126 * HOUR_MS }],
+    },
+  ],
+  nowMs: NOW,
+  available: true,
+  loading: false,
+  error: false,
+};
 
 export function UsageDockOverviewSpecimen() {
   return (

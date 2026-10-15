@@ -4,7 +4,9 @@ import {
   type AgentLimitReading,
   type LimitWindow,
 } from "../../lib/agent-limits";
+import type { UsageAgent } from "../../lib/usage-snapshot";
 import { AgentGlyph } from "../controls/agent-glyph";
+import { usageAgentColor } from "./usage-agent-colors";
 import { EM_DASH, USAGE_AGENT_LABEL, USAGE_AGENT_ORDER } from "./usage-format";
 import type { AgentLimitsView } from "./use-agent-limits";
 
@@ -42,91 +44,90 @@ function unknownReason(reading: AgentLimitReading | undefined, props: AgentLimit
   return "Limit unavailable";
 }
 
-function AllowanceCell({
+const RESET_DATE_FORMAT: Intl.DateTimeFormatOptions = {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+};
+
+function AllowanceWindow({
+  agent,
   window,
   nowMs,
-  reason,
 }: {
-  readonly window?: LimitWindow;
+  readonly agent: UsageAgent;
+  readonly window: LimitWindow;
   readonly nowMs: number;
-  readonly reason: string;
 }) {
-  if (!window)
-    return (
-      <td>
-        <span class="usage-allowance__unknown">{EM_DASH}</span>
-        <small>{reason}</small>
-      </td>
-    );
   const remaining = Math.floor(100 - window.usedPercent);
+  const low = remaining <= LOW_ALLOWANCE_PERCENT;
+  const resetsAt = new Date(window.resetsAtMs);
   return (
-    <td class={remaining <= LOW_ALLOWANCE_PERCENT ? "usage-allowance__low" : ""}>
+    <li class={low ? "usage-allowance__window usage-allowance__low" : "usage-allowance__window"}>
+      <span class="usage-allowance__label">
+        {durationLabel(window.durationMinutes)}
+        {low && <span class="usage-allowance__warning">Low</span>}
+      </span>
+      {/* aria-hidden: the percentage beside it states the same amount (DL-16.6). */}
+      <span class="usage-allowance__bar" aria-hidden="true">
+        <span
+          class="usage-allowance__fill"
+          style={{ width: `${remaining}%`, background: usageAgentColor(agent) }}
+        />
+      </span>
       <strong>{remaining}%</strong>
-      {remaining <= LOW_ALLOWANCE_PERCENT && <span class="usage-allowance__warning">Low</span>}
-      <small>Resets in {resetLabel(window.resetsAtMs, nowMs)}</small>
-      <time dateTime={new Date(window.resetsAtMs).toISOString()}>
-        {new Date(window.resetsAtMs).toLocaleString("en-US", {
-          month: "short",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-        })}
+      <time
+        dateTime={resetsAt.toISOString()}
+        title={resetsAt.toLocaleString("en-US", RESET_DATE_FORMAT)}
+      >
+        Resets in {resetLabel(window.resetsAtMs, nowMs)}
       </time>
-    </td>
+    </li>
   );
 }
 
 /** Current allowance has no cost-period input (DL-16.1); zero is a real measurement. */
 export function RemainingAllowance(props: AgentLimitsView) {
-  const durations = [
-    ...new Set(
-      props.snapshot.flatMap((reading) => reading.windows.map((window) => window.durationMinutes)),
-    ),
-  ].sort((a, b) => a - b);
-  const columns = durations.length ? durations : [null];
   return (
     <section class="usage-allowance" aria-label="Remaining allowance">
       <h3>Remaining allowance</h3>
-      <p class="usage-overview__note">Current limits · independent of cost period</p>
-      <div class="usage-overview__table-scroll" tabIndex={0} aria-label="Remaining allowance table">
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Agent</th>
-              {columns.map((duration) => (
-                <th scope="col" key={duration ?? "unknown"}>
-                  {duration === null ? "Allowance" : durationLabel(duration)}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {USAGE_AGENT_ORDER.map((agent) => {
-              const reading = props.snapshot.find((row) => row.agent === agent);
-              const windows =
-                props.available && !props.error ? currentLimitWindows(reading, props.nowMs) : [];
-              return (
-                <tr key={agent}>
-                  <th scope="row">
-                    <span class="usage-allowance__agent">
-                      <AgentGlyph agent={agent} className="usage-allowance__logo" />
-                      {USAGE_AGENT_LABEL[agent]}
-                    </span>
-                  </th>
-                  {columns.map((duration) => (
-                    <AllowanceCell
-                      key={duration ?? "unknown"}
-                      window={windows.find((window) => window.durationMinutes === duration)}
+      <ul class="usage-allowance__agents">
+        {USAGE_AGENT_ORDER.map((agent) => {
+          const reading = props.snapshot.find((row) => row.agent === agent);
+          const windows =
+            props.available && !props.error
+              ? [...currentLimitWindows(reading, props.nowMs)].sort(
+                  (a, b) => a.durationMinutes - b.durationMinutes,
+                )
+              : [];
+          return (
+            <li key={agent} class="usage-allowance__agent">
+              <p class="usage-allowance__name">
+                <AgentGlyph agent={agent} className="usage-allowance__logo" />
+                {USAGE_AGENT_LABEL[agent]}
+              </p>
+              {windows.length ? (
+                <ul class="usage-allowance__windows">
+                  {windows.map((window) => (
+                    <AllowanceWindow
+                      key={window.durationMinutes}
+                      agent={agent}
+                      window={window}
                       nowMs={props.nowMs}
-                      reason={unknownReason(reading, props)}
                     />
                   ))}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                </ul>
+              ) : (
+                <p class="usage-allowance__none">
+                  <span class="usage-allowance__unknown">{EM_DASH}</span>
+                  <small>{unknownReason(reading, props)}</small>
+                </p>
+              )}
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }

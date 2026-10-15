@@ -547,20 +547,22 @@ counted, and the table has no interaction.
 
 ## 16. Usage overview
 
-The usage overview leads with the cost figure, then current allowance, then history. Allowance
+The usage overview leads with current allowance, then the cost figure, then history. Allowance
 comes from limit readings, cost from recorded token history; neither is a subscription invoice.
 
-- **DL-16.1** The page runs **Estimated API cost → per-agent accounting and pricing details →
-  Remaining allowance → cost period → Cost over time**; the selector sits beside the chart it
-  names and still scopes the figure above it. The
-  [allowance table](../src/ui/usage/remaining-allowance.tsx) shows actual returned durations,
-  visible reset times and remaining percentages; missing, expired, failed and unsupported
-  readings stay unknown, a measured zero stays zero. Allowance ignores the cost period, stays
+- **DL-16.1** The page runs **Remaining allowance → Estimated API cost with its cost period →
+  per-agent accounting and pricing details → Cost over time**. The
+  [allowance list](../src/ui/usage/remaining-allowance.tsx) is one block per agent and one row
+  per returned window: label, a 4px bar of what remains in the agent's colour, the remaining
+  percentage and a visible `Resets in …` countdown, with the exact reset date in a tooltip.
+  Missing, expired, failed and unsupported readings stay unknown, a measured zero stays zero. At
+  15% or less the percentage and a **Low** word turn warning-coloured. Allowance ignores the cost
+  period, which is why it sits above the period control and not between the cost blocks; it stays
   visible while token history loads or is stale, and keeps DL-33.1's treatment in the sidebar.
 - **DL-16.2** The compact figure has the sentence-case label **Estimated API cost**, tabular
   numbers and a visible API-equivalent disclaimer. The
-  [Overview treatment](../src/styles/12-usage.css) puts it first, separated from the allowance
-  and chart by a hairline, on flat surfaces and theme tokens. A partial estimate discloses the
+  [Overview treatment](../src/styles/12-usage.css) puts it second, separated from the allowance
+  above by a hairline, on flat surfaces and theme tokens. A partial estimate discloses the
   excluded models and tokens; an absent amount is a dash, never zero.
 - **DL-16.3** A **share bar** sits under any row that names a part of a stated total: a
   full-width track 4px tall, radius 2px (a capsule, not a DL-20.1 value),
@@ -584,8 +586,9 @@ comes from limit readings, cost from recorded token history; neither is a subscr
   **Chart data** is a keyboard-accessible disclosure with semantic row/column headers and exact
   formatted values, including missing and unpriced data. Colour and hover never carry meaning
   alone.
-- **DL-16.7** The [cost-period selector](../src/ui/usage/usage-range-selector.tsx) sits between
-  allowance and chart. Today, 7 days, 30 days and All update the chart, total, per-agent amounts,
+- **DL-16.7** The [cost-period selector](../src/ui/usage/usage-range-selector.tsx) sits on the
+  right of the **Estimated API cost** label, so it scopes everything under that heading and
+  nothing above it. Today, 7 days, 30 days and All update the chart, total, per-agent amounts,
   shares, tokens and price omissions together; allowance and reset times do not change.
   **Chart data** and **Pricing details** disclosures are allowed. The selector is segmented, not
   a §6 `cycle` pill, so every period is visible at once. Options are sentence-case `--ui-font`

@@ -396,14 +396,20 @@
   color: var(--text-muted);
   font-size: var(--type-micro);
 }
-.usage-overview > .usage-range {
-  margin: 22px 0 18px;
-}
 .usage-overview .usage-hero {
   max-width: none;
   padding: 0 0 20px;
-  border-bottom: 1px solid var(--hair);
   margin-bottom: 20px;
+}
+.usage-hero__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.usage-hero__head .usage-range {
+  margin: 0;
+  flex-wrap: nowrap;
 }
 .usage-overview .usage-hero__figure {
   font-size: 28px;
@@ -444,15 +450,21 @@
   padding: 10px 0;
 }
 .usage-allowance {
-  padding-top: 10px;
+  padding: 0 0 20px;
+  border-bottom: 1px solid var(--hair);
+  margin-bottom: 20px;
 }
-.usage-allowance table {
-  table-layout: auto;
+.usage-allowance :where(ul, p) {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
-.usage-allowance td {
-  min-width: 96px;
+.usage-allowance__agents {
+  display: grid;
+  gap: 14px;
+  margin-top: 10px;
 }
-.usage-allowance__agent {
+.usage-allowance__name {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -463,18 +475,51 @@
   height: 16px;
   flex: none;
 }
-.usage-allowance strong {
-  font-size: var(--type-title);
-  font-weight: 600;
+.usage-allowance__windows {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
 }
-.usage-allowance small,
-.usage-allowance time {
-  display: block;
-  color: var(--text-muted);
+.usage-allowance__window {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(24px, 1fr) 2.5rem 7.5rem;
+  align-items: center;
+  gap: 10px;
   font-size: var(--type-micro);
 }
+.usage-allowance__label {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.usage-allowance__bar {
+  height: 4px;
+  border-radius: var(--radius-tight);
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+  overflow: hidden;
+}
+.usage-allowance__fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-tight);
+}
+.usage-allowance strong {
+  text-align: right;
+  font-size: var(--type-body);
+  font-weight: 600;
+}
 .usage-allowance time {
-  margin-top: 2px;
+  color: var(--text-muted);
+  text-align: right;
+  white-space: nowrap;
+}
+.usage-allowance__none {
+  margin-top: 6px;
+  font-size: var(--type-micro);
+}
+.usage-allowance__none small {
+  margin-left: 8px;
+  color: var(--text-muted);
+  font-size: var(--type-micro);
 }
 .usage-allowance__unknown {
   color: var(--text-faint);
@@ -484,7 +529,6 @@
   color: color-mix(in srgb, var(--yellow) 60%, var(--fg));
 }
 .usage-allowance__warning {
-  font-size: var(--type-micro);
   margin-left: 4px;
 }
 .usage-timeline__plot {

@@ -75,7 +75,7 @@ it.each([false, true])(
     const order = [...host.querySelector(".usage-overview")!.children].map(
       (node) => node.className,
     );
-    expect(order.slice(0, 3)).toEqual(["usage-hero", "usage-allowance", "usage-range"]);
+    expect(order.slice(0, 3)).toEqual(["usage-allowance", "usage-hero", "usage-timeline"]);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(15_000);
     });

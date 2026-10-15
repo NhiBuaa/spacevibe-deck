@@ -170,8 +170,12 @@ export function OverviewContent({
   const definition = USAGE_RANGES.find((entry) => entry.id === range)!;
   return (
     <div class="usage-overview">
+      <RemainingAllowance {...limits} />
       <section class="usage-hero" aria-label="Estimated API cost">
-        <p class="usage-hero__eyebrow">Estimated API cost</p>
+        <div class="usage-hero__head">
+          <p class="usage-hero__eyebrow">Estimated API cost</p>
+          <UsageRangeSelector value={range} onChange={onRangeChange} />
+        </div>
         <p class={`usage-hero__figure ${total === null ? "usage-hero__figure--absent" : ""}`}>
           {total === null ? EM_DASH : formatUsd(total)}
         </p>
@@ -200,8 +204,6 @@ export function OverviewContent({
           )}
         </details>
       </section>
-      <RemainingAllowance {...limits} />
-      <UsageRangeSelector value={range} onChange={onRangeChange} />
       {loading && !buckets.length ? (
         <p class="usage-overview__note" role="status">
           Reading recorded token history…
