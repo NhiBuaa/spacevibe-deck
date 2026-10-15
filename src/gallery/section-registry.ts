@@ -55,6 +55,10 @@ const LaunchProfilesSection = lazy(() =>
   import("./sections/launch-profiles-section").then((m) => m.LaunchProfilesSection),
 );
 
+const SmallButtonsSection = lazy(() =>
+  import("./sections/small-buttons-section").then((m) => m.SmallButtonsSection),
+);
+
 export interface GallerySection {
   readonly id: string;
   readonly label: string;
@@ -86,6 +90,7 @@ export const GALLERY_SECTIONS: readonly GallerySection[] = [
     Section: SettingsDirectionSection,
   },
   { id: "chrome", label: "window chrome", Section: ChromeSection },
+  { id: "small-buttons", label: "small buttons", Section: SmallButtonsSection },
   { id: "matrix", label: "native detail matrix", Section: MatrixSection },
   { id: "navigation", label: "navigation", Section: NavigationSection },
   { id: "row-badge", label: "row badge", Section: RowBadgeSection },

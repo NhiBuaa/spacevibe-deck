@@ -625,3 +625,53 @@
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
+
+/* ── .sbtn: the small ghost button (Back, Details) ────────────────────────
+   One 24px box for a text action that leaves its surface. The border is always
+   there, transparent, so a variant that adds a hairline never changes the height.
+   The side that carries the glyph gives back 2px of padding (`--lead` / `--trail`). */
+.sbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-tab);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--ui-font);
+  font-size: var(--type-meta);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  /* DL-21.5: state changes ride the shared motion pair. */
+  transition:
+    background var(--duration) var(--ease),
+    color var(--duration) var(--ease);
+}
+
+.sbtn--lead {
+  padding-left: 6px;
+}
+
+.sbtn--trail {
+  padding-right: 6px;
+}
+
+.sbtn:hover {
+  background: var(--state-hover-bg);
+  color: var(--text-primary);
+}
+
+.sbtn:focus-visible {
+  outline: 2px solid var(--text-muted);
+  outline-offset: -2px;
+}
+
+.sbtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}

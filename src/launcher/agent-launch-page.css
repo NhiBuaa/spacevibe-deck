@@ -38,14 +38,14 @@
   max-width: 800px;
   margin: 0 auto;
 }
-.agent-launch-page button,
-.nt-agent-launcher button {
+.agent-launch-page button:not(.sbtn),
+.nt-agent-launcher button:not(.sbtn) {
   cursor: pointer;
   font: inherit;
   color: inherit;
 }
-.agent-launch-page button:focus-visible,
-.nt-agent-launcher button:focus-visible {
+.agent-launch-page button:not(.sbtn):focus-visible,
+.nt-agent-launcher button:not(.sbtn):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
@@ -56,14 +56,6 @@
 }
 .agent-launch-page__back {
   align-self: flex-start;
-  display: inline-flex;
-  gap: 8px;
-  align-items: center;
-  border: 0;
-  padding: 5px 0;
-  background: transparent;
-  color: var(--text-muted) !important;
-  font-size: 11px !important;
 }
 .agent-launch-page kbd {
   margin-left: 8px;

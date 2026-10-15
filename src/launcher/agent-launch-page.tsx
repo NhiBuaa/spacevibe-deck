@@ -107,8 +107,8 @@ export function AgentLaunchPage(props: AgentLaunchPageProps) {
       }}
     >
       <div class="agent-launch-page__inner">
-        <button class="agent-launch-page__back" onClick={props.onBack}>
-          <DeckIcon icon={ArrowLeft} size={15} /> Back <kbd>Esc</kbd>
+        <button class="sbtn sbtn--lead agent-launch-page__back" onClick={props.onBack}>
+          <DeckIcon icon={ArrowLeft} size={ROW_ICON} /> Back <kbd>Esc</kbd>
         </button>
         <AgentLaunchContext {...props.contextRow} />
         {props.error ? (

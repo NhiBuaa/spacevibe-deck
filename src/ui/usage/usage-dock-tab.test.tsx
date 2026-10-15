@@ -140,7 +140,7 @@ it("opens the details page through the callback from its one control", async () 
   await act(async () => {
     render(<UsageDockTab onOpenDetails={onOpenDetails} />, host);
   });
-  act(() => host.querySelector<HTMLButtonElement>(".usage-dock__details")?.click());
+  act(() => host.querySelector<HTMLButtonElement>(".sbtn")?.click());
   expect(onOpenDetails).toHaveBeenCalledTimes(1);
 });
 it("keeps the poll alive when the dock tab closes while the page still holds it", async () => {

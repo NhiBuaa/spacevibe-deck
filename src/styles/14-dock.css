@@ -777,31 +777,3 @@
   padding: 6px 10px 0;
   flex-shrink: 0;
 }
-
-.usage-dock__details {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 6px 3px 8px;
-  border: 0;
-  border-radius: var(--radius-tab);
-  background: transparent;
-  color: var(--text-muted);
-  font-family: var(--ui-font);
-  font-size: var(--type-meta);
-  cursor: pointer;
-  /* DL-21.5: state changes ride the shared motion pair. */
-  transition:
-    background var(--duration) var(--ease),
-    color var(--duration) var(--ease);
-}
-
-.usage-dock__details:hover {
-  background: var(--state-hover-bg);
-  color: var(--text-primary);
-}
-
-.usage-dock__details:focus-visible {
-  outline: 2px solid var(--text-muted);
-  outline-offset: 1px;
-}

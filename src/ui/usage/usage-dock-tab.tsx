@@ -48,7 +48,7 @@ export function UsageDockTab({ onOpenDetails }: UsageDockTabProps) {
         <button
           ref={buttonRef}
           type="button"
-          class="usage-dock__details"
+          class="sbtn sbtn--trail"
           aria-describedby={tooltip.anchor !== null ? DETAILS_TIP_ID : undefined}
           {...tooltipTriggerProps(tooltip, buttonRef)}
           onClick={onOpenDetails}
