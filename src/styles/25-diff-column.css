@@ -14,7 +14,7 @@
   min-width: 0;
   min-height: 0;
   box-sizing: border-box;
-  background: var(--sidebar-bg);
+  background: var(--bg);
   color: var(--text-primary);
   font-family: var(--ui-font);
   font-size: var(--type-body);
