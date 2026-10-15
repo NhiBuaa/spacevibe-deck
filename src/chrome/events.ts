@@ -75,6 +75,14 @@ export const railKeyboardMenuFor = signal<string | null>(null);
 export const settingsOpen = signal(false);
 
 /**
+ * Usage details page open state. A module signal for `settingsOpen`'s reason:
+ * `tab-manager.ts`'s overlay guard reads it, and only module signals are
+ * visible outside `App`. Unlike Settings it covers only the stage's content
+ * area, leaving the rail and the dock live (spec R2).
+ */
+export const usageOpen = signal(false);
+
+/**
  * Prompt Board popover open state.
  *
  * Deliberately NOT part of `openOverlayRanks()` (tab-manager.ts): this is a

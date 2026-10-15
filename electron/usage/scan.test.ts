@@ -4,15 +4,18 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { scanAll, buildSnapshot } from "./scan";
 import { emptyCache } from "./model";
+import type { ResolveRepo } from "./repo-resolver";
 
 /**
  * The incremental pass: warm-path stat-only polls, shrink and identity
  * rules, the archived-duplicate drop and carry-over — the reconciliation
- * behaviors `src-tauri/src/usage/scan.rs` pins.
+ * behaviors the removed Rust scanner pinned.
  */
 
 const T0 = 1_786_320_000_000; // 2026-08-10T00:00:00Z
 const NOW = T0 + 60 * 60 * 1000;
+
+const resolveNone: ResolveRepo = async () => ({ kind: "none" });
 
 const temps: string[] = [];
 function tempHome(): string {
@@ -56,7 +59,7 @@ function assistantLine(id: string, output: number): string {
 describe("scanAll", () => {
   it("reports missing roots as missing and an empty home scans clean", async () => {
     const home = tempHome();
-    const outcome = await scanAll(emptyCache(), home, NOW);
+    const outcome = await scanAll(emptyCache(), home, NOW, resolveNone);
     expect(outcome.claude).toBe("missing");
     expect(outcome.codex).toBe("missing");
     const snapshot = buildSnapshot(outcome, NOW);
@@ -67,7 +70,7 @@ describe("scanAll", () => {
   it("does not reopen an unchanged file, and the changed flag goes quiet", async () => {
     const home = tempHome();
     const file = claudeHome(home, assistantLine("1", 10));
-    const first = await scanAll(emptyCache(), home, NOW);
+    const first = await scanAll(emptyCache(), home, NOW, resolveNone);
     expect(first.changed).toBe(true);
 
     // Rewrite the file with DIFFERENT content but identical size and mtime:
@@ -75,7 +78,7 @@ describe("scanAll", () => {
     // that unchanged polls read zero JSONL bytes.
     writeFileSync(file, assistantLine("1", 99));
     pin(file);
-    const second = await scanAll(first.cache, home, NOW);
+    const second = await scanAll(first.cache, home, NOW, resolveNone);
     expect(second.changed).toBe(false);
     expect(buildSnapshot(second, NOW).buckets).toEqual(buildSnapshot(first, NOW).buckets);
   });
@@ -83,11 +86,11 @@ describe("scanAll", () => {
   it("resumes a grown file from its offset and rescans a shrunk one from zero", async () => {
     const home = tempHome();
     const file = claudeHome(home, assistantLine("1", 10));
-    const first = await scanAll(emptyCache(), home, NOW);
+    const first = await scanAll(emptyCache(), home, NOW, resolveNone);
 
     appendFileSync(file, assistantLine("2", 5));
     pin(file, T0 + 1000);
-    const grown = await scanAll(first.cache, home, NOW);
+    const grown = await scanAll(first.cache, home, NOW, resolveNone);
     const grownTotal = buildSnapshot(grown, NOW).buckets.reduce(
       (sum, bucket) => sum + bucket.counters.output,
       0,
@@ -97,7 +100,7 @@ describe("scanAll", () => {
     // Shrink: a truncated file is a different thing at the same path.
     writeFileSync(file, assistantLine("3", 7));
     pin(file, T0 + 2000);
-    const shrunk = await scanAll(grown.cache, home, NOW);
+    const shrunk = await scanAll(grown.cache, home, NOW, resolveNone);
     const shrunkTotal = buildSnapshot(shrunk, NOW).buckets.reduce(
       (sum, bucket) => sum + bucket.counters.output,
       0,
@@ -108,7 +111,7 @@ describe("scanAll", () => {
   it("drops a file that vanishes from the corpus — the data follows the disk", async () => {
     const home = tempHome();
     const file = claudeHome(home, assistantLine("1", 10));
-    const first = await scanAll(emptyCache(), home, NOW);
+    const first = await scanAll(emptyCache(), home, NOW, resolveNone);
     expect(buildSnapshot(first, NOW).buckets).toHaveLength(1);
 
     // Replace the file with a dangling symlink: discovery refuses symlinks,
@@ -119,7 +122,7 @@ describe("scanAll", () => {
     rmSync(file);
     const { symlinkSync } = await import("node:fs");
     symlinkSync(path.join(home, "gone"), file);
-    const second = await scanAll(first.cache, home, NOW);
+    const second = await scanAll(first.cache, home, NOW, resolveNone);
     expect(buildSnapshot(second, NOW).buckets).toEqual([]);
   });
 
@@ -155,7 +158,7 @@ describe("scanAll", () => {
     writeFileSync(copy, meta + count);
     pin(active);
     pin(copy);
-    const outcome = await scanAll(emptyCache(), home, NOW);
+    const outcome = await scanAll(emptyCache(), home, NOW, resolveNone);
     const snapshot = buildSnapshot(outcome, NOW);
     // Counted once, and the copy is not in the file count either.
     expect(snapshot.buckets.reduce((sum, bucket) => sum + bucket.counters.output, 0)).toBe(10);
@@ -168,11 +171,11 @@ describe("scanAll", () => {
   it("accumulates skipped lines across scans instead of resetting them", async () => {
     const home = tempHome();
     const file = claudeHome(home, `not json at all\n${assistantLine("1", 3)}`);
-    const first = await scanAll(emptyCache(), home, NOW);
+    const first = await scanAll(emptyCache(), home, NOW, resolveNone);
     expect(buildSnapshot(first, NOW).skippedLines).toBe(1);
     appendFileSync(file, "still not json\n");
     pin(file, T0 + 1000);
-    const second = await scanAll(first.cache, home, NOW);
+    const second = await scanAll(first.cache, home, NOW, resolveNone);
     expect(buildSnapshot(second, NOW).skippedLines).toBe(2);
   });
 });
@@ -181,14 +184,14 @@ describe("compaction", () => {
   it("rolls an aged file's entries into totals and survives a warm poll", async () => {
     const home = tempHome();
     claudeHome(home, assistantLine("1", 10) + assistantLine("2", 20));
-    const first = await scanAll(emptyCache(), home, NOW);
+    const first = await scanAll(emptyCache(), home, NOW, resolveNone);
     const record = [...first.cache.files.values()][0];
     expect(record.compacted).toBe(false);
     expect(record.entries.size).toBe(2);
 
     // Two days later, nothing moved: the warm path still compacts.
     const later = NOW + 49 * 60 * 60 * 1000;
-    const second = await scanAll(first.cache, home, later);
+    const second = await scanAll(first.cache, home, later, resolveNone);
     const compacted = [...second.cache.files.values()][0];
     expect(compacted.compacted).toBe(true);
     expect(compacted.entries.size).toBe(0);
@@ -209,7 +212,7 @@ describe("cross-file dedupe", () => {
       writeFileSync(file, line);
       pin(file);
     }
-    const outcome = await scanAll(emptyCache(), home, NOW);
+    const outcome = await scanAll(emptyCache(), home, NOW, resolveNone);
     expect(
       buildSnapshot(outcome, NOW).buckets.reduce((sum, bucket) => sum + bucket.counters.output, 0),
     ).toBe(50);

@@ -1,17 +1,19 @@
 /**
- * The incremental pass over the corpus, the reconciliation rules and the
- * aggregation into the payload's bucket list.
- * Port of `src-tauri/src/usage/scan.rs`.
+ * The incremental pass over the corpus, the reconciliation rules, the
+ * cwd → repository resolution and the aggregation into the payload's bucket
+ * list. Originally ported from the removed Tauri host's usage module.
  */
 import { statSync, type Stats } from "node:fs";
 import { ingest } from "./codex";
 import { discoverClaude, discoverCodex, fileIdentity } from "./discover";
 import { readLines } from "./reader";
+import { resolveRepos, reposEqual, type ResolveRepo } from "./repo-resolver";
 import {
   COMPACT_AFTER_MS,
   USAGE_CACHE_VERSION,
   addCounters,
   addTotal,
+  compareNullableStrings,
   emptyRecord,
   sortTotals,
   type Contribution,
@@ -19,7 +21,6 @@ import {
   type UsageAgent,
   type UsageBucket,
   type UsageCache,
-  type UsageCounters,
   type UsageSnapshot,
   type UsageSource,
   type UsageSourceState,
@@ -59,7 +60,13 @@ function compacted(record: FileRecord, nowMs: number): FileRecord {
   const entries = record.entries;
   record.entries = new Map();
   for (const contribution of entries.values()) {
-    addTotal(record.totals, contribution.bucketStartMs, contribution.model, contribution.counters);
+    addTotal(
+      record.totals,
+      contribution.bucketStartMs,
+      contribution.model,
+      contribution.cwd,
+      contribution.counters,
+    );
   }
   sortTotals(record.totals);
   record.cumulative = null;
@@ -259,11 +266,15 @@ function cachedIdentity(filePath: string, previous: UsageCache): string | null {
   return fileIdentity(filePath);
 }
 
-/** A whole incremental scan. `home` is injected, so no test reads a real one. */
+/**
+ * A whole incremental scan. `home` and `resolveRepo` are injected, so no
+ * test reads a real home or spawns git.
+ */
 export async function scanAll(
   previous: UsageCache,
   home: string,
   nowMs: number,
+  resolveRepo: ResolveRepo,
 ): Promise<ScanOutcome> {
   const files = new Map<string, FileRecord>();
 
@@ -321,9 +332,10 @@ export async function scanAll(
   // intact to compare with. The map is rebuilt path-sorted so serialization
   // and the cross-file merge are deterministic.
   const sorted = new Map([...files.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
-  const changed = !filesEqual(sorted, previous.files);
+  const repos = await resolveRepos(sorted, previous.repos, resolveRepo);
+  const changed = !filesEqual(sorted, previous.files) || !reposEqual(repos, previous.repos);
   return {
-    cache: { cacheVersion: USAGE_CACHE_VERSION, files: sorted },
+    cache: { cacheVersion: USAGE_CACHE_VERSION, files: sorted, repos },
     changed,
     claude,
     codex,
@@ -345,44 +357,45 @@ export async function scanAll(
  */
 export function aggregateBuckets(cache: UsageCache): UsageBucket[] {
   const claudeEntries = new Map<string, Contribution>();
-  const totals = new Map<string, UsageCounters>();
-  const keyOf = (bucketStartMs: number, agent: UsageAgent, model: string) =>
-    `${String(bucketStartMs).padStart(16, "0")} ${agent === "claude" ? 0 : 1} ${model}`;
+  const buckets = new Map<string, UsageBucket>();
+  // An unresolved or not-yet-resolved cwd ships as itself, so every token is
+  // still counted and per-repository rows still sum to the total.
+  const repoOf = (cwd: string | null): string | null =>
+    cwd === null ? null : (cache.repos.get(cwd) ?? cwd);
+  const add = (agent: UsageAgent, contribution: Contribution): void => {
+    const repo = repoOf(contribution.cwd);
+    const slot = JSON.stringify([contribution.bucketStartMs, agent, contribution.model, repo]);
+    const existing = buckets.get(slot);
+    buckets.set(slot, {
+      bucketStartMs: contribution.bucketStartMs,
+      agent,
+      model: contribution.model,
+      repo,
+      counters:
+        existing === undefined
+          ? { ...contribution.counters }
+          : addCounters(existing.counters, contribution.counters),
+    });
+  };
   for (const record of cache.files.values()) {
     for (const [key, contribution] of record.entries) {
       claudeEntries.set(key, contribution);
     }
     for (const contribution of record.totals) {
-      const slot = keyOf(contribution.bucketStartMs, record.agent, contribution.model);
-      const existing = totals.get(slot);
-      totals.set(
-        slot,
-        existing === undefined
-          ? { ...contribution.counters }
-          : addCounters(existing, contribution.counters),
-      );
+      add(record.agent, contribution);
     }
   }
   for (const contribution of claudeEntries.values()) {
-    const slot = keyOf(contribution.bucketStartMs, "claude", contribution.model);
-    const existing = totals.get(slot);
-    totals.set(
-      slot,
-      existing === undefined
-        ? { ...contribution.counters }
-        : addCounters(existing, contribution.counters),
-    );
+    add("claude", contribution);
   }
-  const keys = [...totals.keys()].sort();
-  return keys.map((slot) => {
-    const [paddedBucket, agentIndex, ...modelParts] = slot.split(" ");
-    return {
-      bucketStartMs: Number.parseInt(paddedBucket, 10),
-      agent: agentIndex === "0" ? "claude" : "codex",
-      model: modelParts.join(" "),
-      counters: totals.get(slot)!,
-    };
-  });
+  const agentOrder = (agent: UsageAgent): number => (agent === "claude" ? 0 : 1);
+  return [...buckets.values()].sort(
+    (left, right) =>
+      left.bucketStartMs - right.bucketStartMs ||
+      agentOrder(left.agent) - agentOrder(right.agent) ||
+      compareNullableStrings(left.model, right.model) ||
+      compareNullableStrings(left.repo, right.repo),
+  );
 }
 
 function countFiles(cache: UsageCache, agent: UsageAgent): number {

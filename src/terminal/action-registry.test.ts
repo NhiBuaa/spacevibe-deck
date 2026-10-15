@@ -58,6 +58,13 @@ describe("ACTION_REGISTRY", () => {
     expect(mac[0]).not.toHaveProperty("code");
   });
 
+  it("binds open-usage on both platforms without colliding", () => {
+    const mac = MACOS_KEYMAP.filter((binding) => binding.action === "open-usage");
+    const win = WINDOWS_KEYMAP.filter((binding) => binding.action === "open-usage");
+    expect(mac).toEqual([{ key: "r", meta: true, shift: true, action: "open-usage" }]);
+    expect(win).toEqual([{ key: "r", ctrl: true, shift: true, action: "open-usage" }]);
+  });
+
   it("binds toggle-usage on both platforms without colliding", () => {
     const mac = MACOS_KEYMAP.filter((binding) => binding.action === "toggle-usage");
     const win = WINDOWS_KEYMAP.filter((binding) => binding.action === "toggle-usage");
@@ -133,7 +140,7 @@ describe("ACTION_REGISTRY", () => {
   // renderer because their native Cocoa roles cannot reach Monaco.
   // 53 = 52 + copy-or-interrupt (2026-08-20), the conditional Ctrl+C twin of
   // copy-selection — see docs/internals/terminal.md.
-  it("has exactly the 57 action ids including updater menu actions", () => {
+  it("has exactly the 58 action ids including updater menu actions", () => {
     const ids = new Set(ACTION_REGISTRY.map((a) => a.id));
     expect(ids).toEqual(
       new Set([
@@ -146,6 +153,7 @@ describe("ACTION_REGISTRY", () => {
         "toggle-settings",
         "toggle-prompts",
         "toggle-usage",
+        "open-usage",
         "toggle-sessions",
         "toggle-sidebar",
         "toggle-markdown-view",

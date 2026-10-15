@@ -1,6 +1,6 @@
 /**
  * Scanner orchestration: the single-flight scan, the published snapshot and
- * the cache lifecycle. Port of `src-tauri/src/usage/mod.rs`'s command half.
+ * the cache lifecycle. Originally ported from the removed Tauri host.
  *
  * One in-flight promise serializes scans. A caller that arrives mid-scan
  * gets the last published snapshot rather than queueing a second pass over
@@ -9,6 +9,7 @@
  * better to return).
  */
 import { loadCache, writeCache } from "./cache";
+import { createRepoResolver, type ResolveRepo } from "./repo-resolver";
 import { buildSnapshot, scanAll } from "./scan";
 import { emptyCache, type UsageCache, type UsageSnapshot } from "./model";
 
@@ -45,12 +46,15 @@ export interface UsageServiceDeps {
   /** Where the cache lives, or null to run cache-less (tests). */
   readonly cachePath: string | null;
   readonly now?: () => number;
+  /** cwd → repository; defaults to git behind a retry backoff. */
+  readonly resolveRepo?: ResolveRepo;
   /** Surfaced for logging only; detail never crosses the IPC boundary. */
   readonly reportCacheWriteFailure?: (error: unknown) => void;
 }
 
 export function createUsageService(deps: UsageServiceDeps): UsageService {
   const now = deps.now ?? (() => Date.now());
+  const resolveRepo = deps.resolveRepo ?? createRepoResolver({ now });
   /** `null` until the first scan has loaded the cache from disk. */
   let cache: UsageCache | null = null;
   let published: UsageSnapshot | null = null;
@@ -65,7 +69,7 @@ export function createUsageService(deps: UsageServiceDeps): UsageService {
       cache = loadCache(deps.cachePath);
     }
     const previous = cache ?? emptyCache();
-    const outcome = await scanAll(previous, home, now());
+    const outcome = await scanAll(previous, home, now(), resolveRepo);
     if (outcome.changed && deps.cachePath !== null) {
       try {
         writeCache(deps.cachePath, outcome.cache);

@@ -11,6 +11,7 @@ import {
   saveDialogOpen,
   settingsOpen,
   shortcutCaptureActive,
+  usageOpen,
 } from "../chrome/events";
 import { resetLauncherStore } from "../launcher/launcher-store";
 import { activeTabIndex, tabViews, statusInfo } from "./tabs-store";
@@ -118,10 +119,46 @@ describe("overlay scope guard — blocks terminal/tab/pane actions while an over
   afterEach(() => {
     boardOpen.value = false;
     settingsOpen.value = false;
+    usageOpen.value = false;
     saveDialogOpen.value = false;
     editorRequest.value = null;
     shortcutCaptureActive.value = false;
     consentDialog.value = false;
+  });
+
+  it("the open usage details page blocks a pane action but not the dock's chrome actions", async () => {
+    // The page covers the stage's content area, so ⌘W behind it would close a
+    // pane nobody can see; the dock beside it stays live and must stay closable.
+    const { tm } = setup({});
+    await tm.materialize({ layout: null, cwds: ["/a"] });
+    await tm.splitActive("row");
+    await tm.init();
+    await flush();
+    usageOpen.value = true;
+
+    tm.runAction("close-pane");
+    await flush();
+    expect(statusInfo.value.paneCount).toBe(2);
+
+    const before = settings.value.dockOpen;
+    tm.runAction("toggle-dock");
+    expect(settings.value.dockOpen).toBe(!before);
+
+    tm.dispose();
+  });
+
+  it("open-usage reaches App's seam even while the page is open", async () => {
+    const onOpenUsage = vi.fn();
+    const { tm } = setup({ deps: { onOpenUsage } });
+    await tm.init();
+    await flush();
+    usageOpen.value = true;
+
+    tm.runAction("open-usage");
+
+    expect(onOpenUsage).toHaveBeenCalledTimes(1);
+
+    tm.dispose();
   });
 
   it("close-pane via runAction is blocked while the usage-consent dialog is up", async () => {
@@ -546,6 +583,9 @@ describe("overlay scope guard — blocks terminal/tab/pane actions while an over
         "undo",
         "redo",
         "toggle-settings",
+        // The usage details page (2026-10-15): it ranks as an overlay while open,
+        // so a tier would let the open page block its own chord (spec R3).
+        "open-usage",
         // Joined 2026-09-28 for `toggle-settings`'s reason: Mission Control
         // ranks as an overlay while open, so a tier would strand it (DL-35.1).
         "toggle-mission-control",

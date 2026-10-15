@@ -83,7 +83,7 @@ Your custom logo, workspaces and agents’ own session logs stay.
 | `session.json`        | The live tab journal used by session restore                         |
 | `update-attempt.json` | The last update install attempt, so a failed relaunch is reported    |
 | `telemetry.json`      | Analytics state and pending daily counters                           |
-| `usage-cache.json`    | Parsed token-usage results, keyed by log file                        |
+| `usage-cache.json`    | Parsed token-usage results and the project folders they ran in       |
 | `themes/`             | Imported theme files                                                 |
 
 On macOS the folder is `~/Library/Application Support/SpaceVibe Deck`; on Windows it is

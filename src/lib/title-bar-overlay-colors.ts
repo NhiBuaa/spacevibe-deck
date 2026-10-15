@@ -38,7 +38,7 @@ export interface FrameCornerState {
  */
 function cornerGround(state: FrameCornerState, bg: string, chrome: ChromeColors): string {
   if (state.settingsOpen) {
-    return chrome.chrome2; // `.settings-screen`, fixed over the whole window
+    return bg; // `.settings-screen`, fixed over the whole window on the stage's `--bg`
   }
   if (!state.sidebar) {
     return chrome.chrome1; // `.tabbar` spans the window (DL-18.3)

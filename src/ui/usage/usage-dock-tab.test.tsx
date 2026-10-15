@@ -9,7 +9,8 @@ vi.mock("../../usage/usage-client", () => ({ defaultUsageClient: { snapshot: moc
 const { UsageDockTab } = await import("./usage-dock-tab");
 const { RailAgentLimits } = await import("./agent-usage-summary");
 const { activeUsageRange } = await import("./active-usage-view-store");
-const { usageSnapshot, usageLoading, usageStale } = await import("../../usage/usage-store");
+const { usageSnapshot, usageLoading, usageStale, startUsagePolling, stopUsagePolling } =
+  await import("../../usage/usage-store");
 const now = new Date(2026, 8, 14, 14).getTime();
 const snapshot: UsageSnapshot = {
   scannedAtMs: now,
@@ -19,6 +20,7 @@ const snapshot: UsageSnapshot = {
     {
       agent: "claude",
       model: "gpt-5",
+      repo: null,
       bucketStartMs: now,
       counters: { ...EMPTY_COUNTERS, inputUncached: 1_000_000 },
     },
@@ -59,7 +61,7 @@ it.each([false, true])(
       render(
         <>
           {sidebar && <RailAgentLimits onOpenUsage={() => undefined} />}
-          <UsageDockTab />
+          <UsageDockTab onOpenDetails={() => undefined} />
         </>,
         host,
       );
@@ -88,7 +90,7 @@ it.each([false, true])(
 it("keeps valid allowance through token loading/error and history through limit errors", async () => {
   mocks.tokens.mockImplementationOnce(() => new Promise(() => undefined));
   await act(async () => {
-    render(<UsageDockTab />, host);
+    render(<UsageDockTab onOpenDetails={() => undefined} />, host);
   });
   await act(async () => {
     await Promise.resolve();
@@ -119,7 +121,7 @@ it("cost-period changes leave current limits and reset text untouched", async ()
     ],
   });
   await act(async () => {
-    render(<UsageDockTab />, host);
+    render(<UsageDockTab onOpenDetails={() => undefined} />, host);
   });
   await act(async () => {
     await Promise.resolve();
@@ -132,4 +134,26 @@ it("cost-period changes leave current limits and reset text untouched", async ()
   expect(host.querySelector(".usage-hero__figure")?.textContent).toBe("$1.25");
   expect(host.querySelector(".usage-allowance")?.textContent).toBe(allowance);
   expect(mocks.limits).toHaveBeenCalledTimes(1);
+});
+it("opens the details page through the callback from its one control", async () => {
+  const onOpenDetails = vi.fn();
+  await act(async () => {
+    render(<UsageDockTab onOpenDetails={onOpenDetails} />, host);
+  });
+  act(() => host.querySelector<HTMLButtonElement>(".usage-dock__details")?.click());
+  expect(onOpenDetails).toHaveBeenCalledTimes(1);
+});
+it("keeps the poll alive when the dock tab closes while the page still holds it", async () => {
+  await act(async () => {
+    render(<UsageDockTab onOpenDetails={() => undefined} />, host);
+  });
+  startUsagePolling(); // the details page opens
+  act(() => render(null, host)); // the dock tab closes
+  expect(vi.getTimerCount()).toBeGreaterThan(0);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(5_000);
+  });
+  expect(mocks.tokens).toHaveBeenCalledTimes(2);
+  stopUsagePolling(); // the page closes
+  expect(vi.getTimerCount()).toBe(0);
 });

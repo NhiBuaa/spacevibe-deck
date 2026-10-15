@@ -8,9 +8,10 @@
  * OPENED again. Reversing that order (scan everything, then cache) would leave
  * the map decorative: the reads it was meant to save have already happened.
  *
- * Nothing here is persisted. Titles and cwds are conversation-adjacent data
- * and stay in RAM for the life of the process, matching the contract the usage
- * cache states for itself (spec §1.4, "Privacy").
+ * Nothing here is persisted. Titles and cwds stay in RAM for the life of the
+ * process (spec §1.4, "Privacy"): titles are conversation text. The usage
+ * cache persists working directories since 2026-10-14 (owner decision), but
+ * never titles or any other conversation text.
  */
 import { CLAUDE_RESTORE_SCAN, listClaudeFiles, readClaudeRecord } from "../resume/claude";
 import { CODEX_RESTORE_SCAN, listCodexFiles, readCodexRecord } from "../resume/codex";

@@ -8,6 +8,7 @@ const bucket = (at: number, patch: Partial<UsageBucket> = {}): UsageBucket => ({
   bucketStartMs: at,
   agent: "claude",
   model: "gpt-5",
+  repo: null,
   counters: { ...EMPTY_COUNTERS, inputUncached: 1_000_000 },
   ...patch,
 });

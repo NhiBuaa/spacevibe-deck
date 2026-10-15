@@ -21,8 +21,8 @@ const STATES: readonly (readonly [string, FrameCornerState, string])[] = [
   ["sidebar layout, dock open: the dock panel", DOCK, "--sidebar-bg"],
   ["top-tab layout: the tab bar", TABBAR, "--chrome-1"],
   ["top-tab layout, dock open: still the tab bar", { ...TABBAR, dockPainted: true }, "--chrome-1"],
-  ["Settings in the sidebar layout", SETTINGS, "--chrome-2"],
-  ["Settings in the top-tab layout", { ...TABBAR, settingsOpen: true }, "--chrome-2"],
+  ["Settings in the sidebar layout", SETTINGS, "--bg"],
+  ["Settings in the top-tab layout", { ...TABBAR, settingsOpen: true }, "--bg"],
 ];
 
 function publishedVars(theme: ITheme): ReadonlyMap<string, string> {
@@ -43,11 +43,11 @@ describe("titleBarOverlayColors", () => {
     [DECK_DARK_ID, "stage strip", STAGE, "#0a0a0a", "#e7e7e7"],
     [DECK_DARK_ID, "dock panel", DOCK, "#141414", "#e7e7e7"],
     [DECK_DARK_ID, "tab bar", TABBAR, "#1b1b1b", "#e7e7e7"],
-    [DECK_DARK_ID, "Settings", SETTINGS, "#222222", "#e7e7e7"],
+    [DECK_DARK_ID, "Settings", SETTINGS, "#0a0a0a", "#e7e7e7"],
     [DECK_LIGHT_ID, "stage strip", STAGE, "#f5f6f8", "#272727"],
     [DECK_LIGHT_ID, "dock panel", DOCK, "#e9eaec", "#272727"],
     [DECK_LIGHT_ID, "tab bar", TABBAR, "#e9eaec", "#272727"],
-    [DECK_LIGHT_ID, "Settings", SETTINGS, "#dfe0e2", "#272727"],
+    [DECK_LIGHT_ID, "Settings", SETTINGS, "#f5f6f8", "#272727"],
   ])("%s under the %s: exact colours", (id, _occupant, state, color, symbolColor) => {
     expect(titleBarOverlayColors(getPreset(id).theme, state)).toEqual({ color, symbolColor });
   });

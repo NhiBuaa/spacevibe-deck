@@ -39,7 +39,7 @@ keeps two processes from sharing one `userData`.
 | `electron/fs/`         | Path guard, reads, atomic writes, directory watches, workspace containment        |
 | `electron/browser/`    | The `WebContentsView`, URL policy, react-grab injection                          |
 | `electron/resume/`, `sessions/` | Session scanners per agent, resume resolution, session tails, history  |
-| `electron/usage/`      | Token-usage scanner (a port of the Rust one, held equal by a golden fixture)     |
+| `electron/usage/`      | Token-usage scanner; buckets carry the repository each usage line ran in         |
 | `electron/updater/`    | electron-updater lifecycle and the cross-window check flight                     |
 | `electron/telemetry/`  | Consent state, day buffers, the daily POST                                       |
 | `electron/git.ts`, `worktrees.ts`, `git/worktree.ts` | `git_branch`, repository scans, `git worktree add` via `execFile` |
@@ -74,9 +74,13 @@ The sidebar and mounted Usage Overview share one renderer allowance poll and foc
 listener through [the reference-counted observer](../../src/usage/agent-limits-store.ts).
 Only the final subscriber stops it; a reply from a stopped generation cannot update a
 reopened view. [The shared hook](../../src/ui/usage/use-agent-limits.ts) applies the same
-reset/TTL boundaries in both surfaces. Token polling remains owned by
-[UsageDockTab](../../src/ui/usage/usage-dock-tab.tsx), so token errors and limit errors
-must not hide the other source. Gallery specimens use
+reset/TTL boundaries in both surfaces. Token polling is
+[reference-counted](../../src/usage/usage-store.ts): the dock's
+[UsageDockTab](../../src/ui/usage/usage-dock-tab.tsx) and the open
+[UsagePage](../../src/ui/usage/usage-page.tsx) each hold it, so closing one never freezes the
+other. Token errors and limit errors must not hide the other source. The page is an overlay
+that ranks as `settings` while open but leaves the dock's chrome actions live
+(`overlayBlocksAction`), and `open-usage` is `"always"` with its preflight in `App`. Gallery specimens use
 [OverviewContent](../../src/ui/usage/sections/overview-section.tsx) with injected data,
 never the store-connected wrapper: a live limit read can activate a collector.
 

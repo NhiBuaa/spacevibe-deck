@@ -228,6 +228,12 @@ export const MACOS_KEYMAP: readonly KeyBinding[] = [
   // mandatory, not a style choice: this action has a macOS menu item, and a
   // Cocoa accelerator is declared by character (see the RULE above).
   { key: "u", meta: true, shift: true, action: "toggle-usage" },
+  // Usage details page. ⌘⇧R is unbound on both keymaps (verified against every
+  // `shift` entry above and below); `u`'s neighbours are all taken, and an ⌥
+  // chord would arrive as a dead-key character on macOS. CharKeyBinding is
+  // mandatory: the action has a menu item, so the Cocoa accelerator is declared
+  // by character (RULE above).
+  { key: "r", meta: true, shift: true, action: "open-usage" },
   // Session history — the dock's third tab (2026-08-19). `y` is verified
   // unused in both keymaps at every modifier combination, and it is the
   // letter browsers already train for history (⌘Y on macOS). ⌘⇧H, the obvious
@@ -426,6 +432,7 @@ export const WINDOWS_KEYMAP: readonly KeyBinding[] = [
   { key: ",", ctrl: true, action: "toggle-settings" },
   { key: "p", ctrl: true, shift: true, action: "toggle-prompts" },
   { key: "u", ctrl: true, shift: true, action: "toggle-usage" },
+  { key: "r", ctrl: true, shift: true, action: "open-usage" },
   // The macOS twins of the two chords added 2026-08-19; see the reasoning on
   // the ⌘⇧Y / ⌘⇧J entries above. Both letters are free on this keymap too.
   { key: "y", ctrl: true, shift: true, action: "toggle-sessions" },

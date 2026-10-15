@@ -46,6 +46,7 @@ import { resolveTheme } from "../settings/themes";
 import { isShortcutAction } from "../terminal/keymap";
 import { createTabManager, type TabManager } from "../terminal/tab-manager";
 import { activeTabIndex, tabViews } from "../terminal/tabs-store";
+import { startUsagePolling, stopUsagePolling } from "../usage/usage-store";
 import { presetsData, savePreset } from "../presets/presets-store";
 import {
   recordWorkspaceOpen,
@@ -65,6 +66,7 @@ import {
   reportPersistError,
   saveDialogOpen,
   settingsOpen,
+  usageOpen,
 } from "../chrome/events";
 import { decideLinkTarget, externalAppLabel, resolveExternalApp } from "../lib/link-target";
 import {
@@ -169,6 +171,7 @@ import { ensureRepositoriesScanned, repositoryScans } from "../repositories/repo
 import { StatusBar } from "./status-bar";
 import { SettingsScreen } from "./settings/settings-screen";
 import { UsageDockTab } from "./usage/usage-dock-tab";
+import { UsagePage } from "./usage/usage-page";
 import { runAttentionFocus } from "./attention-focus-coordinator";
 import { getDesktopEnvironment } from "../lib/platform";
 import { createUpdateController, type UpdateController } from "../updater/update-controller";
@@ -264,6 +267,18 @@ interface TaskLaunchAttempt {
   readonly outcome: LaunchTaskOutcome;
 }
 
+/**
+ * Whether the dock and a docked diff column are under the open usage page.
+ * They stay mounted so their state survives, but nobody can see them.
+ */
+function setUsageCoverInert(covered: boolean): void {
+  for (const element of document.querySelectorAll<HTMLElement>(
+    ".stage > .dock-panel, .stage > .diff-column",
+  )) {
+    element.inert = covered;
+  }
+}
+
 function attemptMatchesDraft(attempt: TaskLaunchAttempt, draft: NewTaskDraft): boolean {
   return (
     attempt.prompt === draft.prompt.trim() &&
@@ -347,6 +362,18 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
   const updater = updaterRef.current;
 
   /**
+   * What the rail's pane-exact destinations clear before they focus a pane: the
+   * agent launch page and the usage details page. The latter leaves the rail
+   * live beside it, so pressing a rail card is a navigation that has to close
+   * it (spec R2); the coordinator calls this only once it will actually focus,
+   * so a blocked request leaves the page alone.
+   */
+  const dismissStageOverlays = (): void => {
+    agentLaunchPage.close();
+    usageOpen.value = false;
+  };
+
+  /**
    * Single coordinator-backed entry point for every attention-focus trigger
    * (sidebar/tab-bar status click, Cmd+Shift+A). Reads `hasCandidate` and the
    * overlay snapshot at request time so status click and shortcut always run
@@ -358,7 +385,7 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
    */
   const requestAttentionFocus = (index?: number): void => {
     runAttentionFocus({
-      dismissAgentLauncher: () => agentLaunchPage.close(),
+      dismissAgentLauncher: dismissStageOverlays,
       tabIndex: index,
       hasCandidate: tabsRef.current?.hasActionableAttention(index) ?? false,
       overlays: {
@@ -403,7 +430,7 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
    */
   const focusRailPane = (index: number, paneId: number): void => {
     runAttentionFocus({
-      dismissAgentLauncher: () => agentLaunchPage.close(),
+      dismissAgentLauncher: dismissStageOverlays,
       tabIndex: index,
       hasCandidate: true,
       overlays: {
@@ -491,6 +518,81 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
   const toggleUsage = (): void => revealDock("usage");
 
   /**
+   * Where focus returns when the usage details page closes: the control that
+   * opened it (the dock's Details button, a terminal), not whatever the active
+   * pane happens to be (spec acceptance). Falls back to the usual answer when
+   * that element is gone.
+   */
+  const usageReturnFocusRef = useRef<HTMLElement | null>(null);
+
+  /**
+   * `open-usage`: the dock's Details control, the View menu item and ⌘⇧R. The
+   * action is `"always"`, so this is the whole guard — refuse under anything
+   * that would paint over the page or steal its focus (Settings covers the
+   * window, the board, a launch page, Mission Control and every modal).
+   */
+  const openUsage = (): void => {
+    if (
+      usageOpen.value ||
+      settingsOpen.value ||
+      boardOpen.value ||
+      agentLaunchPage.request.value !== null ||
+      editorRequest.value !== null ||
+      saveDialogOpen.value ||
+      agentQuickPickerOpen.value ||
+      usageConsentOpen.value ||
+      missionControlOpen.value
+    ) {
+      return;
+    }
+    const active = document.activeElement;
+    usageReturnFocusRef.current = active instanceof HTMLElement ? active : null;
+    usageOpen.value = true;
+  };
+  const closeUsage = (): void => {
+    usageOpen.value = false;
+    // Before the focus call, not in the effect: the Details control that
+    // opened the page lives in the covered dock, and an inert element refuses
+    // focus, so waiting for the render would drop focus on the floor.
+    setUsageCoverInert(false);
+    const target = usageReturnFocusRef.current;
+    usageReturnFocusRef.current = null;
+    if (target?.isConnected === true) {
+      target.focus();
+      return;
+    }
+    restoreFocusAfterSettings();
+  };
+
+  // The page and Settings are mutually exclusive: Settings covers the window,
+  // so a page left open behind it would reappear, stale, when Settings closes.
+  useSignalEffect(() => {
+    if (settingsOpen.value) {
+      usageOpen.value = false;
+    }
+  });
+  // The page holds the usage poll while open. The dock's tab holds its own
+  // claim, so neither closing freezes the other (`usage-store.ts`).
+  useSignalEffect(() => {
+    if (!usageOpen.value) {
+      return;
+    }
+    startUsagePolling();
+    return () => stopUsagePolling();
+  });
+  // Any navigation closes the page: a tab, a file or the browser taking the
+  // stage would otherwise sit hidden behind it. The rail stays live beside the
+  // page, so this is the common way out, not an edge case.
+  const usageNavigationRef = useRef<string | null>(null);
+  useSignalEffect(() => {
+    const key = `${activeTabIndex.value}|${fileController.activeIndex()}|${browserSurfaceActive.value}`;
+    if (usageNavigationRef.current !== null && usageNavigationRef.current !== key) {
+      usageOpen.value = false;
+    }
+    usageNavigationRef.current = key;
+  });
+
+  /**
    * Spaces and Mission Control (DL §35). The hook owns the slide, the swipe
    * and the surface; `App` hands it the terminal layer and the one question
    * only `App` can answer — whether another overlay covers the stage.
@@ -500,6 +602,7 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
     stage: () => stagesRef.current,
     blocked: () =>
       settingsOpen.value ||
+      usageOpen.value ||
       boardOpen.value ||
       agentLaunchPage.request.value !== null ||
       editorRequest.value !== null ||
@@ -643,6 +746,7 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
       onRequestAttentionFocus: (tabIndex) => requestAttentionFocus(tabIndex),
       onToggleSettings: () => toggleSettings(),
       onToggleUsage: () => toggleUsage(),
+      onOpenUsage: () => openUsage(),
       onToggleMissionControl: () => missionControlRef.current.toggle(),
       onTabSwitch: (from, to) => missionControlRef.current.onTabSwitch(from, to),
       // The seam going live (Task 5): TabManager's `SurfaceStrip` consumer
@@ -1588,6 +1692,7 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
   };
   const selectTab = (index: number): void => {
     agentLaunchPage.close();
+    usageOpen.value = false;
     boardOpen.value = false;
     tabsRef.current?.selectTab(index);
   };
@@ -1906,6 +2011,9 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
     agentLaunchPage.request.value !== null ||
     boardOpen.value ||
     settingsOpen.value ||
+    // The page covers the stage's content area, and a native browser view wins
+    // that contest whatever the z-index (`panelObscured` below).
+    usageOpen.value ||
     editorRequest.value !== null ||
     saveDialogOpen.value ||
     // DL-35.1: Mission Control covers the stage, so it also hides the
@@ -2201,6 +2309,16 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
   // it can animate out instead of blinking away. `mounted` is what decides
   // whether the panel is in the DOM; `entered` is what it is painted at.
   const dockPresence = useDockPresence(dockPainted, dockDragging);
+
+  // The page covers the dock and a docked diff column; inert keeps Tab and
+  // assistive tech off controls nobody can see. Re-run when the dock mounts
+  // under an open page (its toggle chord stays live).
+  const usageCovering = usageOpen.value;
+  useLayoutEffect(() => {
+    setUsageCoverInert(usageCovering);
+    return () => setUsageCoverInert(false);
+  }, [usageCovering, dockPresence.mounted, dockPresence.entered]);
+
   // After `dockPainted`, which is half of what decides the corner's colour.
   useTitleBarOverlaySync({
     settings: settings.value,
@@ -2600,7 +2718,7 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
                   changesAvailable={gitChangesAvailable}
                 />
               ) : dockTab() === "usage" ? (
-                <UsageDockTab />
+                <UsageDockTab onOpenDetails={() => tabsRef.current?.runAction("open-usage")} />
               ) : (
                 <SessionsDockTab onResume={(entry) => void resumeSessionEntry(entry)} />
               )}
@@ -2720,6 +2838,7 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
             </div>
           ) : null}
           <PersistErrorBar />
+          <UsagePage open={usageOpen.value} onClose={closeUsage} />
           <SettingsScreen open={settingsOpen.value} onClose={closePanel} />
         </main>
       }

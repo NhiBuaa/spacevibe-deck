@@ -10,6 +10,7 @@ const bucket = (model = "gpt-5", inputUncached = 1_000_000): UsageBucket => ({
   bucketStartMs: now,
   agent: "claude",
   model,
+  repo: null,
   counters: { ...EMPTY_COUNTERS, inputUncached },
 });
 let host: HTMLDivElement;

@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { ingestClaudeLine } from "./claude";
-import { ingest, ingestCodexLine } from "./codex";
-import { DEDUPE_SEPARATOR, UNKNOWN_MODEL, emptyRecord, type FileRecord } from "./model";
+import { backfillUnknownModel, ingest, ingestCodexLine } from "./codex";
+import {
+  DEDUPE_SEPARATOR,
+  EMPTY_COUNTERS,
+  UNKNOWN_MODEL,
+  emptyRecord,
+  type FileRecord,
+} from "./model";
 
 /**
  * The two per-agent parsers, mirroring the behaviors the Rust tests pin:
@@ -306,5 +312,66 @@ describe("ingest dispatcher", () => {
   it("treats a blank line as ignored for both agents", () => {
     expect(ingest("claude", Buffer.from("   \t"), claudeRecord())).toBe("ignored");
     expect(ingest("codex", Buffer.from(""), codexRecord())).toBe("ignored");
+  });
+});
+
+describe("working directory", () => {
+  const withCwd = (line: Buffer, cwd: string): Buffer =>
+    Buffer.from(JSON.stringify({ ...(JSON.parse(line.toString("utf8")) as object), cwd }));
+  const codexLine = (type: string, payload: Record<string, unknown>): Buffer =>
+    Buffer.from(JSON.stringify({ timestamp: "2026-08-10T04:46:00.000Z", type, payload }));
+  const count = (input: number): Buffer =>
+    tokenCount("2026-08-10T04:46:10.000Z", { input_tokens: input, output_tokens: 1 });
+
+  it("records each Claude line's own cwd, and null when it names none", () => {
+    const record = claudeRecord();
+    ingestClaudeLine(
+      withCwd(claudeLine("m1", "r1", "2026-08-10T05:06:00.351Z", 1), "/w/a"),
+      record,
+    );
+    ingestClaudeLine(
+      withCwd(claudeLine("m2", "r2", "2026-08-10T05:06:00.351Z", 1), "/w/b"),
+      record,
+    );
+    ingestClaudeLine(claudeLine("m3", "r3", "2026-08-10T05:06:00.351Z", 1), record);
+    expect([...record.entries.values()].map((entry) => entry.cwd)).toEqual(["/w/a", "/w/b", null]);
+  });
+
+  it("attributes Codex deltas to the latest turn_context, and a repeated session_meta does not move it", () => {
+    const record = codexRecord();
+    ingestCodexLine(codexLine("session_meta", { id: "c1", cwd: "/w/start" }), record);
+    ingestCodexLine(count(100), record);
+    ingestCodexLine(codexLine("turn_context", { model: "gpt-5", cwd: "/w/moved" }), record);
+    // A fork replays its parent's session_meta further down.
+    ingestCodexLine(codexLine("session_meta", { id: "parent", cwd: "/w/parent" }), record);
+    ingestCodexLine(count(150), record);
+    expect(record.lastCwd).toBe("/w/moved");
+    expect(record.totals.map((total) => [total.cwd, total.counters.inputUncached])).toEqual([
+      ["/w/start", 100],
+      ["/w/moved", 50],
+    ]);
+  });
+
+  it("backfills the model without merging two directories", () => {
+    const record = codexRecord();
+    record.totals = [
+      {
+        bucketStartMs: 0,
+        model: UNKNOWN_MODEL,
+        cwd: "/w/a",
+        counters: { ...EMPTY_COUNTERS, output: 1 },
+      },
+      {
+        bucketStartMs: 0,
+        model: UNKNOWN_MODEL,
+        cwd: "/w/b",
+        counters: { ...EMPTY_COUNTERS, output: 2 },
+      },
+    ];
+    backfillUnknownModel(record, "gpt-5");
+    expect(record.totals.map((total) => [total.model, total.cwd, total.counters.output])).toEqual([
+      ["gpt-5", "/w/a", 1],
+      ["gpt-5", "/w/b", 2],
+    ]);
   });
 });

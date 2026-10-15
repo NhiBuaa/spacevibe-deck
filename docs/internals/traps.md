@@ -119,8 +119,17 @@ constants that currently switch behaviour off and are meant to be flipped back.
   a "prettier clean" claim over that tree is vacuous. It also shares application components
   and a virtual clock, so a component change can silently alter rendered media.
 - **`npm run refresh:pricing` reaches the network** and must never run from a build.
-- The Rust and Electron usage scanners are held equal by a golden fixture that must be
-  regenerated from the Rust side, never from the port's own output.
+- The usage scanner's golden fixture came from the removed Rust scanner and is frozen: it
+  cannot be regenerated, and regenerating it from the scanner's own output would make the gate
+  a tautology. The parity test sums the snapshot over `repo` before comparing, so a fixture
+  may gain fields Rust ignored but never usage.
+- **A stored cwd → repository answer is permanent**, so the usage resolver
+  ([`repo-resolver.ts`](../../electron/usage/repo-resolver.ts)) calls a cwd "not a repository"
+  only when the directory is gone or git says exactly that. Exit 128 alone also means an old
+  git, `safe.directory` or the macOS `xcrun` shim; treating it as definitive would blank repo
+  grouping for good. Subdirectories, including folders inside an ancestor repository, fold
+  into the repository that contains them — unlike the rail, which names only a checkout's own
+  root.
 
 ## Accepted limitations
 

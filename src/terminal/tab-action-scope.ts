@@ -57,6 +57,7 @@ export const COMMAND_ACTIONS = [
   "new-preset",
   "new-tab",
   "next-tab",
+  "open-usage",
   "paste",
   "prev-tab",
   "redo",

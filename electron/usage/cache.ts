@@ -1,9 +1,8 @@
 /**
- * The on-disk cache: load with a version guard, write atomically.
- * Port of `src-tauri/src/usage/cache.rs`, with the Map⇄JSON conversion the
- * Rust side got from serde. Versioned independently from the Rust cache —
- * cutover is a clean install, and this loader discards anything it did not
- * write itself.
+ * The on-disk cache: load with a version guard, write atomically, with the
+ * Map⇄JSON conversion. Originally ported from the removed Tauri host's cache;
+ * versioned independently from it — cutover is a clean install, and this
+ * loader discards anything it did not write itself.
  */
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -24,6 +23,7 @@ interface StoredRecord extends Omit<FileRecord, "entries"> {
 interface StoredCache {
   cacheVersion: number;
   files: Record<string, StoredRecord>;
+  repos: Record<string, string | null>;
 }
 
 function sortedKeys<T>(source: Record<string, T>): string[] {
@@ -40,7 +40,15 @@ function toStored(cache: UsageCache): StoredCache {
     }
     files[key] = { ...record, entries };
   }
-  return { cacheVersion: cache.cacheVersion, files };
+  const repos: Record<string, string | null> = {};
+  for (const cwd of [...cache.repos.keys()].sort()) {
+    repos[cwd] = cache.repos.get(cwd)!;
+  }
+  return { cacheVersion: cache.cacheVersion, files, repos };
+}
+
+function withCwd(contribution: Contribution): Contribution {
+  return { ...contribution, cwd: contribution.cwd ?? null };
 }
 
 function fromStored(stored: StoredCache): UsageCache {
@@ -49,7 +57,7 @@ function fromStored(stored: StoredCache): UsageCache {
     const record = stored.files[key];
     const entries = new Map<string, Contribution>();
     for (const entryKey of sortedKeys(record.entries ?? {})) {
-      entries.set(entryKey, record.entries[entryKey]);
+      entries.set(entryKey, withCwd(record.entries[entryKey]));
     }
     files.set(key, {
       agent: record.agent,
@@ -60,12 +68,21 @@ function fromStored(stored: StoredCache): UsageCache {
       skippedLines: record.skippedLines ?? 0,
       compacted: record.compacted ?? false,
       entries,
-      totals: record.totals ?? [],
+      totals: (record.totals ?? []).map(withCwd),
       lastModel: record.lastModel ?? null,
+      lastCwd: record.lastCwd ?? null,
       cumulative: record.cumulative ?? null,
     });
   }
-  return { cacheVersion: stored.cacheVersion, files };
+  const repos = new Map<string, string | null>();
+  const storedRepos = stored.repos ?? {};
+  for (const cwd of sortedKeys(storedRepos)) {
+    const root = storedRepos[cwd];
+    if (root === null || typeof root === "string") {
+      repos.set(cwd, root);
+    }
+  }
+  return { cacheVersion: stored.cacheVersion, files, repos };
 }
 
 /**

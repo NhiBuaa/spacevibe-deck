@@ -100,6 +100,12 @@ export interface TabManagerDeps extends TerminalManagerDeps {
    */
   onToggleUsage?: () => void;
   /**
+   * `open-usage`: the dock's Details control, the View menu item and ⌘⇧R all
+   * route here. App owns the preflight, the focus return and the poll. Missing
+   * = no-op.
+   */
+  onOpenUsage?: () => void;
+  /**
    * ⌘⇧O (`toggle-mission-control`) and its menu item route here, the
    * `onToggleSettings` shape: App owns the open preflight, the zoom and the
    * return. Missing = no-op.

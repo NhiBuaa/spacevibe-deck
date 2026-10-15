@@ -1,19 +1,26 @@
 /**
- * Machine-wide token usage — shapes, frozen constants and the two counter
- * helpers. The Electron port of `src-tauri/src/usage/mod.rs`'s data half.
+ * Machine-wide token usage — shapes, frozen constants and the counter
+ * helpers. Originally ported from the removed Tauri host's usage module.
  *
- * **Privacy contract (ported verbatim).** The scanner necessarily reads file
- * bytes that include conversation content, but the parse loop keeps and
- * returns **only** usage counters, model strings, timestamps, session/message
- * ids and file paths. Conversation content never leaves this loop: it never
- * enters the cache, it never crosses the IPC boundary, and the one place a
- * raw byte range could have escaped — the session-identity fallback — hashes
- * the bytes instead of storing them.
+ * **Privacy contract.** The scanner necessarily reads file bytes that include
+ * conversation content, but the parse loop keeps and returns **only** usage
+ * counters, model strings, timestamps, session/message ids, file paths, and
+ * the working directory each usage line was recorded in together with the
+ * repository root it resolves to. Those paths enter the cache and cross the
+ * IPC boundary (owner, 2026-10-14); they never reach telemetry, the backend,
+ * an error message or a log line, because crash reporting scrubs only the
+ * home prefix. Conversation content never leaves this loop, and the one place
+ * a raw byte range could have escaped — the session-identity fallback —
+ * hashes the bytes instead of storing them.
  *
- * Field names are the camelCase serde output of the Rust structs, because
- * `src/lib/usage-snapshot.ts` is the single shared serialized contract and
- * the §6.1.7 parity gate deep-equals the two implementations' output.
+ * `src/lib/usage-snapshot.ts` is the single shared serialized contract; the
+ * assertion at the bottom of this file fails the main-process typecheck when
+ * the two drift apart.
  */
+import type {
+  UsageBucket as WireBucket,
+  UsageSnapshot as WireSnapshot,
+} from "../../src/lib/usage-snapshot";
 
 /**
  * Parser/schema version of the on-disk cache. A mismatch discards the cache
@@ -24,8 +31,12 @@
  * Rust one (cutover is a clean install; plan §6.1.4). Starting above 1000
  * keeps the two version spaces visibly disjoint: a Rust cache read by this
  * loader is discarded by number, never half-trusted by accident.
+ *
+ * **1002 (2026-10-14)** — contributions carry the working directory and the
+ * cache persists `cwd → repository root`. A 1001 cache has no cwd for its
+ * compacted files, so it is rescanned in full once.
  */
-export const USAGE_CACHE_VERSION = 1001;
+export const USAGE_CACHE_VERSION = 1002;
 
 /** Cache file name, inside Electron's app data beside the stores. */
 export const USAGE_CACHE_FILE = "usage-cache.json";
@@ -91,6 +102,7 @@ export const CLAUDE_TIER_1H = "ephemeral_1h_input_tokens";
 export const CODEX_TURN_CONTEXT_TYPE = "turn_context";
 export const CODEX_EVENT_TYPE = "event_msg";
 export const CODEX_TOKEN_COUNT_TYPE = "token_count";
+export const CODEX_SESSION_META_TYPE = "session_meta";
 
 export type UsageAgent = "claude" | "codex";
 export type UsageSourceState = "ok" | "missing" | "unreadable";
@@ -115,12 +127,17 @@ export interface UsageBucket {
   agent: UsageAgent;
   /** The raw model string, verbatim — no canonicalization here. */
   model: string;
+  /**
+   * Repository root the usage was recorded in, or the raw cwd when it does
+   * not resolve (yet); null only when the line carried no cwd at all.
+   */
+  repo: string | null;
   counters: UsageCounters;
 }
 
 export interface UsageSnapshot {
   scannedAtMs: number;
-  /** Sorted by (bucketStartMs, agent, model) so the payload is stable. */
+  /** Sorted by (bucketStartMs, agent, model, repo) so the payload is stable. */
   buckets: UsageBucket[];
   /** Exactly two entries, Claude then Codex. */
   sources: UsageSource[];
@@ -128,13 +145,15 @@ export interface UsageSnapshot {
 }
 
 /**
- * One `{bucket, model}` worth of counters. Used twice: as a Claude message's
- * individual contribution (keyed by its dedupe key) and as an entry in a
- * file's rolled-up totals.
+ * One `{bucket, model, cwd}` worth of counters. Used twice: as a Claude
+ * message's individual contribution (keyed by its dedupe key) and as an entry
+ * in a file's rolled-up totals.
  */
 export interface Contribution {
   bucketStartMs: number;
   model: string;
+  /** Raw working directory of the line, verbatim; null when it named none. */
+  cwd: string | null;
   counters: UsageCounters;
 }
 
@@ -180,14 +199,26 @@ export interface FileRecord {
   totals: Contribution[];
   /** Codex only: the model from the most recent `turn_context` line. */
   lastModel: string | null;
+  /**
+   * Codex only: the cwd from the most recent `turn_context`, or from the
+   * first `session_meta` before any. Persisted so an offset resume still
+   * attributes its deltas.
+   */
+  lastCwd: string | null;
   /** Codex only: the high-water cumulative totals seen so far. */
   cumulative: CodexTotals | null;
 }
 
-/** The whole cache. The map is kept path-sorted so merges are deterministic. */
+/** The whole cache. The maps are kept key-sorted so merges are deterministic. */
 export interface UsageCache {
   cacheVersion: number;
   files: Map<string, FileRecord>;
+  /**
+   * cwd → repository root, or null when the cwd is definitively not inside
+   * a repository. Never recomputed once stored, so removing a worktree does
+   * not move its history; holds only cwds some record still references.
+   */
+  repos: Map<string, string | null>;
 }
 
 export const EMPTY_COUNTERS: UsageCounters = Object.freeze({
@@ -223,12 +254,13 @@ export function emptyRecord(
     entries: new Map(),
     totals: [],
     lastModel: null,
+    lastCwd: null,
     cumulative: null,
   };
 }
 
 export function emptyCache(): UsageCache {
-  return { cacheVersion: USAGE_CACHE_VERSION, files: new Map() };
+  return { cacheVersion: USAGE_CACHE_VERSION, files: new Map(), repos: new Map() };
 }
 
 export function bucketStart(unixMs: number): number {
@@ -258,24 +290,40 @@ export function countersAreZero(counters: UsageCounters): boolean {
 }
 
 /**
- * Add `counters` into the `{bucket, model}` slot, creating it if new. A
+ * Add `counters` into the `{bucket, model, cwd}` slot, creating it if new. A
  * linear scan on purpose: one file holds a handful of buckets per hour of
- * work.
+ * work. The cwd is part of the slot, so a file that moved between
+ * directories keeps one total per directory.
  */
 export function addTotal(
   totals: Contribution[],
   bucketStartMs: number,
   model: string,
+  cwd: string | null,
   counters: UsageCounters,
 ): void {
   const slot = totals.find(
-    (entry) => entry.bucketStartMs === bucketStartMs && entry.model === model,
+    (entry) => entry.bucketStartMs === bucketStartMs && entry.model === model && entry.cwd === cwd,
   );
   if (slot !== undefined) {
     slot.counters = addCounters(slot.counters, counters);
     return;
   }
-  totals.push({ bucketStartMs, model, counters });
+  totals.push({ bucketStartMs, model, cwd, counters });
+}
+
+/** Code-unit order with null first — the order every sorted key here uses. */
+export function compareNullableStrings(left: string | null, right: string | null): number {
+  if (left === right) {
+    return 0;
+  }
+  if (left === null) {
+    return -1;
+  }
+  if (right === null) {
+    return 1;
+  }
+  return left < right ? -1 : 1;
 }
 
 /**
@@ -283,13 +331,31 @@ export function addTotal(
  * that produced identical numbers.
  */
 export function sortTotals(totals: Contribution[]): void {
-  totals.sort((left, right) =>
-    left.bucketStartMs !== right.bucketStartMs
-      ? left.bucketStartMs - right.bucketStartMs
-      : left.model < right.model
-        ? -1
-        : left.model > right.model
-          ? 1
-          : 0,
+  totals.sort(
+    (left, right) =>
+      left.bucketStartMs - right.bucketStartMs ||
+      compareNullableStrings(left.model, right.model) ||
+      compareNullableStrings(left.cwd, right.cwd),
   );
 }
+
+/**
+ * Compile-time guard for the IPC reply: the main-process shapes must carry
+ * exactly the wire contract's fields and stay assignable to it. Nothing
+ * checks the reply at runtime, so drift has to fail `electron:build`.
+ */
+type SameKeys<A, B> = [keyof A] extends [keyof B]
+  ? [keyof B] extends [keyof A]
+    ? true
+    : false
+  : false;
+type Assert<T extends true> = T;
+export type UsageWireContract = Assert<
+  SameKeys<UsageBucket, WireBucket> extends true
+    ? SameKeys<UsageSnapshot, WireSnapshot> extends true
+      ? UsageSnapshot extends WireSnapshot
+        ? true
+        : false
+      : false
+    : false
+>;

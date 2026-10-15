@@ -76,7 +76,9 @@
   /* Full-bleed: the surface has no edge to meet, so no inset, no radius and no
      raised seam — those belong to surfaces that float (DL-20.1). */
   inset: 0;
-  background: var(--chrome-2);
+  /* The stage's own background, as the usage page (owner, 2026-10-15): the
+     sidebar rail keeps a colour of its own, every other surface shares one. */
+  background: var(--bg);
   display: flex;
   flex-direction: column;
   /* Above the Open board (30), below a modal draft (40). A full-window
