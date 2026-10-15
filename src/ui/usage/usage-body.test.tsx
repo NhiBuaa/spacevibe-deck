@@ -149,6 +149,10 @@ describe("UsageBody", () => {
     const dockText = host.querySelector(".usage-dock__section")?.textContent;
 
     expect(screenText).not.toBeUndefined();
-    expect(dockText).toBe(screenText);
+    // The page adds the repository tiles after the overview; the dock stays
+    // the overview alone, so the screen is the dock's text plus that section.
+    expect(screenText).toContain(dockText);
+    expect(screenText).toContain("Usage by repository");
+    expect(dockText).not.toContain("Usage by repository");
   });
 });
