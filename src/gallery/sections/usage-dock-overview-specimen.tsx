@@ -61,10 +61,8 @@ const LIMITS = {
 };
 
 export function UsageDockOverviewSpecimen({
-  allowanceTiles = false,
   loading = false,
 }: {
-  readonly allowanceTiles?: boolean;
   readonly loading?: boolean;
 } = {}) {
   return (
@@ -75,7 +73,6 @@ export function UsageDockOverviewSpecimen({
         onRangeChange={() => undefined}
         limits={LIMITS}
         nowMs={NOW}
-        allowanceTiles={allowanceTiles}
         loading={loading}
       />
     </div>

@@ -128,12 +128,9 @@ function AllowanceWindow({
 }
 
 /** Current allowance has no cost-period input (DL-16.1); zero is a real measurement. */
-export function RemainingAllowance(props: AgentLimitsView & { readonly tiles?: boolean }) {
+export function RemainingAllowance(props: AgentLimitsView) {
   return (
-    <section
-      class={props.tiles ? "usage-allowance usage-allowance--tiles" : "usage-allowance"}
-      aria-label="Remaining allowance"
-    >
+    <section class="usage-allowance" aria-label="Remaining allowance">
       <h3>Remaining allowance</h3>
       <ul class="usage-allowance__agents">
         {USAGE_AGENT_ORDER.map((agent) => {
