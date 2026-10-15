@@ -21,12 +21,14 @@ function history(): readonly UsageBucket[] {
         bucketStartMs: start,
         agent: "claude" as const,
         model: "claude-opus-5-5",
+        repo: null,
         counters: { ...EMPTY_COUNTERS, cacheRead: Math.round(300_000_000 * growth ** 2) },
       },
       {
         bucketStartMs: start,
         agent: "codex" as const,
         model: "gpt-5",
+        repo: null,
         counters: { ...EMPTY_COUNTERS, cacheRead: Math.round(500_000_000 * (1.1 - growth)) },
       },
     ];
