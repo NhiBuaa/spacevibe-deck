@@ -492,10 +492,20 @@
   white-space: nowrap;
 }
 .usage-allowance__bar {
+  --allowance-warm: color-mix(in srgb, var(--yellow) 75%, var(--fg));
+  --allowance-low: color-mix(in srgb, var(--red) 80%, var(--fg));
+  position: relative;
   height: 4px;
   border-radius: var(--radius-tight);
   background: color-mix(in srgb, var(--fg) 8%, transparent);
-  overflow: hidden;
+}
+/* Where an even spend would sit; taller than the track so it reads as a tick. */
+.usage-allowance__pace {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 1px;
+  background: var(--text-muted);
 }
 .usage-allowance__fill {
   display: block;
@@ -526,7 +536,41 @@
 }
 .usage-allowance__low strong,
 .usage-allowance__warning {
-  color: color-mix(in srgb, var(--yellow) 60%, var(--fg));
+  color: color-mix(in srgb, var(--red) 65%, var(--fg));
+}
+/* Candidate: one tile per window, the percentage as the figure. */
+.usage-allowance--tiles .usage-allowance__windows {
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+.usage-allowance--tiles .usage-allowance__window {
+  grid-template-columns: 1fr;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-control);
+}
+.usage-allowance--tiles .usage-allowance__label {
+  order: 1;
+}
+.usage-allowance--tiles strong {
+  order: 2;
+  font-size: 26px;
+  line-height: 1.1;
+  text-align: left;
+}
+.usage-allowance--tiles .usage-allowance__bar {
+  order: 3;
+  margin: 4px 0;
+}
+.usage-allowance--tiles time {
+  order: 4;
+  text-align: left;
+}
+/* New figures are on their way; keep the old ones visible and quiet. */
+.usage-overview.is-reloading :where(.usage-hero, .usage-timeline) {
+  opacity: 0.6;
+  transition: opacity var(--duration) var(--ease);
 }
 .usage-allowance__warning {
   margin-left: 4px;

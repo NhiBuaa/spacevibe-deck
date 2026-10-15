@@ -147,6 +147,8 @@ export interface OverviewContentProps {
   readonly nowMs: number;
   readonly loading?: boolean;
   readonly stale?: boolean;
+  /** Gallery candidate: one tile per window with a large percentage. */
+  readonly allowanceTiles?: boolean;
 }
 
 /** Injectable production markup; fixtures never mount the account-reading wrapper. */
@@ -158,6 +160,7 @@ export function OverviewContent({
   nowMs,
   loading = false,
   stale = false,
+  allowanceTiles = false,
 }: OverviewContentProps) {
   const timeline = useMemo(
     () => buildUsageTimeline(buckets, range, nowMs),
@@ -169,8 +172,8 @@ export function OverviewContent({
   const unpriced = [...new Set(recorded.flatMap((entry) => entry.unpricedModels))].sort();
   const definition = USAGE_RANGES.find((entry) => entry.id === range)!;
   return (
-    <div class="usage-overview">
-      <RemainingAllowance {...limits} />
+    <div class={loading && buckets.length ? "usage-overview is-reloading" : "usage-overview"}>
+      <RemainingAllowance {...limits} tiles={allowanceTiles} />
       <section class="usage-hero" aria-label="Estimated API cost">
         <div class="usage-hero__head">
           <p class="usage-hero__eyebrow">Estimated API cost</p>

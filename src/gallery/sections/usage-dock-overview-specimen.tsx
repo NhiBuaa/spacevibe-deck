@@ -60,7 +60,13 @@ const LIMITS = {
   error: false,
 };
 
-export function UsageDockOverviewSpecimen() {
+export function UsageDockOverviewSpecimen({
+  allowanceTiles = false,
+  loading = false,
+}: {
+  readonly allowanceTiles?: boolean;
+  readonly loading?: boolean;
+} = {}) {
   return (
     <div class="ur-dock">
       <OverviewContent
@@ -69,6 +75,8 @@ export function UsageDockOverviewSpecimen() {
         onRangeChange={() => undefined}
         limits={LIMITS}
         nowMs={NOW}
+        allowanceTiles={allowanceTiles}
+        loading={loading}
       />
     </div>
   );

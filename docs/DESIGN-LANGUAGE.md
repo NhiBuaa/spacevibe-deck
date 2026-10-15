@@ -553,10 +553,13 @@ comes from limit readings, cost from recorded token history; neither is a subscr
 - **DL-16.1** The page runs **Remaining allowance → Estimated API cost with its cost period →
   per-agent accounting and pricing details → Cost over time**. The
   [allowance list](../src/ui/usage/remaining-allowance.tsx) is one block per agent and one row
-  per returned window: label, a 4px bar of what remains in the agent's colour, the remaining
-  percentage and a visible `Resets in …` countdown, with the exact reset date in a tooltip.
+  per returned window: label, a 4px bar of what remains in the agent's colour with a hairline tick
+  where an even spend would sit (the bar is named "Using it slower/faster than the clock" or "On
+  pace" for assistive tech), the remaining percentage and a visible `Resets in …` countdown, with
+  the exact reset date in a tooltip.
   Missing, expired, failed and unsupported readings stay unknown, a measured zero stays zero. At
-  15% or less the percentage and a **Low** word turn warning-coloured. Allowance ignores the cost
+  30% or less the bar warms to yellow; at 15% or less it and the percentage turn red and a **Low**
+  word says so. While a new period loads, the cost figures dim to 60% and the allowance does not. Allowance ignores the cost
   period, which is why it sits above the period control and not between the cost blocks; it stays
   visible while token history loads or is stale, and keeps DL-33.1's treatment in the sidebar.
 - **DL-16.2** The compact figure has the sentence-case label **Estimated API cost**, tabular
