@@ -606,3 +606,103 @@
     visibility: hidden;
   }
 }
+
+/* ── Usage by repository (usage-repo-tiles.tsx, DL-16) ────────────────────
+   Tiles, not a table: one per repository, read-only. Rides on the
+   `.usage-overview` wrapper for the box-sizing reset. */
+.usage-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.usage-repo-tiles.is-reloading .usage-tiles {
+  opacity: 0.6;
+  transition: opacity var(--duration) var(--ease);
+}
+.usage-tile {
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-control);
+}
+.usage-tile--placeholder {
+  min-height: 132px;
+}
+.usage-tile :where(p) {
+  margin: 0;
+}
+.usage-tile__name {
+  font-size: var(--type-body);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.usage-tile__parent,
+.usage-tile__summary,
+.usage-tile__meta {
+  font-size: var(--type-micro);
+  color: var(--text-faint);
+  overflow-wrap: anywhere;
+}
+.usage-tile__parent {
+  margin-top: 1px;
+}
+.usage-tile__cost {
+  margin-top: 10px;
+  font-size: var(--type-title);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.usage-tile__cost--absent {
+  color: var(--text-faint);
+}
+.usage-tile__share {
+  margin-left: 8px;
+  font-size: var(--type-meta);
+  font-weight: 400;
+  color: var(--text-faint);
+}
+.usage-tile__bar {
+  display: block;
+  height: 4px;
+  margin: 8px 0 6px;
+  overflow: hidden;
+  border-radius: var(--radius-tight);
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+}
+.usage-tile__fill {
+  display: flex;
+  gap: 1px;
+  height: 100%;
+  overflow: hidden;
+  border-radius: var(--radius-tight);
+}
+.usage-tile__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.usage-tile__logo {
+  width: 14px;
+  height: 14px;
+}
+.usage-tiles__empty {
+  margin: 14px 0 0;
+  font-size: var(--type-micro);
+  color: var(--text-faint);
+}
+.usage-tile__agent {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.usage-tile__agent i {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}

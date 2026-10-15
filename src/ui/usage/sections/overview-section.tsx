@@ -1,6 +1,6 @@
 import { type AgentTotal } from "../../../lib/usage-aggregate";
-import { AGENT_LOGOS } from "../../../lib/agent-logos";
-import { dotColor } from "../../../lib/process-info";
+import { AgentGlyph } from "../../controls/agent-glyph";
+import { usageAgentColor } from "../usage-agent-colors";
 import { formatUsd } from "../../../lib/usage-pricing";
 import { totalTokens, type UsageBucket } from "../../../lib/usage-snapshot";
 import { usageSnapshot, usageLoading, usageStale } from "../../../usage/usage-store";
@@ -13,14 +13,11 @@ import { RemainingAllowance } from "../remaining-allowance";
 import { CostTimeline } from "../cost-timeline";
 import { buildUsageTimeline } from "../usage-timeline";
 import { EM_DASH, ESTIMATE_NOTE, formatTokensCompact, USAGE_AGENT_LABEL } from "../usage-format";
-
-/** Shares are printed to one decimal, so the arithmetic runs in tenths. */
-const PERCENT_TENTHS = 1000;
+import { largestRemainderShares } from "../usage-shares";
 
 interface AgentBlock {
   readonly agent: string;
   readonly label: string;
-  readonly logo: string | undefined;
   readonly color: string;
   /** The priced part; null only when nothing this agent ran has a price. */
   readonly costUsd: number | null;
@@ -57,31 +54,6 @@ function pricedTotal(totals: readonly AgentTotal[]): number | null {
 }
 
 /**
- * Shares in tenths of a percent, by largest remainder, so the printed figures
- * add up to exactly 100.0 — rounding each share independently prints
- * 33.3 + 33.3 + 33.3 = 99.9, and a reader who adds the column up is entitled
- * to get 100. Every share is floored first; the leftover tenths then go to the
- * largest fractional parts, ties broken by position so the result is stable
- * across renders rather than dependent on sort order.
- */
-function largestRemainderShares(costs: readonly number[]): readonly number[] {
-  const sum = costs.reduce((running, cost) => running + cost, 0);
-  if (sum <= 0) {
-    return costs.map(() => 0);
-  }
-  const exact = costs.map((cost) => (cost / sum) * PERCENT_TENTHS);
-  const tenths = exact.map(Math.floor);
-  const assigned = tenths.reduce((running, part) => running + part, 0);
-  const byRemainder = exact
-    .map((value, index) => ({ index, fraction: value - Math.floor(value) }))
-    .sort((left, right) => right.fraction - left.fraction || left.index - right.index);
-  for (let spare = 0; spare < PERCENT_TENTHS - assigned; spare += 1) {
-    tenths[byRemainder[spare % byRemainder.length].index] += 1;
-  }
-  return tenths.map((part) => part / 10);
-}
-
-/**
  * Cost descending, unpriced agents last, then tokens descending. The tail
  * rules are not decoration: with no cost to rank by, an unpriced agent would
  * otherwise land wherever the upstream sort left it and the block order would
@@ -111,12 +83,8 @@ function buildBlocks(totals: readonly AgentTotal[], total: number | null): reado
   return ordered.map((entry, index) => ({
     agent: entry.agent,
     label: USAGE_AGENT_LABEL[entry.agent],
-    logo: AGENT_LOGOS[entry.agent],
-    // The colour this agent already wears on its pane dot and tab (DL-16.4).
-    // `dotColor` is keyed by agent ID despite its doc comment saying "label" —
-    // `UsageAgent` carries exactly those ids, so this is the intended call and
-    // not a bug to "fix" into `USAGE_AGENT_LABEL[...]`.
-    color: dotColor(entry.agent),
+    // The Usage surfaces' own agent colour (DL-16.4), not the pane dot's.
+    color: usageAgentColor(entry.agent),
     costUsd: entry.costUsd,
     tokens: totalTokens(entry.counters),
     unpricedTokens: entry.unpricedTokens,
@@ -149,9 +117,7 @@ function AgentRow({ block }: { readonly block: AgentBlock }) {
   return (
     <li class="usage-agent">
       <div class="usage-agent__line">
-        {block.logo === undefined ? null : (
-          <img class="usage-agent__logo" src={block.logo} alt="" />
-        )}
+        <AgentGlyph agent={block.agent} className="usage-agent__logo" />
         <span class="usage-agent__label">{block.label}</span>
         <span class="usage-agent__amount">
           {block.costUsd === null ? EM_DASH : formatUsd(block.costUsd)}

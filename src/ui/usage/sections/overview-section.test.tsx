@@ -4,7 +4,7 @@ import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_COUNTERS, type UsageBucket, type UsageSnapshot } from "../../../lib/usage-snapshot";
 import { PRICING_SNAPSHOT_DATE } from "../../../lib/usage-pricing-snapshot";
-import { dotColor } from "../../../lib/process-info";
+import { usageAgentColor } from "../usage-agent-colors";
 import { usageSnapshot } from "../../../usage/usage-store";
 import { OverviewSection } from "./overview-section";
 import { activeUsageRange } from "../active-usage-view-store";
@@ -128,17 +128,17 @@ describe("OverviewSection", () => {
     ]);
   });
 
-  it("fills each bar with that agent's own established colour (DL-16.4)", () => {
+  it("fills each bar with that agent's colour from the Usage palette (DL-16.4)", () => {
     usageSnapshot.value = priced();
     mount();
     const [claude, codex] = blocks();
     const fill = (block: HTMLElement): string =>
       (block.querySelector(".usage-agent__fill") as HTMLElement).style.background;
 
-    // The theme colour the agent already wears on its pane dot — not a brand
-    // colour sampled from the logo.
-    expect(fill(claude)).toContain(dotColor("claude"));
-    expect(fill(codex)).toContain(dotColor("codex"));
+    // The Usage page's own pair, the same one the tiles and the timeline wear.
+    expect(fill(claude)).toBe(usageAgentColor("claude"));
+    expect(fill(codex)).toBe(usageAgentColor("codex"));
+    expect(fill(claude)).not.toBe(fill(codex));
   });
 
   it("writes the share in text and hides the bar from assistive tech (DL-16.6)", () => {

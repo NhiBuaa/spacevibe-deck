@@ -1,0 +1,16 @@
+/* Frame around the usage tiles specimens. The tiles' own styles ship in
+   `12-usage.css`. */
+
+.ur-frame {
+  padding: 16px;
+}
+
+.ur-totals {
+  margin: 0 0 18px;
+}
+
+/* The dock's default column is 420px wide (DL-19.4 floor 360). */
+.ur-dock {
+  width: 420px;
+  padding: 16px;
+}

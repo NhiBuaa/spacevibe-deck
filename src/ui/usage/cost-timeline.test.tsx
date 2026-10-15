@@ -4,6 +4,7 @@ import { act } from "preact/test-utils";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { CostTimeline } from "./cost-timeline";
 import { buildUsageTimeline } from "./usage-timeline";
+import { usageAgentColor } from "./usage-agent-colors";
 import { EMPTY_COUNTERS, type UsageBucket } from "../../lib/usage-snapshot";
 const now = new Date(2026, 8, 14, 14).getTime();
 const bucket = (model = "gpt-5", inputUncached = 1_000_000): UsageBucket => ({
@@ -51,4 +52,16 @@ it("discloses the omitted models next to a partial chart and in exact data", () 
   mount([bucket(), bucket("unknown")]);
   expect(host.textContent).toContain("Partial estimate");
   expect(host.querySelector("tbody")?.textContent).toContain("excludes 1,000,000 tokens: unknown");
+});
+it("colours the columns and the legend with the Usage palette, not the tab dot's", () => {
+  mount([bucket()]);
+  const column = ([...host.querySelectorAll(".usage-timeline__stack span")] as HTMLElement[]).find(
+    (span) => span.style.background !== "",
+  ) as HTMLElement;
+  const swatches = [...host.querySelectorAll(".usage-timeline__legend i")] as HTMLElement[];
+  expect(column.style.background).toBe(usageAgentColor("claude"));
+  expect(swatches.map((swatch) => swatch.style.background)).toEqual([
+    usageAgentColor("claude"),
+    usageAgentColor("codex"),
+  ]);
 });

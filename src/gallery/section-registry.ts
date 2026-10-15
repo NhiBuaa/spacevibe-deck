@@ -48,6 +48,9 @@ const ExplorerChangesSection = lazy(() =>
 const UsagePageSection = lazy(() =>
   import("./sections/usage-page-section").then((m) => m.UsagePageSection),
 );
+const UsageReposSection = lazy(() =>
+  import("./sections/usage-repos-section").then((m) => m.UsageReposSection),
+);
 const LaunchProfilesSection = lazy(() =>
   import("./sections/launch-profiles-section").then((m) => m.LaunchProfilesSection),
 );
@@ -87,6 +90,7 @@ export const GALLERY_SECTIONS: readonly GallerySection[] = [
   { id: "navigation", label: "navigation", Section: NavigationSection },
   { id: "row-badge", label: "row badge", Section: RowBadgeSection },
   { id: "agent-usage", label: "agent usage", Section: AgentUsageSection },
+  { id: "usage-repos", label: "usage by repository", Section: UsageReposSection },
   { id: "toolbar", label: "feature toolbar", Section: ToolbarSection },
   { id: "attention", label: "needs-you chip", Section: AttentionSection },
   { id: "seams", label: "seam system", Section: SeamSection },
