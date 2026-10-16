@@ -7,6 +7,8 @@ import { maxRepoCost, summarizeRepo, type RepoRow, type RepoTable } from "./usag
 
 /** How many placeholder tiles stand in while the first read is pending. */
 const PLACEHOLDER_TILES = 3;
+/** The biggest repositories shown; the rest stay counted in every share. */
+export const REPO_TILES_SHOWN = 10;
 
 interface UsageRepoTilesProps {
   readonly table: RepoTable;
@@ -113,6 +115,8 @@ export function UsageRepoTiles({
   const id = useId();
   const unpriced = table.unpricedModels.length;
   const scale = maxRepoCost(table);
+  const shown = table.rows.slice(0, REPO_TILES_SHOWN);
+  const hidden = table.rows.length - shown.length;
   return (
     <section class={`usage-overview usage-repo-tiles ${reloading ? "is-reloading" : ""}`}>
       <h3 id={`${id}-title`}>Usage by repository</h3>
@@ -126,11 +130,12 @@ export function UsageRepoTiles({
         <p class="usage-tiles__empty">{emptyLabel}</p>
       ) : (
         <ul class="usage-tiles" aria-labelledby={`${id}-title`}>
-          {table.rows.map((row) => (
+          {shown.map((row) => (
             <Tile key={row.key} row={row} scale={scale} />
           ))}
         </ul>
       )}
+      {hidden > 0 && <p class="usage-overview__note">+{hidden} more repositories</p>}
       <p class="usage-overview__note">
         {ESTIMATE_NOTE}
         {unpriced === 0

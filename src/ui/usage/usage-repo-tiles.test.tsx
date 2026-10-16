@@ -3,7 +3,7 @@ import { render } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildRepoTable, type RepoUsage } from "./usage-by-repo";
-import { UsageRepoTiles } from "./usage-repo-tiles";
+import { REPO_TILES_SHOWN, UsageRepoTiles } from "./usage-repo-tiles";
 
 const tokens = (output: number) => ({
   inputUncached: 0,
@@ -55,6 +55,20 @@ describe("UsageRepoTiles", () => {
     expect(host.querySelector(".usage-tile__agent")?.getAttribute("aria-label")).toBe(
       "Claude Code",
     );
+  });
+
+  it("shows only the biggest repositories and counts the rest in the shares", () => {
+    const repos = Array.from({ length: REPO_TILES_SHOWN + 2 }, (_, index) =>
+      repo(`/r${index}`, `repo-${index}`, ["claude-opus-5-5", (index + 1) * 1_000_000]),
+    );
+    show(repos);
+    const names = [...host.querySelectorAll(".usage-tile__name")].map((node) => node.textContent);
+    expect(names).toHaveLength(REPO_TILES_SHOWN);
+    expect(names[0]).toBe(`repo-${REPO_TILES_SHOWN + 1}`);
+    expect(names).not.toContain("repo-0");
+    expect(host.textContent).toContain("+2 more repositories");
+    show(repos.slice(0, REPO_TILES_SHOWN));
+    expect(host.textContent).not.toContain("more repositories");
   });
 
   it("shows cost, share and the model summary, and a dash plus a note when unpriced", () => {

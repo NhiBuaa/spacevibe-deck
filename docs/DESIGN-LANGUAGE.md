@@ -625,7 +625,8 @@ comes from limit readings, cost from recorded token history; neither is a subscr
   `+N more models` note under it. Shares run over priced cost and sum to exactly 100.0; an unpriced
   model sorts last with `—` for cost and share, and a model with no tokens is left out. The table is
   read-only (DL-15.2), follows the cost period, and an empty period says so in its single spanning
-  cell. The repository tiles come after it.
+  cell. The repository tiles come after it: the ten biggest by cost, then a `+N more repositories`
+  note; the rest still count in every share.
 
 ## 17. Shortcut rows
 
