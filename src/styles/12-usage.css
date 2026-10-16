@@ -691,6 +691,58 @@
   }
 }
 
+/* ── Details page: totals strip and model table (usage-details-sections.tsx) ─ */
+.usage-totals,
+.usage-models,
+.usage-repo-tiles {
+  margin-top: 28px;
+}
+.usage-totals__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px 16px;
+  margin: 10px 0 0;
+}
+@container usage-overview (min-width: 640px) {
+  .usage-totals__grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+.usage-totals__grid > div {
+  min-width: 0;
+}
+.usage-totals dt {
+  color: var(--text-muted);
+  font-size: var(--type-micro);
+}
+.usage-totals dd {
+  margin: 2px 0 0;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+.usage-totals small {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-faint);
+  font-size: var(--type-micro);
+}
+.usage-models__name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-wrap: anywhere;
+}
+.usage-models__logo {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+.usage-models__empty {
+  text-align: left;
+  color: var(--text-faint);
+}
+
 /* ── Usage by repository (usage-repo-tiles.tsx, DL-16) ────────────────────
    Tiles, not a table: one per repository, read-only. Rides on the
    `.usage-overview` wrapper for the box-sizing reset. */

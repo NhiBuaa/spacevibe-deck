@@ -1,5 +1,6 @@
 import { usageLoading, usageSnapshot, usageStale } from "../../usage/usage-store";
 import { OverviewSection } from "./sections/overview-section";
+import { UsageDetailsSections } from "./usage-details-sections";
 import { UsageReposSection } from "./usage-repos-section";
 import { UsageStatus } from "./usage-status";
 
@@ -52,7 +53,12 @@ export function UsageBody({ variant = "screen" }: UsageBodyProps) {
       <div class={gridClass}>
         <section class={sectionClass}>
           <OverviewSection />
-          {variant === "screen" ? <UsageReposSection /> : null}
+          {variant === "screen" ? (
+            <>
+              <UsageDetailsSections />
+              <UsageReposSection />
+            </>
+          ) : null}
         </section>
       </div>
     </>

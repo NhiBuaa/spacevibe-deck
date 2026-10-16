@@ -82,3 +82,22 @@ export function rangeSinceMs(range: UsageRange, nowMs: number): number | null {
     now.getDate() - (range.days - 1),
   ).getTime();
 }
+
+/**
+ * The buckets a range covers: the timeline's own window (same start, same
+ * "not in the future" upper bound), so every figure beside the chart agrees
+ * with it.
+ */
+export function bucketsInRange<T extends { readonly bucketStartMs: number }>(
+  buckets: readonly T[],
+  range: UsageRangeId,
+  nowMs: number,
+): readonly T[] {
+  const since = rangeSinceMs(
+    USAGE_RANGES.find((entry) => entry.id === range)!,
+    nowMs,
+  );
+  return buckets.filter(
+    (bucket) => bucket.bucketStartMs <= nowMs && (since === null || bucket.bucketStartMs >= since),
+  );
+}

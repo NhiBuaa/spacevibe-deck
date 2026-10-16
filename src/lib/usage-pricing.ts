@@ -101,6 +101,25 @@ export function estimateCostUsd(model: string, counters: UsageCounters): number 
 }
 
 /**
+ * What the cache-read tokens saved against paying the input rate for them, or
+ * `null` when the model is unpriced and read some. A provider with no cache
+ * rate charges cache reads as input, so it saved nothing.
+ */
+export function estimateCacheSavingsUsd(model: string, counters: UsageCounters): number | null {
+  if (counters.cacheRead === 0) {
+    return 0;
+  }
+  const pricing = pricingFor(model);
+  if (pricing === null) {
+    return null;
+  }
+  return (
+    counters.cacheRead *
+    (pricing.inputPerToken - (pricing.cacheReadPerToken ?? pricing.inputPerToken))
+  );
+}
+
+/**
  * The house dollar format. Two decimals from a cent upwards, four below it so
  * a genuinely cheap day is not flattened to `$0.00`, and an explicit
  * "less than" once even four decimals would round to zero.

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { estimateCostUsd, formatUsd, isPricedModel } from "./usage-pricing";
+import {
+  estimateCacheSavingsUsd,
+  estimateCostUsd,
+  formatUsd,
+  isPricedModel,
+} from "./usage-pricing";
 import { EMPTY_COUNTERS, type UsageCounters } from "./usage-snapshot";
 
 const counters = (patch: Partial<UsageCounters> = {}): UsageCounters => ({
@@ -118,5 +123,15 @@ describe("formatUsd", () => {
   it("does not print NaN or Infinity at the user", () => {
     expect(formatUsd(Number.NaN)).toBe("$0.00");
     expect(formatUsd(Number.POSITIVE_INFINITY)).toBe("$0.00");
+  });
+});
+
+describe("estimateCacheSavingsUsd", () => {
+  const reads = { ...EMPTY_COUNTERS, cacheRead: 1_000_000 };
+  it("is the gap between the input and cache-read rate, zero without reads, null when unpriced", () => {
+    expect(estimateCacheSavingsUsd("claude-opus-4-5", reads)).toBeCloseTo(4.5, 6);
+    expect(estimateCacheSavingsUsd("claude-opus-4-5", EMPTY_COUNTERS)).toBe(0);
+    expect(estimateCacheSavingsUsd("no-such-model", reads)).toBeNull();
+    expect(estimateCacheSavingsUsd("no-such-model", EMPTY_COUNTERS)).toBe(0);
   });
 });

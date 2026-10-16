@@ -26,6 +26,12 @@ const FIXTURE_MODELS = [
   { agent: "codex", model: "gpt-5-codex", input: 180_000, read: 3_100_000, output: 70_000 },
 ] as const;
 
+const FIXTURE_REPOS = [
+  "/Users/dev/spacevibe/spacevibe-deck",
+  "/Users/dev/spacevibe/spacevibe-bench",
+  "/Users/dev/tools/tiny-cli",
+] as const;
+
 /** A fortnight of buckets so the overview has a shape; fixed shape, shifted to now. */
 function fixtureSnapshot(now: number): UsageSnapshot {
   const buckets: UsageBucket[] = [];
@@ -37,9 +43,10 @@ function fixtureSnapshot(now: number): UsageSnapshot {
         bucketStartMs,
         agent: entry.agent,
         model: entry.model,
-        repo: null,
+        repo: FIXTURE_REPOS[(day + entry.input) % FIXTURE_REPOS.length],
         counters: {
           ...EMPTY_COUNTERS,
+          cacheCreate5m: Math.round(entry.input * 0.4 * wobble),
           inputUncached: Math.round(entry.input * wobble),
           cacheRead: Math.round(entry.read * wobble),
           output: Math.round(entry.output * wobble),
