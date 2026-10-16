@@ -412,11 +412,36 @@
   flex-wrap: nowrap;
 }
 .usage-overview .usage-hero__figure {
-  font-size: 28px;
+  font-size: 36px;
   margin: 4px 0;
 }
+/* Agents are tiles like the allowance above, so the two blocks read as one family. */
 .usage-overview .usage-hero__agents {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
   margin-top: 18px;
+}
+.usage-overview .usage-agent {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-control);
+}
+.usage-overview .usage-agent + .usage-agent {
+  margin-top: 0;
+}
+.usage-overview .usage-agent__line {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 8px;
+}
+.usage-overview .usage-agent__amount {
+  grid-column: 1 / -1;
+  margin: 2px 0 0;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.1;
 }
 .usage-overview__table-scroll {
   max-width: 100%;
@@ -509,7 +534,7 @@
 }
 .usage-allowance strong {
   order: 1;
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 600;
   line-height: 1.1;
 }
