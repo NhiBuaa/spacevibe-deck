@@ -688,7 +688,10 @@ describe("OpenBoard home view", () => {
   it("selects a dropped folder without launching, then runs in that folder", async () => {
     seed([]);
     detected = [{ name: "claude", path: "/usr/bin/claude" }];
-    vi.stubGlobal("__deckHost", { getPathForFile: () => "/w/dropped folder" });
+    vi.stubGlobal("__deckHost", {
+      getPathForFile: () => "/w/dropped folder",
+      grantDroppedWorkspace: vi.fn().mockResolvedValue(true),
+    });
     const launch = vi.fn(async (): Promise<LaunchTaskOutcome> => "started");
     await mount(launch, { promptStaging: false });
     const event = new Event("drop", { bubbles: true, cancelable: true });
@@ -751,7 +754,10 @@ describe("OpenBoard home view", () => {
     dirsGate = new Promise((resolve) => {
       finish = resolve;
     });
-    vi.stubGlobal("__deckHost", { getPathForFile: () => "/w/new folder" });
+    vi.stubGlobal("__deckHost", {
+      getPathForFile: () => "/w/new folder",
+      grantDroppedWorkspace: vi.fn().mockResolvedValue(true),
+    });
     const event = new Event("drop", { bubbles: true, cancelable: true });
     Object.defineProperty(event, "dataTransfer", {
       value: { types: ["Files"], files: [new File([], "folder")] },

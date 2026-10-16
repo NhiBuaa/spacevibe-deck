@@ -29,6 +29,7 @@ vi.mock("../terminal/file-drop", () => ({
 // The rail tests exercise the controls around the icon, not Phosphor itself.
 vi.mock("./controls/deck-icon", () => ({
   CHROME_ICON: 13,
+  ROW_ICON: 14,
   FEATURE_ICON: 15,
   DeckIcon: ({ size }: { readonly size: number }) => <span data-deck-icon-size={size} />,
 }));
