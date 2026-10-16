@@ -6,7 +6,9 @@
   the repository tiles, the palette and the dock overview are merged
   ([#49](https://github.com/mxrsv/spacevibe-deck/pull/49)); the one-background rule is
   [#51](https://github.com/mxrsv/spacevibe-deck/pull/51). Not frozen: wiring the tiles into the
-  page is not on `origin/main` yet, the dock layout slice is unmerged, and Windows is unverified.
+  page is not on `origin/main` yet, and Windows is unverified. The dock layout and the details
+  Totals and Models (R8) are built on `feat/usage-dock-layout` and approved by eye (2026-10-16),
+  not yet merged.
 - **Plans:** [page frame](../plans/2026-10-14-usage-page-frame.md),
   [scanner by repo](../plans/2026-10-14-usage-scanner-by-repo.md),
   [page content](../plans/2026-10-14-usage-page-content.md) and
@@ -38,6 +40,12 @@ usage in more detail, including usage per repository.
    not sent to telemetry or the backend.
 7. **R7. One background (owner, 2026-10-15).** The navigation rail is the only surface with a
    colour of its own; the page, Settings, the stage and the dock share the stage background.
+8. **R8. Details adds Totals and Models (owner, 2026-10-16).** This reopens the 2026-10-15
+   decision that the page shows repository tiles and no agent or model list. The page gains
+   **Totals** (processed, cached and uncached input, output, cache savings) and a **Models** table
+   (cost, share, tokens) before the repository tiles, both following the cost period. The dock
+   stays a summary: it leads with remaining allowance, then the cost figure and per-agent cards.
+   Layout is DL-16.1, 16.9 and 16.10.
 
 ## Acceptance criteria
 
@@ -46,6 +54,8 @@ usage in more detail, including usage per repository.
 - The dock tab and the page never freeze each other's data when one closes.
 - No pane is unmounted, and no PTY receives a resize while the page opens or closes.
 - Per-repository totals sum to the machine-wide total shown today.
+- On the details page, Totals and Models follow the selected period; model shares sum to 100.0%,
+  and an unpriced model shows `—` rather than zero.
 
 ## Constraints from history (owner decisions already made)
 
@@ -58,5 +68,6 @@ usage in more detail, including usage per repository.
 
 ## Out of scope
 
-- The page's content and layout beyond the frame (separate session).
+- Per-day detail for a selected timeline column, a legend that hides agents, Cost by type or
+  speed, and a cache-savings multiplier (deferred, owner decides).
 - URL routing, history stack or deep links.

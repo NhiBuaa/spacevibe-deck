@@ -553,7 +553,7 @@ comes from limit readings, cost from recorded token history; neither is a subscr
 - **DL-16.1** The page runs **Remaining allowance → Estimated API cost with its cost period →
   per-agent accounting and pricing details → Cost over time**. The
   [allowance list](../src/ui/usage/remaining-allowance.tsx) is one block per agent and one hairline
-  tile per returned window: label, the remaining percentage as the figure (26px, 600), a 4px bar
+  tile per returned window: label, the remaining percentage as the figure (22px, 600), a 4px bar
   of what remains in the agent's colour and a visible `Resets in …` countdown, with the exact
   reset date in a tooltip.
   Missing, expired, failed and unsupported readings stay unknown, a measured zero stays zero. At
@@ -611,6 +611,21 @@ comes from limit readings, cost from recorded token history; neither is a subscr
   trapped, because the rail stays live; pressing a rail card, a tab-bar tab (top layout) or a new
   tab closes the page and then navigates. It fades and settles under DL-1.2 and sits at the document surface's
   layer, below the board, Settings and the modals.
+- **DL-16.9** The details page adds **Totals** after the cost timeline: a `dl` of five plain
+  figures, no card and no bar: Processed tokens, Cached input (with `N% of input` beneath),
+  Uncached input (every input token that was not a cache read, cache writes included), Output and
+  Cache savings. A figure is 22px, 600, tabular, over a micro-size muted label; three columns, five
+  once the page is 640px wide (a container query, not the window's). Cache savings is the priced
+  part only: an unpriced model's reads add nothing and the figure says `excludes unpriced models`;
+  with none priced it is `—`, never zero (DL-15.6). Totals follow the cost period (DL-16.7).
+  Why: the dock shows what the period cost; this answers what the cache saved and how the tokens
+  split, which fits no 420px column.
+- **DL-16.10** **Models** follows Totals as a §15 metric table: Model (agent glyph plus the
+  scanner's raw model string), Cost, Share and Tokens, biggest cost first, at most eight rows and a
+  `+N more models` note under it. Shares run over priced cost and sum to exactly 100.0; an unpriced
+  model sorts last with `—` for cost and share, and a model with no tokens is left out. The table is
+  read-only (DL-15.2), follows the cost period, and an empty period says so in its single spanning
+  cell. The repository tiles come after it.
 
 ## 17. Shortcut rows
 
