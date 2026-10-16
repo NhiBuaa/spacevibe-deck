@@ -11,6 +11,13 @@ the release PR, and frozen at the tag — never an auto-generated commit list.
   (Ctrl+Shift+R on Windows and Linux) opens usage across the content area while the sidebar
   stays visible. Back or Escape returns to where you were; terminals keep running underneath.
 
+- **Usage leads with what you have left.** The Usage tab now opens on your remaining allowance:
+  one tile per limit window with the percentage left, a bar in the agent's colour and when it
+  resets, turning yellow at 30% and red at 15%. Below it, Estimated API cost shows each agent's
+  share as its own card, and the period you pick (Today, 7 days, 30 days, All) is highlighted.
+  The Usage page adds token totals, with what the cache saved, and a table of your models by
+  cost, share and tokens.
+
 - **Usage remembers which project each token was spent in.** The token scanner now records the
   repository (or folder) an agent was working in, with worktrees counted under their
   repository, so usage can be broken down by project. The first launch after updating reads
