@@ -260,8 +260,8 @@
   color: var(--text-faint);
   font-family: var(--ui-font);
   font-size: var(--type-meta);
-  padding: 3px 6px;
-  border-radius: var(--radius-tight);
+  padding: 3px 9px;
+  border-radius: var(--radius-control);
   cursor: pointer;
   transition:
     background 0.13s ease,
@@ -273,7 +273,7 @@
 }
 
 .usage-range__option.is-active {
-  background: color-mix(in srgb, var(--fg) 4%, transparent);
+  background: color-mix(in srgb, var(--fg) 12%, transparent);
   color: var(--text-primary);
 }
 

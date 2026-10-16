@@ -594,8 +594,9 @@ comes from limit readings, cost from recorded token history; neither is a subscr
   shares, tokens and price omissions together; allowance and reset times do not change.
   **Chart data** and **Pricing details** disclosures are allowed. The selector is segmented, not
   a §6 `cycle` pill, so every period is visible at once. Options are sentence-case `--ui-font`
-  (DL-4.1, DL-4.4) on one row; the selected one wears the 4% `--fg` wash of DL-5.1 and DL-11.2,
-  with no filled pill, chip, underline, border or shadow. The selected option stays visible
+  (DL-4.1, DL-4.4) on one row; the selected one is a badge: a 12% `--fg` wash at
+  `--radius-control` with no border, underline or shadow, and no weight change, so choosing an option
+  never moves its neighbours. The selected option stays visible
   beside every historical figure, an empty period says which period is empty, and the selection
   resets when the screen closes (DL-13.6).
 - **DL-16.8** The dock's Usage tab stays a summary and carries one quiet **Details** control that
