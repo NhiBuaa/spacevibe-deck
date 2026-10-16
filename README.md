@@ -19,11 +19,11 @@
 </p>
 
 <p align="center">
-  <strong><a href="https://github.com/mxrsv/spacevibe-deck/releases/latest">Download SpaceVibe Deck 1.0 →</a></strong>
+  <strong><a href="https://github.com/mxrsv/spacevibe-deck/releases/latest">Download SpaceVibe Deck →</a></strong>
 </p>
 
-> **Windows:** the 1.0 installer is x64 and unsigned, so Microsoft SmartScreen will warn on
-> first install. Windows 1.0 has shipped without a real-hardware runtime verification pass.
+> **Windows:** the installer is x64 and unsigned, so Microsoft SmartScreen will warn on
+> first install. Windows has shipped without a real-hardware runtime verification pass.
 
 ![SpaceVibe Deck with the Agent Rail and multiple CLI agents](.github/assets/screenshot.png?v=2.11.0)
 
@@ -36,12 +36,13 @@
 | **Jump**   | Select the project or pane that needs intervention instead of hunting through terminal tabs.                           |
 | **Resume** | Reopen the last session's tabs, workspaces, and the agent conversations each CLI can resolve — one click, never forced. |
 
-Resume is exact for Claude Code, Codex, and OpenCode; Gemini CLI and Antigravity are
-best-effort, while custom agents relaunch their declared command. The implementation is
+Resume is exact for Claude Code, Codex, and OpenCode; Antigravity is best-effort, Gemini CLI
+resumes its latest session, Droid resumes the folder's last one, other built-ins relaunch
+bare, and custom agents relaunch their declared command. The implementation is
 documented in [session restore](src/terminal/session-restore.ts) and
 [resume resolution](electron/resume/resolve.ts).
 
-## What ships in V1
+## What Deck does
 
 ### Attention-first Agent Rail
 
@@ -56,8 +57,9 @@ focuses it without changing expansion ([worktree card](src/ui/worktree-card.tsx)
 
 ### One project stage
 
-Run real PTYs in split panes, move between git worktrees, edit files, and keep browser pages
-beside terminals as tabs on the same stage. Cmd/Ctrl+click on a path from an agent opens the
+Run real PTYs in split panes, move between git worktrees, edit files, review what the checkout changed in
+the Explorer's Files / Changes switch, and keep browser pages beside terminals as tabs on the
+same stage. Cmd/Ctrl+click on a path from an agent opens the
 file and line in a configured editor
 ([PTY host](electron/pty/spawn.ts), [stage strip](src/ui/stage-surface-strip.ts)).
 
@@ -98,7 +100,7 @@ read the [public privacy notice](https://deck.spacevibe.dev/privacy) for build-s
 
 ### Workflow-neutral agents
 
-Deck includes five agent definitions and accepts user-declared CLI commands. Each agent runs in
+Deck includes twelve agent definitions and accepts user-declared CLI commands. Each agent runs in
 its own terminal process; Deck coordinates the workspace and attention surface without
 replacing the CLI's own workflow
 ([agent catalog](src/lib/agent-catalog.ts)).
@@ -115,8 +117,8 @@ curl -fsSL https://deck.spacevibe.dev/install.sh | sh
 irm https://deck.spacevibe.dev/install.ps1 | iex
 ```
 
-- **[macOS — Apple Silicon (arm64)](https://github.com/mxrsv/spacevibe-deck/releases/latest):** signed and notarized. Intel Macs are not served by V1.
-- **[Windows — x64](https://github.com/mxrsv/spacevibe-deck/releases/latest):** unsigned; SmartScreen will warn. Windows ARM is not served, and V1 remains runtime-unverified on Windows hardware.
+- **[macOS — Apple Silicon (arm64)](https://github.com/mxrsv/spacevibe-deck/releases/latest):** signed and notarized. Intel Macs are not served.
+- **[Windows — x64](https://github.com/mxrsv/spacevibe-deck/releases/latest):** unsigned; SmartScreen will warn. Windows ARM is not served, and Windows remains runtime-unverified on hardware.
 
 Deck checks for updates and tells you when one is ready; you choose when to download, install,
 and relaunch. Both platforms use the moving
@@ -162,7 +164,7 @@ The complete bindings are listed in [keyboard shortcuts](docs/user/keyboard-shor
 
 ## Build from source
 
-Requires Node.js 20+ and the native build tools required by Electron and `node-pty` on your
+Requires Node.js 22 and the native build tools required by Electron and `node-pty` on your
 platform.
 
 ```bash
