@@ -44,15 +44,22 @@ export type AgentLaunchResult =
 
 /**
  * A command typed in place of the agent's own launch command. ONE parameter on
- * `launchAgentAtTarget`, shared with launch-actions PAGE4: package C adds its own
- * variant to this union, never a second parameter.
+ * `launchAgentAtTarget`; every variant rides it, never a second parameter.
  */
-export type LaunchCommandOverride = {
-  /** An agent's vendor installer (agent install spec). Typed verbatim once the shell is
-   *  ready; never recorded in the journal, never counted; the agent need not be installed. */
-  readonly kind: "install";
-  readonly command: string;
-};
+export type LaunchCommandOverride =
+  | {
+      /** An agent's vendor installer (agent install spec). Typed verbatim once the shell is
+       *  ready; never recorded in the journal, never counted; the agent need not be installed. */
+      readonly kind: "install";
+      readonly command: string;
+    }
+  | {
+      /** A launch command picked in the launch page's profile popover for this visit
+       *  (PAGE4). An agent launch like any other — recorded and counted — but only a command
+       *  `agentLaunchCommandChoices` lists for that agent is accepted. */
+      readonly kind: "profile";
+      readonly command: string;
+    };
 
 /** Comparison keys only: never pass these normalized strings to the host. */
 function comparisonKey(path: string, platform: DesktopPlatform): string {

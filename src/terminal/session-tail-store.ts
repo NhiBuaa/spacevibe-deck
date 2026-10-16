@@ -248,7 +248,10 @@ function livePaneIds(tabs: readonly TabView[]): Set<number> {
  */
 interface PaneGeneration {
   readonly agent: string | null;
+  /** This occupant has run, through an interrupt (see `ranUnder`). */
   readonly ran: boolean;
+  /** The session fact at that look, which an interrupt leaves in place. */
+  readonly sessionId: string | null;
   /**
    * When this store FIRST saw this generation — the fresh-pane floor sent as
    * `notBefore` (DECK-119, 2026-09-17). A pane that did not resume anything
@@ -275,7 +278,8 @@ const paneGenerations = new Map<number, PaneGeneration>();
  *   `claude` → shell → `claude` through its `null` step;
  * - `hasRun` went from true back to false, which is the gate reopening for a
  *   fresh agent in the same pane. Only that DIRECTION counts: false → true is
- *   the same agent finally doing something, not a new one.
+ *   the same agent finally doing something, not a new one. And not under the
+ *   same session fact: see `ranUnder`.
  *
  * A pane seen for the first time is not a new generation — there is nothing
  * for it to have replaced.
@@ -284,7 +288,19 @@ function isNewGeneration(pane: PaneView, previous: PaneGeneration | undefined): 
   if (previous === undefined) {
     return false;
   }
-  return previous.agent !== liveAgentOf(pane) || (previous.ran && !pane.hasRun);
+  return previous.agent !== liveAgentOf(pane) || (previous.ran && !ranUnder(pane, previous));
+}
+
+/**
+ * Whether this pane's occupant has run. An interrupt (INT1, and Codex's own
+ * `interrupted`) puts `hasRun` back to false so the rail reads `idle`, not
+ * `done`, but leaves the session id, while the gate reopening for a new
+ * occupant resets it. So a run under the same session fact is still a run:
+ * otherwise every Escape would wipe the pane's tail and move its floor.
+ */
+function ranUnder(pane: PaneView, previous: PaneGeneration | undefined): boolean {
+  const fact = pane.sessionId || null;
+  return pane.hasRun || (previous?.ran === true && fact !== null && fact === previous.sessionId);
 }
 
 /**
@@ -301,10 +317,11 @@ function entriesOf(tabs: readonly TabView[]): readonly TailEntry[] {
   // in may already hold a live pane of the same agent — and that one sits
   // earlier in `tabViews`, so a single pass in list order would let it eat a
   // mark it does not need and leave the resumed pane blank, which is the exact
-  // bug this exists to fix (the sessions panel's resume, 2026-08-17).
+  // bug this exists to fix (the sessions panel's resume, 2026-08-17). An
+  // interrupted pane has run: `prune` has just recorded that for this snapshot.
   for (const tab of tabs) {
     for (const pane of panesOf(tab)) {
-      if (liveAgentOf(pane) !== null && !pane.hasRun) {
+      if (liveAgentOf(pane) !== null && !(paneGenerations.get(pane.paneId)?.ran ?? pane.hasRun)) {
         claimsResume(pane, tab.workspacePath);
       }
     }
@@ -540,7 +557,12 @@ function prune(
       // closer to the agent's real start than this debounced batch; the
       // batch clock is only the fallback for a pane that has never changed.
       const seenAt = previous === undefined || replaced ? pane.changedAt || now : previous.seenAt;
-      paneGenerations.set(pane.paneId, { agent: liveAgentOf(pane), ran: pane.hasRun, seenAt });
+      paneGenerations.set(pane.paneId, {
+        agent: liveAgentOf(pane),
+        ran: replaced ? pane.hasRun : ranUnder(pane, previous),
+        sessionId: pane.sessionId || null,
+        seenAt,
+      });
     }
   }
   return { tails, models };

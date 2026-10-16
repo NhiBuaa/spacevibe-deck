@@ -125,7 +125,7 @@
 }
 
 .stage--dock .stage__strip {
-  right: var(--dock-w);
+  right: var(--stage-inset);
 }
 
 /* ── The document surface (docs/internals/file-surface.md) ─────────────────────────────────────
@@ -181,7 +181,7 @@
 }
 
 .stage--dock .stage__surface {
-  right: var(--dock-w);
+  right: var(--stage-inset);
 }
 
 /* The browser variant keeps the gutter the base rule gives it (2026-09-18):

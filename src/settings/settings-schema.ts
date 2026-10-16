@@ -16,7 +16,11 @@ import { isValidPromptTemplate, type PromptTemplate } from "../prompts/prompt-te
 import { runtimeFor, type AgentRuntimeDefault } from "../launcher/runtime-catalog";
 import type { SignalAdapters } from "../lib/launch-augment";
 import { validateQuickAgentIds } from "./quick-agents";
-import { SIGNAL_ADAPTERS_REVISION, signalChoicesAreCurrent } from "./signal-adapter-choice";
+import {
+  DEFAULT_SIGNAL_ADAPTERS,
+  SIGNAL_ADAPTERS_REVISION,
+  resolveSignalAdapters,
+} from "./signal-adapter-choice";
 import {
   NO_KEYBINDING_OVERRIDES,
   validateKeybindings,
@@ -141,39 +145,20 @@ export interface Settings {
    * server port. Switched per agent under Settings → Agents; off, that half of
    * the row is inferred and drawn so.
    *
-   * EVERY adapter is OFF by default (owner decision, 2026-09-10). A pane that
-   * opens with flags the user did not choose reads as Deck editing the command
-   * rather than running it, and Deck is a terminal: the line is the product.
-   * The rule is the same for all three rather than argued per agent, because
-   * "Deck types what you typed" is only true if it has no exceptions.
-   *
-   * Not a claim about the field. Peer tools split both ways: ccmanager appends
-   * `--teammate-mode in-process` to every `claude` session and still reads
-   * state by parsing the terminal, while tmux-claude-session-manager injects
-   * nothing and reads `claude agents --json`. Tools whose user never sees a
-   * command line (Conductor, Vibe Kanban, AgentAPI) pay nothing to inject. The
-   * default here is Deck's own choice about ITS surface, not the industry's.
-   *
-   * What it costs, stated honestly rather than minimised:
-   * - claude — loses `StopFailure`, the ONLY source of `error` that is the
-   *   CLI's own word, so a turn that died on an API error can read as
-   *   completed. Loses `PermissionRequest`'s early mark and `Stop`'s identified
-   *   sentence. The registry poll survives, but it is a poll: identity exists
-   *   after a matching snapshot, not before, and two fresh misses withdraw it.
-   * - codex — keeps its own `notification_condition` default; loses only the
-   *   guarantee that the BEL also rings for a focused pane.
-   * - opencode — the steepest. No port, no SSE, so no server-confirmed state
-   *   AND no contract session id, which is what `live-session-state.ts` needs
-   *   to focus an existing pane instead of offering Resume.
+   * All three are ON by default (owner, 2026-10-11): Deck's shell wrappers add
+   * the flags and point opencode at Deck's plugin, so the command line a user
+   * typed is no longer edited by Deck. The defaults and the revision that
+   * switches each one on once live in signal-adapter-choice.ts.
    *
    * A pane still reads OSC 9;4, OSC 9/777 and BEL, and transcript tails still
    * come off disk for all three, so "off" is degraded, not blind.
    */
   agentSignalAdapters: SignalAdapters;
   /**
-   * Marks `agentSignalAdapters` as saved under the rule that a stored `true`
-   * is the user's choice. Always the current revision once validated; a file
-   * without it has every adapter reset to off (see signal-adapter-choice.ts).
+   * Marks `agentSignalAdapters` as saved under the rule that a stored value
+   * is the user's choice. Always the current revision once validated; an older
+   * file has the agents shipped since switched on once, and a file below
+   * revision 2 reads as the defaults (see signal-adapter-choice.ts).
    */
   signalAdaptersRevision: number;
   /**
@@ -266,7 +251,7 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultLaunchProfiles: {},
   agentModels: {},
   agentRuntimeDefaults: {},
-  agentSignalAdapters: { claude: false, codex: false, opencode: false },
+  agentSignalAdapters: DEFAULT_SIGNAL_ADAPTERS,
   signalAdaptersRevision: SIGNAL_ADAPTERS_REVISION,
   quickLaunchPromptExpanded: true,
   promptTemplates: [],
@@ -518,24 +503,6 @@ function validateAgentRuntimeDefaults(raw: unknown): Readonly<Record<string, Age
   return result;
 }
 
-/**
- * Each adapter is off unless the stored value says `true` for it: an absent
- * key, a settings file from before the field, or a non-boolean all mean the
- * default, which is off. A stored boolean wins only in a file saved under the
- * current `signalAdaptersRevision`, so a user who switched an agent's signals
- * on keeps them, while the unchosen `true`s a 1.1.x file carries do not.
- */
-function validateSignalAdapters(raw: unknown, current: boolean): SignalAdapters {
-  const defaults = DEFAULT_SETTINGS.agentSignalAdapters;
-  if (!current || typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-    return defaults;
-  }
-  const source = raw as Record<string, unknown>;
-  const flag = (key: keyof SignalAdapters): boolean =>
-    typeof source[key] === "boolean" ? (source[key] as boolean) : defaults[key];
-  return { claude: flag("claude"), codex: flag("codex"), opencode: flag("opencode") };
-}
-
 function validateRailOrder(raw: unknown): readonly string[] {
   if (!Array.isArray(raw)) {
     return DEFAULT_SETTINGS.railOrder;
@@ -630,10 +597,7 @@ export function validateSettings(raw: unknown): Settings {
     railOrder: validateRailOrder(source.railOrder),
     agentModels: validateAgentModels(source.agentModels),
     agentRuntimeDefaults: validateAgentRuntimeDefaults(source.agentRuntimeDefaults),
-    agentSignalAdapters: validateSignalAdapters(
-      source.agentSignalAdapters,
-      signalChoicesAreCurrent(source),
-    ),
+    agentSignalAdapters: resolveSignalAdapters(source),
     signalAdaptersRevision: SIGNAL_ADAPTERS_REVISION,
     quickLaunchPromptExpanded:
       typeof source.quickLaunchPromptExpanded === "boolean"

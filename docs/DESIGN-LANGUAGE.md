@@ -108,9 +108,12 @@ through `color-mix`.
 - **DL-3.2** `--green` means on / enabled / success. `--red` means danger / destructive /
   error. `--yellow` means needs your eyes: a question, a permission wait, or a finished run
   nobody has checked — one step below `--red`'s failure. None of them is decoration.
-  A diff's line counts are the one place green and red mean added and removed: `+N` in
-  `--green`, `−M` in `--red`, a zero side in the count's neutral ink
-  ([`DiffCounts`](../src/files/ui/changes-list.tsx)).
+  A diff is the one place green and red mean added and removed. Its counts print `+N` in
+  `--green` and `−M` in `--red`, a zero side in the count's neutral ink
+  ([`DiffCounts`](../src/files/ui/changes-list.tsx)); in the diff column an added line or word
+  sits on a low `--green` wash and a removed one on a low `--red` wash, taken from the live
+  theme ([`monacoThemeFor`](../src/files/editor-host.ts)), so syntax colour stays legible on
+  top.
   Why: the owner wants the two counts apart at a glance (2026-10-10), as every diff tool shows
   them.
 - **DL-3.3** Structure comes from hairlines and background steps, not from color or
@@ -144,7 +147,9 @@ through `color-mix`.
   `--board-font` (the §31 code stack, declared once in `01-tokens.css`). The terminal's
   own font comes from the user's `fontFamily` setting through
   [`toFontStack`](../src/terminal/pane.ts); no chrome token reads it, and `--board-font`
-  never does either.
+  never does either. One exception in chrome: the launch page's command preview (DL-32.6)
+  prints the exact command in `--board-font`, because a shell line's flags, quotes and spaces
+  must read exactly as they will run.
 - **DL-4.2** Values use `font-variant-numeric: tabular-nums` so changing numbers do not
   jitter.
 - **DL-4.3** No `text-transform: uppercase`, no all-caps spelling used as styling and no
@@ -796,6 +801,8 @@ covering it; the file explorer is the resident instance.
   Changes chip the folder cannot serve is disabled with its reason, because a hidden entry
   cannot say why (DL-21.4); on a host that cannot serve the read the switch is omitted
   (DL-19.7).
+  The row whose diff is open carries DL-21.1's wash at `--radius-tab` and is `aria-selected`;
+  a deleted row is pressable, since its diff is the old side.
   Why: the wash is DL-21.1's selection signifier, and a filter is not a selection.
 - **DL-19.10** Opening a document splits the Explorer's existing width into a narrower list
   and a document panel on its left, so the list stays against the window edge; it creates no top-strip chip. The panel's Open files
@@ -807,6 +814,21 @@ covering it; the file explorer is the resident instance.
   needs, never moving keyboard focus or the roving tab stop and never opening the dock. A
   document outside the root, under an excluded name, or a dot-path while hidden files are off
   marks nothing and changes no filter. The mark remains while the terminal has keyboard focus.
+- **DL-19.11** The diff column is the Changes list's transient second docked column. It
+  stands directly left of the Explorer and follows DL-19.1 and DL-19.2: the grid's right inset
+  is the dock plus the column, with one `--hair` seam on its inner edge. Its header is
+  `--frame-h` tall like DL-19.3 and names the file, its status mark and its counts, then
+  `2/5`, ‹ ›, Open file and ×, icon-only with DL-23.10 tooltips; the directory and the status
+  word live in tooltips. DL-19.5's status line sits under it. Its width is half the space
+  left of the Explorer, at most 960px; when that half is under 400px the column lies over the
+  Explorer below the dock's tab row and the grid keeps its width. It appears and leaves
+  without motion, keeps its width while moving between files, and closes from ×, from Esc
+  inside it, whenever the Changes list stops being shown, and, while it lies over the
+  Explorer, whenever a document opens there, so the document taking the keys is the one on
+  screen. The body is a read-only Monaco
+  diff in the editor's theme and font ([`DiffColumn`](../src/files/ui/diff-column.tsx)).
+  Why: every width change resizes each pane's terminal, so the column changes width only when
+  the window or the dock does.
 
 ## 23. Action tooltips and the `More` menu
 
@@ -1309,23 +1331,48 @@ The launcher is the compact launch page plus the Open Board's agent cards, shari
   applied to host-only workspace actions and the runtime selector).
 - **DL-32.6** The compact agent launcher is a transient stage page
   ([page](../src/launcher/agent-launch-page.tsx),
-  [context row](../src/launcher/agent-launch-context.tsx)): compact cards with the existing
-  agent logos and no profile or recent badges. The sidebar and strip keep their
+  [context row](../src/launcher/agent-launch-context.tsx)): compact tiles with the existing
+  agent logos and no profile or recent badges, and no eyebrow, heading, `Add agent` card or
+  footer; which agents show is chosen in Settings → Agents. The sidebar and strip keep their
   places and the page owns no strip item. Covered content stays mounted but inert and the native
   browser is hidden. Back and Escape return without creating a process; Settings returns focus
   to the page.
-  A card is a tile on an `auto-fill, minmax(176px, 1fr)` grid: 20px logo, 12px name, `ArrowRight`
-  on one line. Its press takes initial focus and is `Split` (`Run` when the folder has no tab);
-  nothing is remembered and no modifier changes it. While the folder has a tab, a 34px icon-only
-  `PlusCircle` button on the right edge starts a `New space` (`launchAgentAtTarget` with a
-  `new-space` target), with a DL-13.7 hover tip (400ms for
-  a pointer, at once on keyboard focus, no native `title`) and `aria-label`
-  `Run <agent> in a new space`. A missing agent shows `Not installed`, disabled, with no icon.
+  A tile is a fixed 74px `--radius-control` card on an `auto-fill, minmax(176px, 1fr)` grid: a
+  20px logo and 12px name on top, `ArrowRight` bottom-right in `--text-faint`, `--text-primary`
+  on hover or focus (colour only; nothing moves, DL §7). One press covers the tile; it takes
+  initial focus and is `Split` (`Run` when the folder has no tab); nothing is remembered and no
+  modifier changes it. While the folder has a tab, a 24px icon-only `PlusCircle` button at the
+  tile's bottom-left starts a `New space` (`launchAgentAtTarget` with a `new-space` target), with
+  a DL-13.7 hover tip (400ms for a pointer, at once on keyboard focus, no native `title`) and
+  `aria-label` `Run <agent> in a new space`. The `Terminal` tile follows the installed agents. A
+  missing agent follows it as a dimmed tile: `Not installed` bottom-left, a disabled press and
+  the Install / Get control bottom-right at full contrast, with no `New space` button and no
+  arrow.
   The context row has no field labels (DL-32.2): a workspace popover (DL-13.1, `Open folder…`
   first), a checkout popover (the repository's checkouts by branch; absent for a folder git does
   not know) and a placement chip, `Split beside <agent>` when the focused pane belongs to the
-  chosen checkout, else `New space`. The chip is identity, not a control. Changing workspace or
-  checkout re-targets in place and starts nothing; the launch does what the chip says.
+  chosen checkout, else `New space`. The triggers are 28px `--radius-tab` pills on `--input-bg`
+  with a `--hair` border (`--hair-strong` on hover); the chip follows them after a decorative
+  `→` as the same pill without a hover, because it is identity, not a control. Changing
+  workspace or checkout re-targets in place and starts nothing; the launch does what the chip
+  says.
+  A preview line is pinned to the bottom of the page (sticky on `--bg` under its hairline, so
+  tiles scroll beneath it and it stays in view on a long page; a short page rests it at the
+  bottom). It is a single line: it prints the command the hovered or keyboard-focused tile would
+  type, in `--board-font` (DL-4.1's exception), then `in <checkout path>` and where it lands:
+  the chip's words for a press, `New space` for the `PlusCircle` button. The command is never
+  truncated; the path gives way first, with an ellipsis and its full text in `title`. The
+  `Terminal` tile reads in plain words and a missing tile says nothing; with nothing shown, the
+  line says how to see the command. It is not a live region: the shown tile's controls name it
+  with `aria-describedby`. At its right end a profile chip (`Default profile`, or `Custom
+  profile` once a pick differs from a default) opens a DL-13.1 popover upward from the chip,
+  listing each installed agent's launch commands, a check on the active one and `default` on the
+  default, then `Edit profiles in Settings…`; only the command list scrolls, so that row stays
+  reachable. The chip is omitted when no installed agent is on the page (DL-32.5). A pick changes the
+  preview and the next launch from this visit only: it is page state, and leaving the page
+  forgets it. A launch that fails before its pane exists puts its message in an alert above the
+  tiles with a `Retry` that repeats the same agent, placement and pick; no exit code is shown,
+  because Deck does not watch the process after spawn.
 - **DL-32.7** Agent panes carry one compact identity header. On Electron the
   [pane header](../src/terminal/pane-agent-header.tsx) is logo · the sidebar's latest message
   (one line, ellipsis, full text on hover), with no buttons (DL-32.8). It
@@ -1616,6 +1663,7 @@ section therefore means naming DL, or the gate does not see the citation.
 | Spaces and Mission Control are a shipping surface | `building` | built and unit-verified, native walk and owner eye review owed | §35 landed 2026-09-28 on `feat/mission-control`: `tsc`, `npm test`, `npm run build` and `generate:menu:check` green; no `electron:dev` walk yet. It replaced this row's previous claim, "the Agent Board is a shipping surface", closed the same day when the Board was retired behind `AGENT_BOARD_RETIRED` (§34's retirement note) |
 | Space workflow refinements are a shipping surface | `building` | built, unrun and unwalked; owner eye review owed | 2026-10-03 on `main` (4478840, 664edc5, 0fab403, 0c743a2): launch cards (DL-32.6), auto-named spaces and project capsules and the edge marker (DL-35.3). No `tsc`, `npm test` or `electron:dev` run yet. The walk must cover five agents on one card row, the New space tip by keyboard, a worktree inside its repository's capsule, and a red edge dot with enough spaces to scroll |
 | The launch page's context row is a shipping surface | `building` | built and unit-verified, native walk and owner eye review owed | 2026-10-08 on `feat/launch-page-context` (DL-32.6 amended): the workspace and checkout popovers, the placement chip and `Open folder…`. No gallery specimen exists for the launch page. The walk must cover changing the workspace and the checkout, seeing the chip follow, `Open folder…`, and launching from a re-targeted page |
+| The launch page's tiles, preview and profile popover are a shipping surface | `building` | built, unit-verified and driven in the Electron app; owner eye review owed | 2026-10-11 on `feat/launch-page-details` (DL-32.6 and DL-4.1 amended): the 74px tiles with the bottom-left `New space` button, dimmed missing tiles carrying Install, the context pills, the pinned monospace command preview, the profile chip and its upward popover, and the failure alert with Retry. Driven in the running Electron app on 2026-10-11 with `playwright-core`, a scratch `userData` and stub agents: the tiles and pills; 10 dimmed missing tiles with Install; the hover and focus preview; `New space` from the ⊕; Escape closing the popover before the page; a pick typing the picked command; Install from a tile (a fake installer); a failed launch with Retry; and 780px with two columns. No gallery specimen. Still owed: the owner's eye review, the light theme, Windows, Tauri's Open board (it shares the tiles) and `electron:smoke` |
 | Space names are a shipping surface | `building` | built and unit-verified, native walk and owner eye review owed | 2026-09-29 on `feat/space-names`: the strip (DL-35.3), the shelf (DL-35.1) and the rail row (DL-27.15's amendment) rename and render a name. The walk must cover the floating strip field over a short name and a 40-character one, the shelf field inside a 96px thumbnail, and a named and an unnamed space in one folder |
 | Every needs-you surface of a space wears the rail's two inks | `building` | the strip's marks do; the rest stay single red, owner decision owed | 2026-10-06 on `feat/rail-row-badge`: the marks and the current space's under-dot paint `--status-unread` for a question and `--red` for a failure (DL-35.3). DL-35.3 also says the shelf counts wear the same two colours, but `.mc-space__needs` paints `--red` for both (its `data-tone` is emitted and the stylesheet never reads it); the miniature's cells and the hidden-needs edge dot are single red too. Unwalked in `electron:dev` |
 | The collapsed rail is a shipping surface | `building` | built and unit-verified, native walk and owner eye review owed | 2026-10-07 on `feat/rail-collapsed` (DL-27.29, DL-18.9 amended): the avatar column, its needs-you badge and current mark, the flyout and `toggle-sidebar` (⌘B, Ctrl+Shift+L). No `electron:dev` walk. The walk must cover the traffic lights over a 52px column on macOS, a drag past the floor and back out, an avatar flyout over the browser tab, Esc returning focus to the avatar, and ⌘B from a terminal, a document and the tree |

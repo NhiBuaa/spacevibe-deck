@@ -1,7 +1,8 @@
 /* oxlint-disable jest/valid-expect, vitest/valid-expect -- vitest expect() takes a failure message as its second argument */
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { DEFAULT_SETTINGS } from "../settings/settings-schema";
+import { resolveTheme } from "../settings/themes";
 import { DECK_THEME_ID, EDITOR_LANGUAGES, languageForPath, monacoThemeFor } from "./editor-host";
 
 describe("the enumerated language set", () => {
@@ -41,6 +42,63 @@ describe("the enumerated language set", () => {
       .map((match) => match[1])
       .filter((specifier) => specifier.startsWith("monaco-editor"));
     expect(staticImports).toEqual([]);
+  });
+});
+
+describe("the codicon font", () => {
+  it("is loaded by the lazy loader, so the diff's signs and chevrons draw", () => {
+    const source = readFileSync("src/files/editor-host.ts", "utf8");
+    const specifiers = [...source.matchAll(/import\("([^"]+)"\)/g)].map((match) => match[1]);
+    expect(specifiers).toContain("monaco-editor/features/codicon/register.js");
+  });
+});
+
+describe("loadMonaco's failures", () => {
+  const CODICON = "monaco-editor/features/codicon/register.js";
+  const LANGUAGE = "monaco-editor/languages/definitions/typescript/register.js";
+  const specifiers = [
+    ...readFileSync("src/files/editor-host.ts", "utf8").matchAll(/import\("([^"]+)"\)/g),
+  ].map((match) => match[1]);
+
+  /** A fresh `editor-host` whose every Monaco chunk is a stub, and whose
+   * `failing` chunk throws on its first `failures` loads. */
+  async function loaderWith(failing: string, failures: number) {
+    vi.resetModules();
+    let left = failures;
+    for (const specifier of specifiers) {
+      vi.doMock(specifier, () => {
+        if (specifier === failing && left > 0) {
+          left -= 1;
+          throw new Error(`${specifier} did not load`);
+        }
+        if (specifier.endsWith("?worker")) return { default: class {} };
+        return specifier.endsWith("editor.api") ? { stub: "editor.api" } : {};
+      });
+    }
+    return import("./editor-host");
+  }
+
+  afterEach(() => {
+    for (const specifier of specifiers) vi.doUnmock(specifier);
+    vi.resetModules();
+    vi.restoreAllMocks();
+    delete (globalThis as { MonacoEnvironment?: unknown }).MonacoEnvironment;
+  });
+
+  it("loads the editor without the codicon font, and says so", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { loadMonaco } = await loaderWith(CODICON, 1);
+    await expect(loadMonaco()).resolves.toMatchObject({ stub: "editor.api" });
+    expect(warn).toHaveBeenCalledWith(
+      "Deck: Monaco's codicon font failed to load",
+      expect.any(Error),
+    );
+  });
+
+  it("still fails on any other chunk, and retries it on the next call", async () => {
+    const { loadMonaco } = await loaderWith(LANGUAGE, 1);
+    await expect(loadMonaco()).rejects.toBeInstanceOf(Error);
+    await expect(loadMonaco()).resolves.toMatchObject({ stub: "editor.api" });
   });
 });
 
@@ -119,6 +177,49 @@ describe("monacoThemeFor", () => {
 
   it("turns Monaco's scroll shadow off — DL-1.3 allows no shadows", () => {
     expect(monacoThemeFor(DEFAULT_SETTINGS).colors["scrollbar.shadow"]).toBe("#00000000");
+  });
+
+  it("washes the diff from the live theme's own green and red, never fixed hex", () => {
+    // 12% of 255 is 31 (0x1f), 25% is 64 (0x40).
+    for (const themeId of ["deck-dark", "deck-light"]) {
+      const settings = { ...DEFAULT_SETTINGS, themeId, colorOverrides: {} };
+      const { green, red } = resolveTheme(settings);
+      const colors = monacoThemeFor(settings).colors;
+      expect(colors["diffEditor.insertedLineBackground"]).toBe(`${green}1f`.toLowerCase());
+      expect(colors["diffEditor.removedLineBackground"]).toBe(`${red}1f`.toLowerCase());
+      expect(colors["diffEditor.insertedTextBackground"]).toBe(`${green}40`.toLowerCase());
+      expect(colors["diffEditor.removedTextBackground"]).toBe(`${red}40`.toLowerCase());
+    }
+    const dark = monacoThemeFor({ ...DEFAULT_SETTINGS, themeId: "deck-dark", colorOverrides: {} });
+    const light = monacoThemeFor({
+      ...DEFAULT_SETTINGS,
+      themeId: "deck-light",
+      colorOverrides: {},
+    });
+    expect(dark.colors["diffEditor.insertedLineBackground"]).not.toBe(
+      light.colors["diffEditor.insertedLineBackground"],
+    );
+  });
+
+  it("paints each gutter in its own line's colour, at a low alpha", () => {
+    const colors = monacoThemeFor(DEFAULT_SETTINGS).colors;
+    const hue = (key: string) => colors[key].slice(0, 7);
+    const alpha = (key: string) => colors[key].slice(7);
+    expect(hue("diffEditorGutter.insertedLineBackground")).toBe(
+      hue("diffEditor.insertedLineBackground"),
+    );
+    expect(hue("diffEditorGutter.removedLineBackground")).toBe(
+      hue("diffEditor.removedLineBackground"),
+    );
+    // Never a solid stripe: well under half opacity.
+    expect(parseInt(alpha("diffEditorGutter.insertedLineBackground"), 16)).toBeLessThan(128);
+    expect(parseInt(alpha("diffEditorGutter.removedLineBackground"), 16)).toBeLessThan(128);
+  });
+
+  it("keeps the folded-run band shadowless — DL-1.3", () => {
+    const colors = monacoThemeFor(DEFAULT_SETTINGS).colors;
+    expect(colors["diffEditor.unchangedRegionShadow"]).toBe("#00000000");
+    expect(colors["diffEditor.unchangedRegionShadow"]).toBe(colors["scrollbar.shadow"]);
   });
 
   it("names one theme id, so re-defining it replaces rather than accumulates", () => {

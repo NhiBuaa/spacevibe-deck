@@ -13,7 +13,7 @@
  *  - Focus, the list appearing and Refresh skip the debounce and that spacing.
  *  - One read is in flight at most. Triggers that arrive during it collapse
  *    into exactly one more.
- *  - While inactive (window hidden, list not shown) timers are cancelled and
+ *  - While inactive (window hidden, Explorer not shown) timers are cancelled and
  *    triggers are dropped; becoming active reads once.
  */
 

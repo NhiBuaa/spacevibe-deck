@@ -38,18 +38,22 @@ import {
   probeNames,
   resolveAgentCommand,
 } from "../lib/agent-catalog";
-import { agentLaunchCommand, resolveLaunchCommand } from "../lib/launch-command";
+import {
+  agentLaunchCommand,
+  agentLaunchCommandChoices,
+  resolveLaunchCommand,
+} from "../lib/launch-command";
 import { countAgentLaunch } from "../telemetry/usage-counters";
 import { createAgentRegistrySync } from "./agent-registry-sync";
 import { agentRegistry as fetchAgentRegistry } from "../host/agent-registry-host";
 import { UNAVAILABLE_REGISTRY } from "../lib/agent-registry";
-import { augmentLaunchCommand, needsOpencodePort } from "../lib/launch-augment";
+import { augmentLaunchCommand } from "../lib/launch-augment";
+import { commandAgentId } from "../lib/launch-profile";
 import {
   agentSignalConfig as fetchSignalConfig,
   available as signalsHostAvailable,
   listenHookEvents as listenHostHookEvents,
   NO_SIGNAL_CONFIG,
-  opencodeAttach as hostOpencodeAttach,
 } from "../host/agent-signals-host";
 import { contractSignalOf, type HookEvent } from "../lib/agent-signal-map";
 import { lastSessionIdFor, noteExplicitTail } from "./session-tail-store";
@@ -359,8 +363,6 @@ export function createTabManager(
   // cannot (Tauri, the browser preview), and `null` disables that half.
   let signalConfig = NO_SIGNAL_CONFIG;
   const signalConfigFetch = deps.signalConfig === undefined ? fetchSignalConfig : deps.signalConfig;
-  const opencodeAttach =
-    deps.opencodeAttach === undefined ? hostOpencodeAttach : deps.opencodeAttach;
   const hookEventsListen = deps.hookEvents === undefined ? listenHostHookEvents : deps.hookEvents;
   // Stages 1–3 are Electron-only (spec §8): a host with no `agent_signal_config`
   // — Tauri, the browser preview, the test harness — arms the user's command
@@ -373,7 +375,7 @@ export function createTabManager(
    * its CLI report to Deck (spec §4 stage 2; `launch-augment.ts`). The user's
    * own command is what `launchCommandByPane` and the journal hold — the
    * augmented string exists only here and in the shell it is typed into.
-   * An opencode pane asks main for a port first. Claude obtains its session
+   * Claude obtains its session
    * identity from SessionStart or the registry, including manual launches.
    */
   async function prepareLaunch({ id, command }: AgentLaunchEntry): Promise<AgentLaunchEntry> {
@@ -383,16 +385,21 @@ export function createTabManager(
     if (command === null) {
       return { id, command: null };
     }
-    let opencodePort: number | null = null;
-    if (opencodeAttach !== null && needsOpencodePort(command, adapters)) {
-      opencodePort = await opencodeAttach(id).catch(() => null);
+    // What the installed Codex accepts can change while Deck runs (an upgrade, or
+    // the switch flipping, which makes main re-probe), so a Codex launch asks again
+    // instead of trusting the answer fetched at start.
+    if (signalConfigFetch !== null && commandAgentId(command) === "codex" && adapters.codex) {
+      signalConfig = await signalConfigFetch().catch(() => signalConfig);
     }
     const augmented = augmentLaunchCommand(command, {
       adapters,
       platform,
       claudeSettingsPath: signalConfig.claudeSettingsPath,
       sessionId: null,
-      opencodePort,
+      hooksSupported: signalConfig.hooksSupported,
+      shellBootstrap: signalConfig.shellBootstrap,
+      codexBypassHookTrust: signalConfig.codexBypassHookTrust,
+      codexNoDaemon: signalConfig.codexNoDaemon,
     });
     return { id, command: augmented.command };
   }
@@ -415,7 +422,7 @@ export function createTabManager(
   }
 
   /**
-   * One accepted hook post or server event for a pane of this window. The
+   * One accepted hook post for a pane of this window. The
    * map decides what it means; the tracker decides whether it applies (gate
    * and generation); a `Stop`'s sentence goes straight to the tail store.
    */
@@ -443,6 +450,7 @@ export function createTabManager(
     if (ownerOf(event.paneId) === undefined) {
       return;
     }
+    if (event.agent === "opencode" && !settings.value.agentSignalAdapters.opencode) return;
     const signal = contractSignalOf(event);
     if (signal === null) {
       return;
@@ -778,6 +786,15 @@ export function createTabManager(
       });
       if (signalSnap !== null) {
         maybeNotify(id, signalSnap);
+        syncViews();
+      }
+    },
+    onPaneInterrupt(id: number): void {
+      // Escape / Ctrl+C: the key already went to the PTY. If the tracker was showing explicit
+      // work or a hook request, it now reads idle until the agent's next hook says otherwise.
+      const interruptSnap = tracker.noteInterrupt(id);
+      if (interruptSnap !== null) {
+        maybeNotify(id, interruptSnap);
         syncViews();
       }
     },
@@ -1514,6 +1531,22 @@ export function createTabManager(
     return id === null ? null : { owner, paneId: id };
   }
 
+  /**
+   * A launch-page pick (PAGE4) is typed into a live shell, so it is accepted only
+   * while the agent is launchable and still lists that exact command.
+   */
+  function pageProfileCommand(agentId: string, picked: string): string | null {
+    if (pageAgentCommand(agentId) === null) return null;
+    const current = settings.value;
+    const choices = agentLaunchCommandChoices(
+      agentId,
+      current.launchProfiles,
+      current.defaultLaunchProfiles,
+      current.customAgents,
+    );
+    return choices?.commands.includes(picked) === true ? picked : null;
+  }
+
   async function launchAgentAtTarget(
     target: AgentLaunchTarget,
     agentId: string,
@@ -1530,14 +1563,29 @@ export function createTabManager(
       return { kind: "failed", message: "This install command cannot be run." };
     // The Terminal card runs no command: the pane stays a bare shell.
     const shell = agentId === TERMINAL_LAUNCH_ID;
-    const command = install ? override.command : shell ? null : pageAgentCommand(agentId);
+    const profile = override?.kind === "profile" ? override.command : null;
+    const command = install
+      ? override.command
+      : shell
+        ? null
+        : profile !== null
+          ? pageProfileCommand(agentId, profile)
+          : pageAgentCommand(agentId);
     if (!shell && command === null)
       return {
         kind: "failed",
-        message: "This agent is no longer available. Choose another agent.",
+        message:
+          profile !== null && pageAgentCommand(agentId) !== null
+            ? "That launch command is no longer available. Choose another."
+            : "This agent is no longer available. Choose another agent.",
       };
     const valid = () =>
-      !disposed && canCommit() && (shell || install || pageAgentCommand(agentId) === command);
+      !disposed &&
+      canCommit() &&
+      (shell ||
+        install ||
+        (profile !== null ? pageProfileCommand(agentId, profile) : pageAgentCommand(agentId)) ===
+          command);
     const finishStartupSpawn = beginWindowsStartupSpawn();
     try {
       const created = await createPageLaunchPane(target, valid, checkoutRoots);
@@ -3449,7 +3497,7 @@ export function createTabManager(
         }
       }),
     );
-    // Stage 2: the launch config, then the hook/server events. The config is
+    // Stage 2: the launch config, then the hook events. The config is
     // awaited so the first launch after boot is augmented; the subscription
     // is registered like every other host listener.
     if (signalConfigFetch !== null) {

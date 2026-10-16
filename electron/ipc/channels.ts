@@ -58,12 +58,10 @@ export const CHANNELS = {
   // Electron-only, like the block above.
   agentRegistry: "agent_registry",
   // Stage 2 of the same layer: the launch config a pane's command is
-  // augmented with (`--settings` file, hook port), and opencode's per-pane
-  // server attachment (`{ paneId }` → `{ port }`). Electron-only, like the
+  // augmented with (`--settings` file, hook port). Electron-only, like the
   // block above; the hook endpoint itself is loopback HTTP, not IPC, and its
   // accepted posts arrive as the `hook:event` push below.
   agentSignalConfig: "agent_signal_config",
-  opencodeAttach: "opencode_attach",
   // Window label accessor, for the same restore work: no renderer accessor
   // existed before this (main derived it per-request via `labelOf(event)`
   // only). Electron-only, like the block above.
@@ -187,6 +185,12 @@ export const CHANNELS = {
   // Replaces this sender's one watched checkout; `{ root: null }` releases it.
   // Held only while the list is shown and the window visible. Electron-only.
   gitChangesWatch: "git_changes_watch",
+  // The diff column's HEAD side: one file as the last commit holds it, size-
+  // checked before it is read (plan 2026-10-10-diff-column, D8). Electron-only
+  // like the two above: no `#[tauri::command]` counterpart, and the column is
+  // reachable only from the Changes list that the frozen Tauri host never shows.
+  // Flat `{ root, path }` per R6; `path` is root-relative with `/`.
+  gitHeadFile: "git_head_file",
 } as const;
 
 /** Events: main → renderer, fire and forget. */
@@ -217,7 +221,7 @@ export const EVENTS = {
   // choices dismiss the row across every window). Carries consent state only —
   // never a daily id.
   telemetryState: "telemetry:state-changed",
-  // One accepted hook post or opencode server event, delivered to the window
+  // One accepted hook post, delivered to the window
   // that owns the pane (agent-signal contract layer, stage 2). Flat keys —
   // `electron/agent-hooks/hook-server.ts`'s `HookEventPayload`.
   hookEvent: "hook:event",

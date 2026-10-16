@@ -125,8 +125,9 @@ host cannot answer.
   turn ends are debounced 150 ms but never held past 1 s from a burst's first trigger; a read
   starts no sooner than 1 s after the previous one started and one previous duration after it
   ended; focus, the list appearing and Refresh skip the debounce; one read is in flight and
-  whatever arrives meanwhile collapses into exactly one more. A hidden window or a hidden view
-  runs nothing and releases the watch; coming back reads once. Turn end is a pane of the shown
+  whatever arrives meanwhile collapses into exactly one more. The Explorer holds the watch in
+  either view, because the Changes chip shows the totals while Files is up; a hidden window or
+  a closed Explorer runs nothing and releases the watch; coming back reads once. Turn end is a pane of the shown
   workspace's tab leaving `working`
   ([`turn-end.ts`](../../src/files/changes/turn-end.ts)), so a finished agent turn refreshes the
   list even where no watch exists.
@@ -136,7 +137,7 @@ host cannot answer.
   the rail's repository scan, not from a `git status`: a folder the scan calls plain disables
   the Changes chip with "Not a git repository". That scan cannot tell a missing git from a
   folder that is not a repository, so with no git on `PATH` the chip is disabled the same way
-  and the "Git is not installed" message appears only if git vanishes while the list is shown.
+  and the "Git is not installed" message appears only if git vanishes while the list is up.
 
 ## Main-process file guards
 

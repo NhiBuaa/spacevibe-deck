@@ -15,9 +15,8 @@
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import {
-  HOOK_MAX_BODY_BYTES,
-  CODEX_HOOK_PATH,
-  CODEX_HOOK_MAX_BODY_BYTES,
+  hookAgentOfUrl,
+  hookMaxBodyBytes,
   nextPaneSession,
   parseHookBody,
   validateHookHead,
@@ -28,8 +27,7 @@ import {
 export interface HookEventPayload {
   readonly turnId?: string;
   readonly paneId: number;
-  /** `hook` for a CLI hook post, `server` for opencode's own event stream. */
-  readonly source: "hook" | "server";
+  readonly source: "hook";
   readonly agent: string;
   readonly event: string;
   readonly sessionId: string;
@@ -42,6 +40,8 @@ export interface HookEventPayload {
 export interface HookServerDeps {
   /** The pane's token, or null when the pane is not live. */
   readonly tokenFor: (paneId: number) => string | null;
+  /** The pane's tty (without `/dev/`), or null when the pane is not live. */
+  readonly ttyFor: (paneId: number) => string | null;
   /** Deliver to the window that owns the pane. */
   readonly emitToOwner: (paneId: number, payload: HookEventPayload) => void;
   readonly now?: () => number;
@@ -58,17 +58,25 @@ export interface HookServer {
   close(): Promise<void>;
 }
 
+/** The agents that post to the endpoint; each keeps its own generation on a pane. */
+const HOOK_AGENTS = ["claude", "codex", "opencode"] as const;
+const generationKey = (paneId: number, agent: string) => `${paneId}:${agent}`;
+
 export function createHookServer(deps: HookServerDeps): HookServer {
   const now = deps.now ?? Date.now;
   const log = deps.log ?? ((message: string) => console.warn(message));
-  /** Current occupant per pane — the generation check's memory. */
-  const sessions = new Map<number, string | null>();
+  /**
+   * Current occupant per pane AND agent — the generation check's memory. Keyed by agent too, so
+   * a nested Codex `SessionStart` cannot evict the pane's Claude occupant.
+   */
+  const sessions = new Map<string, string | null>();
   let server: http.Server | null = null;
   let port: number | null = null;
 
   function accept(post: HookPost): void {
-    const decision = nextPaneSession(sessions.get(post.paneId) ?? null, post);
-    sessions.set(post.paneId, decision.current);
+    const key = generationKey(post.paneId, post.agent ?? "claude");
+    const decision = nextPaneSession(sessions.get(key) ?? null, post);
+    sessions.set(key, decision.current);
     if (!decision.accept) {
       log(`Deck: dropped a ${post.event} hook from a previous occupant of pane ${post.paneId}`);
       return;
@@ -91,6 +99,7 @@ export function createHookServer(deps: HookServerDeps): HookServer {
     const head = validateHookHead(
       { method: request.method, url: request.url, headers: request.headers },
       deps.tokenFor,
+      deps.ttyFor,
     );
     if (!head.ok) {
       response.statusCode = head.status;
@@ -98,8 +107,9 @@ export function createHookServer(deps: HookServerDeps): HookServer {
       request.resume();
       return;
     }
-    const codex = request.url?.split("?")[0] === CODEX_HOOK_PATH;
-    const limit = codex ? CODEX_HOOK_MAX_BODY_BYTES : HOOK_MAX_BODY_BYTES;
+    // The head check passed, so the path is one the endpoint serves.
+    const agent = hookAgentOfUrl(request.url) ?? "claude";
+    const limit = hookMaxBodyBytes(agent);
     const chunks: Buffer[] = [];
     let received = 0;
     let refused = false;
@@ -122,11 +132,7 @@ export function createHookServer(deps: HookServerDeps): HookServer {
       if (refused) {
         return;
       }
-      const post = parseHookBody(
-        head.paneId,
-        Buffer.concat(chunks).toString("utf8"),
-        codex ? "codex" : "claude",
-      );
+      const post = parseHookBody(head.paneId, Buffer.concat(chunks).toString("utf8"), agent);
       if (post === null) {
         response.statusCode = 400;
         response.end();
@@ -166,7 +172,7 @@ export function createHookServer(deps: HookServerDeps): HookServer {
       return port;
     },
     forgetPane(paneId) {
-      sessions.delete(paneId);
+      for (const agent of HOOK_AGENTS) sessions.delete(generationKey(paneId, agent));
     },
     close() {
       return new Promise((resolve) => {

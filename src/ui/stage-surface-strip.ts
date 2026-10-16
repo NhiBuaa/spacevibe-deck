@@ -18,6 +18,7 @@ import {
   stepAgentBoardBack as stepBoardOffStage,
 } from "./agent-board-store";
 import { UNSEQUENCED } from "../lib/open-sequence";
+import { closeDiffColumn, focusInDiffColumn } from "../files/changes/diff-column-focus";
 import { dismissMissionControl } from "./mission-control/mission-control-store";
 
 /** One slot in the SurfaceStrip index space, described rather than named. */
@@ -65,8 +66,14 @@ export function composeSurfaceStrip(deps: StageSurfaceStripDeps): SurfaceStrip {
   };
   return {
     count: () => browserSlot() + boardSlot(),
+    // The diff column claims ⌘W while focus is inside it (plan
+    // 2026-10-10-diff-column, D13): without this the chord reaches `closePane()`
+    // and offers to close the agent whose changes are under review.
     hasFocus: () =>
-      files.activeIndex() >= 0 || browserSurfaceActive.value || agentBoardSurfaceActive.value,
+      focusInDiffColumn() ||
+      files.activeIndex() >= 0 ||
+      browserSurfaceActive.value ||
+      agentBoardSurfaceActive.value,
     total: () => files.total() + browserSlot() + boardSlot(),
     activeIndex: () =>
       agentBoardSurfaceActive.value ? boardIndex() : browserSurfaceActive.value ? 0 : -1,
@@ -141,6 +148,10 @@ export function composeSurfaceStrip(deps: StageSurfaceStripDeps): SurfaceStrip {
       files.focus();
     },
     async close() {
+      if (focusInDiffColumn()) {
+        closeDiffColumn();
+        return;
+      }
       if (files.activeIndex() >= 0) {
         await files.close();
         return;

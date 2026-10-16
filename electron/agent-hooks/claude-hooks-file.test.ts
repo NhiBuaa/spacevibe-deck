@@ -35,7 +35,7 @@ describe("claudeHooksDocument", () => {
     Array<{ matcher?: string; hooks: Array<{ type: string; command: string }> }>
   >;
 
-  it("installs exactly the six events, and no sub-agent or teammate ones", () => {
+  it("installs exactly the nine events, and no sub-agent or teammate ones", () => {
     expect(Object.keys(hooks)).toEqual([...CLAUDE_HOOK_EVENTS]);
     expect(hooks).not.toHaveProperty("SubagentStop");
     expect(hooks).not.toHaveProperty("TeammateIdle");
@@ -53,6 +53,13 @@ describe("claudeHooksDocument", () => {
     expect(hooks.Notification[0].matcher).toBe(NOTIFICATION_MATCHER);
     expect(hooks.Stop[0]).not.toHaveProperty("matcher");
   });
+
+  it("adds UserPromptSubmit without a matcher and the two tool events on every tool", () => {
+    expect(hooks.UserPromptSubmit[0]).not.toHaveProperty("matcher");
+    expect(hooks.PostToolUse[0].matcher).toBe("*");
+    expect(hooks.PostToolUseFailure[0].matcher).toBe("*");
+    expect(hooks.PostToolUse[0].hooks[0].command).toMatch(/deck-hook\.sh' PostToolUse$/);
+  });
 });
 
 describe("hookScriptSource", () => {
@@ -68,7 +75,7 @@ describe("hookScriptSource", () => {
   });
 
   it("does nothing without a port, and falls back to an OSC 777 on a failed Notification post only", () => {
-    expect(script).toContain('if [ -z "$DECK_HOOK_PORT" ]');
+    expect(script).toContain('if [ -z "${DECK_HOOK_PORT-}" ]');
     expect(script).toContain('if [ "$EVENT" = "Notification" ]; then');
     expect(script).toContain('{"terminalSequence":"\\u001b]777;notify;Deck;needs input\\u0007"}');
   });

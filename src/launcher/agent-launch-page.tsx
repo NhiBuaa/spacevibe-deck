@@ -1,13 +1,15 @@
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
-import { ArrowLeft, Gear } from "@phosphor-icons/react";
+import { ArrowLeft, Warning } from "@phosphor-icons/react";
 import type { AgentOption } from "../lib/agent-catalog";
-import type { QuickAgentChoice } from "../settings/quick-agent-choices";
-import type { AgentLaunchTarget } from "../terminal/agent-launch-target";
-import { AgentLaunchCards } from "./agent-launch-cards";
+import type { LaunchCommandChoices } from "../lib/launch-command";
+import { tildify } from "../lib/process-info";
+import type { AgentLaunchTarget, LaunchCommandOverride } from "../terminal/agent-launch-target";
+import { AgentLaunchCards, type CardPreview, type CardPreviewSource } from "./agent-launch-cards";
 import { eventInOpenLaunchPopover } from "./agent-launch-page-store";
 import { AgentLaunchContext, type AgentLaunchContextProps } from "./agent-launch-context";
-import { QuickAgentEditor } from "./quick-agent-editor";
-import { DeckIcon } from "../ui/controls/deck-icon";
+import { LaunchCommandPreview } from "./launch-command-preview";
+import { LaunchProfilePopover, type LaunchProfileSection } from "./launch-profile-popover";
+import { DeckIcon, ROW_ICON } from "../ui/controls/deck-icon";
 import "./agent-launch-page.css";
 
 export interface AgentLaunchPageProps {
@@ -15,33 +17,68 @@ export interface AgentLaunchPageProps {
   /** The context row: workspace, checkout and placement chip (DL-32.6). */
   readonly contextRow: AgentLaunchContextProps;
   readonly agents: readonly AgentOption[];
+  /**
+   * Each installed agent's launch commands, from the app's settings: the page
+   * never reads settings itself. Keyed by agent id; the Terminal card has none.
+   */
+  readonly commands: Readonly<Record<string, LaunchCommandChoices>>;
   readonly resolved: boolean;
   readonly pending: boolean;
+  /** Why the last launch failed before its pane existed; null when it did not. */
   readonly error: string | null;
+  /** Repeats the failed launch: the same agent, placement and profile pick. */
+  readonly onRetry: () => void;
   readonly active?: boolean;
-  readonly onRun: (agentId: string) => void;
+  /** The override is set only while the agent's profile pick differs from its default. */
+  readonly onRun: (agentId: string, override?: LaunchCommandOverride) => void;
   /**
    * Run in a space of its own. Offered only when the target is a split — a
    * folder with no tab starts one anyway, so there is nothing to choose.
    */
-  readonly onRunInNewSpace?: (agentId: string) => void;
-  /**
-   * Every agent with its pinned state, and the toggle that writes it. Offered
-   * together: the grid ends with `Add agent`, which opens the editor.
-   */
-  readonly choices?: readonly QuickAgentChoice[];
-  readonly onToggleChoice?: (agentId: string) => void;
+  readonly onRunInNewSpace?: (agentId: string, override?: LaunchCommandOverride) => void;
   readonly onBack: () => void;
   readonly onSettings: () => void;
 }
 
+const PREVIEW_ID = "agent-launch-preview";
+
 /** DL-32.6: a transient stage page; no dialog, tab slot or PTY ownership. */
 export function AgentLaunchPage(props: AgentLaunchPageProps) {
   const root = useRef<HTMLElement>(null);
-  const [editing, setEditing] = useState(false);
   const active = props.active !== false;
-  const { choices, onToggleChoice } = props;
-  const canEdit = choices !== undefined && onToggleChoice !== undefined;
+  // A pointer and keyboard focus can each rest on a card; the pointer is the
+  // more recent intent, so it wins while it is over one.
+  const [pointer, setPointer] = useState<CardPreview | null>(null);
+  const [focus, setFocus] = useState<CardPreview | null>(null);
+  const preview = pointer ?? focus;
+  const onPreview = (source: CardPreviewSource, next: CardPreview | null): void =>
+    source === "pointer" ? setPointer(next) : setFocus(next);
+  const { context, homeDir } = props.contextRow;
+  // A profile pick (PAGE4) lives and dies with this visit: component state, never stored. One
+  // that settings no longer list falls back to the default instead of being typed.
+  const [picks, setPicks] = useState<Readonly<Record<string, string>>>({});
+  const activeCommand = (agentId: string): string | null => {
+    const choices = props.commands[agentId];
+    if (choices === undefined) return null;
+    const picked = picks[agentId];
+    return picked !== undefined && choices.commands.includes(picked) ? picked : choices.default;
+  };
+  const newSpace = props.target.kind === "split" ? props.onRunInNewSpace : undefined;
+  // The override rides along only while a pick differs from the default.
+  const launch = (
+    call: (agentId: string, override?: LaunchCommandOverride) => void,
+    id: string,
+  ) => {
+    const command = activeCommand(id);
+    if (command === null || command === props.commands[id]?.default) call(id);
+    else call(id, { kind: "profile", command });
+  };
+  const sections: readonly LaunchProfileSection[] = props.agents.flatMap((agent) => {
+    const choices = props.commands[agent.id];
+    return agent.missing || choices === undefined
+      ? []
+      : [{ id: agent.id, label: agent.label, choices, active: activeCommand(agent.id)! }];
+  });
   useLayoutEffect(() => {
     if (!active) return;
     const control = root.current?.querySelector<HTMLElement>(
@@ -65,12 +102,7 @@ export function AgentLaunchPage(props: AgentLaunchPageProps) {
         ) {
           event.preventDefault();
           event.stopPropagation();
-          if (editing) {
-            setEditing(false);
-            root.current?.querySelector<HTMLElement>("[data-launch-add]")?.focus();
-          } else {
-            props.onBack();
-          }
+          props.onBack();
         }
       }}
     >
@@ -78,14 +110,18 @@ export function AgentLaunchPage(props: AgentLaunchPageProps) {
         <button class="agent-launch-page__back" onClick={props.onBack}>
           <DeckIcon icon={ArrowLeft} size={15} /> Back <kbd>Esc</kbd>
         </button>
-        <header class="agent-launch-page__heading">
-          <span class="agent-launch-page__eyebrow">QUICK LAUNCH</span>
-          <h1>A little more horsepower.</h1>
-          <p>Pick an agent. Keep building, side by side.</p>
-        </header>
         <AgentLaunchContext {...props.contextRow} />
+        {props.error ? (
+          <div class="agent-launch-page__notice" role="alert">
+            <DeckIcon icon={Warning} size={ROW_ICON} />
+            <span class="agent-launch-page__notice-text">{props.error}</span>
+            <button type="button" disabled={props.pending} onClick={props.onRetry}>
+              Retry
+            </button>
+          </div>
+        ) : null}
         {!props.resolved ? <p role="status">Looking for installed agents…</p> : null}
-        {props.resolved && props.agents.length === 0 ? (
+        {props.resolved && props.agents.every((agent) => agent.missing) ? (
           <div class="agent-launch-page__empty">
             <p>No quick agents available.</p>
             <button data-launch-primary onClick={props.onSettings}>
@@ -96,31 +132,32 @@ export function AgentLaunchPage(props: AgentLaunchPageProps) {
         <AgentLaunchCards
           agents={props.agents}
           pending={props.pending}
-          onRun={props.onRun}
-          onRunInNewSpace={props.target.kind === "split" ? props.onRunInNewSpace : undefined}
-          onEditAgents={canEdit ? () => setEditing((open) => !open) : undefined}
-          editing={editing}
+          onRun={(agentId) => launch(props.onRun, agentId)}
+          onRunInNewSpace={newSpace && ((agentId) => launch(newSpace, agentId))}
+          preview={{ describedBy: PREVIEW_ID, shown: preview, onPreview }}
           terminal
         />
-        {canEdit && editing ? (
-          <QuickAgentEditor choices={choices} onToggle={onToggleChoice} />
-        ) : null}
+        {/* The preview line pins to the page's bottom edge, so it stays the last child. */}
         {props.pending ? <p role="status">Opening agent…</p> : null}
-        {props.error ? (
-          <p class="agent-launch-page__error" role="alert">
-            {props.error}
-          </p>
-        ) : null}
-        <footer class="agent-launch-page__footer">
-          <span>Your terminal is still running.</span>
-          <button
-            onClick={props.onSettings}
-            aria-label="Choose quick agents"
-            title="Choose quick agents"
-          >
-            <DeckIcon icon={Gear} size={15} />
-          </button>
-        </footer>
+        <LaunchCommandPreview
+          id={PREVIEW_ID}
+          subject={preview}
+          commandFor={activeCommand}
+          folder={tildify(context.checkoutPath, homeDir)}
+          folderPath={context.checkoutPath}
+          placement={context.chip}
+        >
+          {/* DL-32.5: nothing to choose between, so no chip. */}
+          {sections.length > 0 ? (
+            <LaunchProfilePopover
+              sections={sections}
+              onPick={(agentId, command) =>
+                setPicks((current) => ({ ...current, [agentId]: command }))
+              }
+              onEditProfiles={props.onSettings}
+            />
+          ) : null}
+        </LaunchCommandPreview>
       </div>
     </section>
   );

@@ -22,16 +22,17 @@ const UUID = /^[0-9a-f-]{36}$/;
 
 type HookHandler = (event: HookEvent) => void;
 
-function harness(infoByPane: Map<number, PaneProcessInfo>, over: { attach?: number | null } = {}) {
+function harness(infoByPane: Map<number, PaneProcessInfo>) {
   let handler: HookHandler | null = null;
-  const opencodeAttach = vi.fn(async () => over.attach ?? 45123);
   const { tm, pty } = setupControllable(infoByPane, {
     signalConfig: async () => ({
       claudeSettingsPath: SETTINGS_PATH,
       hookPort: 45999,
       hooksSupported: true,
+      shellBootstrap: false,
+      codexBypassHookTrust: false,
+      codexNoDaemon: false,
     }),
-    opencodeAttach,
     hookEvents: async (next) => {
       handler = next;
       return () => {
@@ -42,7 +43,6 @@ function harness(infoByPane: Map<number, PaneProcessInfo>, over: { attach?: numb
   return {
     tm,
     pty,
-    opencodeAttach,
     emitHook(event: HookEvent) {
       handler?.(event);
     },
@@ -56,8 +56,8 @@ beforeEach(() => {
 });
 
 /**
- * Every adapter ships OFF — a pane opens with the command the user chose. The
- * cases below are about what an adapter does once the user switches it on.
+ * Codex and opencode ship OFF; Claude's default is ON (DEF1). The cases below set
+ * each adapter they need explicitly.
  */
 function signalsOn(...agents: readonly (keyof SignalAdapters)[]): void {
   const on = Object.fromEntries(agents.map((agent) => [agent, true]));
@@ -197,12 +197,12 @@ describe("createTabManager — arm-time augmentation (stage 2)", () => {
     }
   });
 
-  it("reattaches an opencode port on Restart", async () => {
+  it("restarts opencode with the user's command, adding no port", async () => {
     signalsOn("opencode");
     const infos = new Map<number, PaneProcessInfo>([
       [1, processInfo(1, "/repo", "opencode", "agent", "opencode")],
     ]);
-    const { tm, pty, opencodeAttach } = harness(infos);
+    const { tm, pty } = harness(infos);
     try {
       await tm.init();
       await tm.materialize({ layout: null, cwds: ["/repo"], agent: "opencode" });
@@ -211,29 +211,32 @@ describe("createTabManager — arm-time augmentation (stage 2)", () => {
       await vi.advanceTimersByTimeAsync(2000);
       infos.set(1, processInfo(1, "/repo", "zsh", "idle-shell", null));
       await vi.advanceTimersByTimeAsync(2000);
-      opencodeAttach.mockClear();
       await expect(tm.restartPane(1)).resolves.toBe(true);
-      expect(opencodeAttach).toHaveBeenCalledWith(1);
-      expect(pty.writes.at(-1)?.data).toContain("--port 45123");
-      expect(pty.writes.at(-1)?.data).toBe("opencode -c --port 45123\r");
+      expect(pty.writes.at(-1)?.data).toBe("opencode -c\r");
     } finally {
       tm.dispose();
     }
   });
 
-  // The shipped defaults, for every agent that HAS an adapter: the pane types
-  // the command the user chose and nothing else, and main is not asked for a
-  // port it would then have to reserve.
-  for (const [agent, launchCommand] of [
-    ["claude", "claude --dangerously-skip-permissions"],
-    ["codex", "codex --full-auto"],
-    ["opencode", "opencode"],
+  // An adapter that is off, or has nothing to add: the pane types the command
+  // the user chose and nothing else, and main is not asked for a port it would
+  // then have to reserve. Claude is on by default but adds nothing to the command.
+  for (const [agent, launchCommand, codexOff] of [
+    ["claude", "claude --dangerously-skip-permissions", false],
+    ["codex", "codex --full-auto", true],
+    ["opencode", "opencode", false],
   ] as const) {
-    it(`types the user's ${agent} command unchanged with the shipped defaults`, async () => {
+    it(`types the user's ${agent} command unchanged ${codexOff ? "while its Signals are off" : "with the shipped defaults"}`, async () => {
+      if (codexOff) {
+        settings.value = {
+          ...settings.value,
+          agentSignalAdapters: { ...settings.value.agentSignalAdapters, [agent]: false },
+        };
+      }
       const infoByPane = new Map<number, PaneProcessInfo>([
         [1, processInfo(1, "/repo", agent, "agent", agent)],
       ]);
-      const { tm, pty, opencodeAttach } = harness(infoByPane);
+      const { tm, pty } = harness(infoByPane);
       await tm.init();
       await tm.materialize({
         layout: null,
@@ -247,7 +250,6 @@ describe("createTabManager — arm-time augmentation (stage 2)", () => {
       await vi.advanceTimersByTimeAsync(0);
 
       expect(pty.writes.find((write) => write.id === 1)?.data).toBe(`${launchCommand}\r`);
-      expect(opencodeAttach).not.toHaveBeenCalled();
       tm.dispose();
     });
   }
@@ -293,28 +295,6 @@ describe("createTabManager — arm-time augmentation (stage 2)", () => {
     }
   });
 
-  it("asks main for a port before typing opencode, and appends it", async () => {
-    signalsOn("opencode");
-    const infoByPane = new Map<number, PaneProcessInfo>([
-      [1, processInfo(1, "/repo", "opencode", "agent", "opencode")],
-    ]);
-    const { tm, pty, opencodeAttach } = harness(infoByPane, { attach: 45777 });
-    await tm.init();
-    await tm.materialize({
-      layout: null,
-      cwds: ["/repo"],
-      workspacePath: "/repo",
-      agent: "opencode",
-      launchCommand: "opencode",
-    });
-    await vi.advanceTimersByTimeAsync(0);
-    pty.emitOutput(1, "$ ");
-    await vi.advanceTimersByTimeAsync(0);
-    expect(opencodeAttach).toHaveBeenCalledWith(1);
-    expect(pty.writes.find((write) => write.id === 1)?.data).toBe("opencode --port 45777\r");
-    tm.dispose();
-  });
-
   it("appends codex's notification flag, and nothing when the adapter is off", async () => {
     const infoByPane = new Map<number, PaneProcessInfo>([
       [1, processInfo(1, "/repo", "codex", "agent", "codex")],
@@ -355,6 +335,48 @@ describe("createTabManager — arm-time augmentation (stage 2)", () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(second.pty.writes.find((write) => write.id === 1)?.data).toBe("claude\r");
     second.tm.dispose();
+  });
+
+  it("asks main again before a Codex launch, so a later probe answer is followed", async () => {
+    signalsOn("codex");
+    const answer = {
+      claudeSettingsPath: null,
+      hookPort: 45999,
+      hooksSupported: true,
+      shellBootstrap: false,
+      codexBypassHookTrust: false,
+      codexNoDaemon: false,
+    };
+    const signalConfig = vi.fn(async () => ({ ...answer }));
+    const launch = async () => {
+      const { tm, pty } = setupControllable(
+        new Map<number, PaneProcessInfo>([[1, processInfo(1, "/repo", "codex", "agent", "codex")]]),
+        { signalConfig, hookEvents: async () => () => {} },
+      );
+      await tm.init();
+      await tm.materialize({
+        layout: null,
+        cwds: ["/repo"],
+        workspacePath: "/repo",
+        agent: "codex",
+        launchCommand: "codex resume",
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      pty.emitOutput(1, "$ ");
+      await vi.advanceTimersByTimeAsync(0);
+      const typed = pty.writes.find((write) => write.id === 1)?.data;
+      tm.dispose();
+      return typed;
+    };
+    // An old Codex, as the first probe saw it.
+    expect(await launch()).toBe("codex resume -c tui.notification_condition=always\r");
+    // Upgraded while Deck ran: main re-probed, and the next launch follows it.
+    answer.codexBypassHookTrust = true;
+    answer.codexNoDaemon = true;
+    expect(await launch()).toBe("codex --no-daemon --dangerously-bypass-hook-trust resume\r");
+    // A bootstrapped shell: the wrapper adds the flags, the typed command is the user's.
+    answer.shellBootstrap = true;
+    expect(await launch()).toBe("codex resume\r");
   });
 
   it("a host with no adapters arms the user's command unchanged", async () => {

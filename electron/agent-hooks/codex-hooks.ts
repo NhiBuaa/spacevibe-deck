@@ -6,7 +6,27 @@ import { writeFileAtomically } from "../fs/write";
 import { shellQuote } from "./claude-hooks-file";
 
 type Document = Record<string, unknown>;
-export const CODEX_HOOK_EVENTS = ["SessionStart", "UserPromptSubmit", "Stop", "Interrupt"] as const;
+/**
+ * Superset's Codex set minus its Subagent events, plus the native `PermissionRequest`, in the
+ * order they are appended. The four oldest come first: Codex trusts a hook by its position, so
+ * an install that registered only those keeps its trust and gains the rest after them.
+ */
+export const CODEX_HOOK_EVENTS = [
+  "SessionStart",
+  "UserPromptSubmit",
+  "Stop",
+  "Interrupt",
+  "SessionEnd",
+  "PreToolUse",
+  "PostToolUse",
+  "PermissionRequest",
+] as const;
+
+/** The matcher each event is registered with; an event absent here has none. */
+export const CODEX_HOOK_MATCHERS: Readonly<Record<string, string>> = {
+  PreToolUse: "^request_user_input$",
+  PostToolUse: "*",
+};
 
 function record(value: unknown): value is Document {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -25,6 +45,11 @@ export function codexHookCommand(scriptPath: string): string {
   );
 }
 
+/** A group Deck emptied on disable (or any group with nothing in it): `{"hooks": []}`. */
+function isEmptyGroup(group: Document): boolean {
+  return Array.isArray(group.hooks) && group.hooks.length === 0 && Object.keys(group).length === 1;
+}
+
 export function reconcileCodexHooks(
   value: unknown,
   scriptPath: string,
@@ -35,29 +60,48 @@ export function reconcileCodexHooks(
   }
   const hooks = (value.hooks ?? {}) as Document;
   const command = codexHookCommand(scriptPath);
-  const managed: readonly string[] = CODEX_HOOK_EVENTS;
   const isDeck = (handler: unknown) =>
     record(handler) && handler.type === "command" && handler.command === command;
-  const holdsDeck = (groups: readonly Document[]) =>
-    groups.some((group) => (group.hooks as unknown[]).some(isDeck));
+  const groupHoldsDeck = (group: Document) => (group.hooks as unknown[]).some(isDeck);
+  const holdsDeck = (groups: readonly Document[]) => groups.some(groupHoldsDeck);
+  const deckGroup = (event: string): Document => ({
+    ...(event in CODEX_HOOK_MATCHERS ? { matcher: CODEX_HOOK_MATCHERS[event] } : {}),
+    hooks: [{ type: "command", command, timeout: 3 }],
+  });
+  /**
+   * Take Deck's handlers out WITHOUT moving anything else. Codex trusts a hook by its position
+   * (`<file>:<event>:<group>:<handler>` in config.toml), so removing a group or a handler in the
+   * middle would shift everything after it and make Codex ask the user to review hooks that did
+   * not change.
+   * - A group Deck empties stays as `{"hooks": []}` (Codex counts its index and runs the groups
+   *   after it), unless it is the last group, where nothing after it can shift; empty groups
+   *   left trailing are dropped with it.
+   * - Only Deck's TRAILING handlers in a group are removed. A Deck handler followed by another
+   *   handler in the same group (only possible by hand-merging) stays: removing it would shift
+   *   that handler. Its command is guarded by the pane env, so it is inert once Signals is off.
+   */
+  const withoutDeck = (groups: Document[]): Document[] => {
+    if (!holdsDeck(groups)) return groups;
+    const stripped = groups.map((group) => {
+      const handlers = group.hooks as unknown[];
+      let end = handlers.length;
+      while (end > 0 && isDeck(handlers[end - 1])) end -= 1;
+      if (end === handlers.length) return group;
+      return end === 0 ? { hooks: [] } : { ...group, hooks: handlers.slice(0, end) };
+    });
+    let last = stripped.length;
+    while (last > 0 && isEmptyGroup(stripped[last - 1])) last -= 1;
+    return stripped.slice(0, last);
+  };
   const entries = Object.entries(hooks).map(([event, groups]) => {
     if (!Array.isArray(groups) || groups.some((g) => !record(g) || !Array.isArray(g.hooks))) {
       throw new Error(`Invalid Codex hook groups for ${event}; hooks were not changed.`);
     }
-    // Codex trusts a hook by its position in this file (`<file>:<event>:<group>:<handler>`
-    // in config.toml), so a registration already in place stays exactly where it is.
-    // Stripping and re-appending it would shift every group after it, and Codex would ask
-    // the user to review hooks that did not change.
-    if (enabled && managed.includes(event) && holdsDeck(groups)) {
+    // A registration already in place stays exactly where it is when enabling.
+    if (enabled && (CODEX_HOOK_EVENTS as readonly string[]).includes(event) && holdsDeck(groups)) {
       return [event, groups] as const;
     }
-    const kept = groups.flatMap((group: Document) => {
-      const handlers = group.hooks as unknown[];
-      const remaining = handlers.filter((handler) => !isDeck(handler));
-      if (remaining.length === handlers.length) return [group];
-      return remaining.length === 0 ? [] : [{ ...group, hooks: remaining }];
-    });
-    return [event, kept] as const;
+    return [event, withoutDeck(groups)] as const;
   });
   const cleaned = Object.fromEntries(
     entries.filter(
@@ -70,11 +114,16 @@ export function reconcileCodexHooks(
         ...Object.fromEntries(
           CODEX_HOOK_EVENTS.map((event) => {
             const groups = (cleaned[event] ?? []) as Document[];
+            if (holdsDeck(groups)) return [event, groups];
+            // Reuse a group an earlier disable left empty rather than piling up a new one each
+            // time. An empty group is not told apart from a user's own; filling one is harmless,
+            // since it holds nothing and goes back to `{"hooks": []}` on the next disable.
+            const reusable = groups.findIndex(isEmptyGroup);
             return [
               event,
-              holdsDeck(groups)
-                ? groups
-                : [...groups, { hooks: [{ type: "command", command, timeout: 3 }] }],
+              reusable >= 0
+                ? groups.map((group, index) => (index === reusable ? deckGroup(event) : group))
+                : [...groups, deckGroup(event)],
             ];
           }),
         ),

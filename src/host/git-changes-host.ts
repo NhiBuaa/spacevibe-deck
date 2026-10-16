@@ -55,6 +55,31 @@ export function readChanges(root: string): Promise<ChangesReply> {
 }
 
 /**
+ * One file as `HEAD` holds it, for the diff column's original side. The reply
+ * mirrors `electron/git/head-file.ts`; `absent` means HEAD has no such file
+ * (added, untracked, or an unborn branch), `too-large` that the blob was not read.
+ */
+export type HeadFileReply =
+  | {
+      readonly kind: "ok";
+      readonly content: string;
+      readonly eol: "lf" | "crlf";
+      readonly encoding: "utf-8" | "invalid-utf-8";
+      readonly bytes: number;
+      readonly mixedEol: boolean;
+    }
+  | { readonly kind: "too-large"; readonly bytes: number }
+  | { readonly kind: "refused"; readonly reason: string }
+  | { readonly kind: "absent" }
+  | ChangesFailure;
+
+/** `path` is root-relative with `/`, as `ChangeEntry.path` and `oldPath` carry it.
+ * Never rejects on the main side: every failure is a typed reply. */
+export function readHeadFile(root: string, path: string): Promise<HeadFileReply> {
+  return invoke<HeadFileReply>("git_head_file", { root, path });
+}
+
+/**
  * Replaces this window's one watched checkout; `null` releases it. Rejects for a
  * root the host cannot resolve, like `watch_paths`.
  */

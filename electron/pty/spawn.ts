@@ -9,6 +9,7 @@ import fs from "node:fs";
 import path from "node:path";
 import * as pty from "node-pty";
 import { app } from "electron";
+import type { AgentShellPaths } from "../agent-shell/shell-bootstrap";
 import * as macos from "../platform/macos";
 import * as windows from "../platform/windows";
 
@@ -129,6 +130,8 @@ export interface PaneEnv {
   /** Identifies this installation's guarded global hook, including for manual launches. */
   readonly hookScript?: string | null;
   readonly codexHookScript?: string | null;
+  /** The provisioned wrappers and shell bootstrap, or null when provisioning failed. */
+  readonly agentShell?: AgentShellPaths | null;
 }
 
 export function buildEnv(
@@ -143,6 +146,14 @@ export function buildEnv(
     TERM_PROGRAM: "SpaceVibeDeck",
     TERM_PROGRAM_VERSION: version,
   };
+  // The agent wrapper names its agent for the hooks. A Deck started from an
+  // agent's tool call would otherwise hand that identity to every pane, and
+  // Claude Code's own marks would make every pane's agent read as nested.
+  delete env.DECK_AGENT_ID;
+  delete env.DECK_AGENT_NESTED;
+  delete env.DECK_AGENT_PID;
+  delete env.CLAUDECODE;
+  delete env.CLAUDE_PID;
   if (process.platform === "darwin") {
     env.ConEmuANSI = "ON";
   }
@@ -186,7 +197,10 @@ export interface SpawnedShell {
  */
 export function spawnShell(options: SpawnOptions, pane?: PaneEnv): SpawnedShell {
   const startedAt = performance.now();
-  const launch = platform().shellLaunch();
+  const launch =
+    process.platform === "win32"
+      ? windows.shellLaunch()
+      : macos.shellLaunch(pane?.agentShell ?? null);
   const shellResolvedAt = performance.now();
   const home = platform().userHome();
   const cwd = resolveSpawnCwd(options.cwd, home);
@@ -196,7 +210,10 @@ export function spawnShell(options: SpawnOptions, pane?: PaneEnv): SpawnedShell 
     cols: options.cols,
     rows: options.rows,
     cwd,
-    env: buildEnv(process.env, app.getVersion(), pane) as Record<string, string>,
+    env: { ...buildEnv(process.env, app.getVersion(), pane), ...launch.env } as Record<
+      string,
+      string
+    >,
     encoding: null,
   });
   return {

@@ -18,10 +18,6 @@ function claude(event: string, over: Partial<HookEvent> = {}): HookEvent {
   };
 }
 
-function opencode(event: string, over: Partial<HookEvent> = {}): HookEvent {
-  return claude(event, { source: "server", agent: "opencode", sessionId: "ses_abc", ...over });
-}
-
 describe("contractSignalOf — claude hooks", () => {
   it("Stop is a completion carrying the sentence", () => {
     expect(contractSignalOf(claude("Stop", { message: "Suite is green." }))).toEqual({
@@ -60,6 +56,19 @@ describe("contractSignalOf — claude hooks", () => {
     });
   });
 
+  it("UserPromptSubmit, PostToolUse and PostToolUseFailure are work, with no detail or sentence", () => {
+    for (const event of ["UserPromptSubmit", "PostToolUse", "PostToolUseFailure"]) {
+      expect(contractSignalOf(claude(event, { detail: "Bash" }))).toEqual({
+        source: "hook",
+        kind: "working",
+        sessionId: SESSION,
+        detail: null,
+        message: null,
+        observedAt: 1000,
+      });
+    }
+  });
+
   it("SessionStart names the session; SessionEnd, SubagentStop and TeammateIdle say nothing", () => {
     expect(contractSignalOf(claude("SessionStart"))?.kind).toBe("session");
     expect(contractSignalOf(claude("SessionEnd"))).toBeNull();
@@ -69,34 +78,66 @@ describe("contractSignalOf — claude hooks", () => {
 
   it("a hook from an agent the map does not know says nothing", () => {
     expect(contractSignalOf(claude("Stop", { agent: "codex" }))).toBeNull();
-    expect(contractSignalOf(claude("Stop", { source: "server" }))).toBeNull();
   });
 });
 
-describe("contractSignalOf — opencode server", () => {
-  it("maps status, idle, error and both permission spellings", () => {
-    expect(contractSignalOf(opencode("session.status"))?.kind).toBe("working");
-    expect(contractSignalOf(opencode("session.status", { detail: "idle" }))?.kind).toBe(
-      "completed",
-    );
-    expect(contractSignalOf(opencode("session.idle"))?.kind).toBe("completed");
-    expect(
-      contractSignalOf(opencode("session.error", { detail: "ProviderAuthError" })),
-    ).toMatchObject({
+describe("contractSignalOf — codex hooks", () => {
+  const codex = (event: string, over: Partial<HookEvent> = {}) =>
+    claude(event, { agent: "codex", turnId: "turn-1", ...over });
+
+  it("maps prompts and tool results to work, and approvals and questions to a request", () => {
+    expect(contractSignalOf(codex("UserPromptSubmit"))?.kind).toBe("working");
+    expect(contractSignalOf(codex("PostToolUse", { detail: "shell" }))).toMatchObject({
+      kind: "working",
+      detail: null,
+    });
+    expect(contractSignalOf(codex("PermissionRequest", { detail: "shell" }))).toMatchObject({
+      kind: "requested",
+      detail: "permission prompt — shell",
+    });
+    expect(contractSignalOf(codex("PreToolUse", { detail: "request_user_input" }))).toMatchObject({
+      kind: "requested",
+      detail: "input needed",
+    });
+  });
+
+  it("needs a turn for every event but SessionStart, and says nothing on SessionEnd", () => {
+    expect(contractSignalOf(codex("PostToolUse", { turnId: undefined }))).toBeNull();
+    expect(contractSignalOf(codex("SessionStart", { turnId: undefined }))?.kind).toBe("session");
+    expect(contractSignalOf(codex("SessionEnd", { turnId: undefined }))).toBeNull();
+    expect(contractSignalOf(codex("SubagentStop"))).toBeNull();
+  });
+});
+
+describe("contractSignalOf — opencode plugin", () => {
+  const plugin = (event: string, over: Partial<HookEvent> = {}) =>
+    claude(event, { agent: "opencode", sessionId: "ses_abc", ...over });
+
+  it("maps the seven wire names", () => {
+    expect(contractSignalOf(plugin("SessionStart"))).toMatchObject({
+      agent: "opencode",
+      source: "hook",
+      kind: "session",
+      sessionId: "ses_abc",
+    });
+    expect(contractSignalOf(plugin("Start"))?.kind).toBe("working");
+    expect(contractSignalOf(plugin("Stop"))?.kind).toBe("completed");
+    expect(contractSignalOf(plugin("Failed", { detail: "Rate limited" }))).toMatchObject({
       kind: "error",
-      detail: "ProviderAuthError",
+      detail: "Rate limited",
     });
-    expect(contractSignalOf(opencode("permission.asked", { detail: "bash" }))).toMatchObject({
+    expect(contractSignalOf(plugin("PermissionRequest"))).toMatchObject({
       kind: "requested",
-      detail: "permission — bash",
+      detail: "permission prompt",
     });
-    expect(contractSignalOf(opencode("permission.v2.asked"))).toMatchObject({
-      kind: "requested",
-      detail: "permission",
-    });
-    expect(contractSignalOf(opencode("permission.replied"))?.kind).toBe("answered");
-    expect(contractSignalOf(opencode("permission.v2.replied"))?.kind).toBe("answered");
-    expect(contractSignalOf(opencode("message.updated"))).toBeNull();
+    expect(contractSignalOf(plugin("PermissionReplied"))?.kind).toBe("answered");
+    expect(contractSignalOf(plugin("SessionEnd"))).toBeNull();
+  });
+
+  it("keeps agent opencode on the signal, and ignores a name that is not one of the seven", () => {
+    expect(contractSignalOf(plugin("Stop"))?.agent).toBe("opencode");
+    expect(contractSignalOf(plugin("session.status"))).toBeNull();
+    expect(contractSignalOf(plugin("UserPromptSubmit"))).toBeNull();
   });
 });
 
@@ -116,6 +157,8 @@ describe("parseHookEvent", () => {
     expect(parseHookEvent(wire)).toEqual({ ...wire, detail: null });
     expect(parseHookEvent({ ...wire, paneId: "7" })).toBeNull();
     expect(parseHookEvent({ ...wire, source: "other" })).toBeNull();
+    // opencode's server stream is gone: nothing produces this source any more.
+    expect(parseHookEvent({ ...wire, source: "server" })).toBeNull();
     expect(parseHookEvent({ ...wire, sessionId: "../x" })).toBeNull();
     expect(parseHookEvent(null)).toBeNull();
     expect(parseHookEvent({ ...wire, message: "", receivedAt: "x" })).toMatchObject({

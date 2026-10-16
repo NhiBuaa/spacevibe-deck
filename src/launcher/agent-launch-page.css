@@ -12,6 +12,10 @@
   overflow: auto;
   overscroll-behavior: contain;
   padding: clamp(24px, 4vw, 48px);
+  /* The preview line pins to the bottom edge, so no padding may sit under it: a sticky offset
+     is measured from the scrollport, and a gap here would make the line rise by that much
+     over the last stretch of a scroll instead of resting where it pins. */
+  padding-bottom: 0;
   color: var(--text-primary);
   background: var(--bg);
   container-type: inline-size;
@@ -20,12 +24,17 @@
   top: calc(var(--frame-h) + var(--stage-gutter));
 }
 .stage--dock > .agent-launch-page {
-  right: calc(var(--dock-w) + var(--stage-gutter));
+  right: calc(var(--stage-inset) + var(--stage-gutter));
 }
 .agent-launch-page:focus {
   outline: none;
 }
 .agent-launch-page__inner {
+  /* A column as tall as the page, so the preview line rests at the bottom of a short page
+     (`margin-top: auto`) and pins there on a long one. */
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
   max-width: 800px;
   margin: 0 auto;
 }
@@ -46,6 +55,7 @@
   opacity: 0.5;
 }
 .agent-launch-page__back {
+  align-self: flex-start;
   display: inline-flex;
   gap: 8px;
   align-items: center;
@@ -62,44 +72,58 @@
   border-radius: 3px;
   font-size: 9px;
 }
-.agent-launch-page__heading {
-  margin: 28px 0 24px;
-}
-.agent-launch-page__eyebrow {
-  font-size: 9px;
-  letter-spacing: 1.7px;
-  color: var(--accent);
-}
-.agent-launch-page h1 {
-  margin: 10px 0;
-  font-size: clamp(24px, 2.2vw, 28px);
-  letter-spacing: -0.6px;
-  font-weight: 550;
-}
 .agent-launch-page p {
   font-size: 13px;
   color: var(--text-muted);
 }
-.agent-launch-page__heading p {
-  margin: 0;
-}
+/* The context row (mock `.ctxb`): the workspace and checkout triggers are boxed pills, and the
+   placement chip follows them as the same pill without a hover, because it is identity and
+   not a control. No global box-sizing reset (traps.md): every height here is border-box. */
 .agent-launch-page__context {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px 16px;
-  margin-bottom: 18px;
+  gap: 4px 8px;
+  margin: 14px 0 18px;
   padding-bottom: 14px;
   border-bottom: 1px solid var(--hair);
-  font-size: 11px;
+  font-size: var(--type-meta);
+}
+.agent-launch-page__context .nt-workspace-picker__trigger,
+.agent-launch-page__chip {
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-tab);
+  background: var(--input-bg);
+}
+.agent-launch-page__context .nt-workspace-picker__trigger {
+  font-size: var(--type-meta);
+  font-weight: 550;
+  transition: border-color var(--duration) var(--ease);
+}
+.agent-launch-page__context .nt-workspace-picker__trigger:hover:not([aria-disabled="true"]) {
+  border-color: var(--hair-strong);
 }
 .agent-launch-page__chip {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 5px;
-  margin-left: auto;
   flex-shrink: 0;
+  margin-left: 14px;
   color: var(--text-muted);
+}
+/* The arrow before the chip reads "so": decorative, hence the empty alternative text. */
+.agent-launch-page__chip::before {
+  content: "→" / "";
+  position: absolute;
+  inset-block: 0;
+  right: calc(100% + 3px);
+  display: flex;
+  align-items: center;
+  color: var(--text-faint);
 }
 .agent-launch-page__context > p {
   flex-basis: 100%;
@@ -110,31 +134,51 @@
   grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
   gap: 8px;
 }
+/* Flex items do not collapse margins: say the gaps the block flow used to give. */
+.agent-launch-page__inner > p {
+  margin: 0 0 12px;
+}
+.agent-launch-page__inner > .agent-launch-page__grid {
+  margin-bottom: 14px;
+}
+/* A tile (mock `.tile`): one press covering the card, the ⊕ and Install as its siblings. */
 .agent-launch-page__card {
-  display: flex;
+  position: relative;
+  box-sizing: border-box;
   min-width: 0;
+  height: 74px;
   border: 1px solid var(--hair);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--chrome-1);
   transition:
-    border-color 140ms,
-    background-color 140ms;
+    border-color var(--duration) var(--ease),
+    background-color var(--duration) var(--ease);
 }
-.agent-launch-page__card:hover {
+/* Colour only (DL §7): a missing tile has no press, so it has nothing to light up for. */
+.agent-launch-page__card:not(.agent-launch-page__card--missing):hover,
+.agent-launch-page__card:not(.agent-launch-page__card--missing):focus-within {
   border-color: var(--hair-strong);
   background: var(--chrome-2);
 }
-/* The card is one press; `New space` is the quiet icon beside it (DL-32.6). */
 .agent-launch-page__card .agent-launch-page__main {
+  position: absolute;
+  inset: 0;
   display: flex;
-  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: space-between;
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  text-align: left;
+}
+.agent-launch-page__name {
+  display: flex;
   gap: 8px;
   align-items: center;
   min-width: 0;
-  padding: 8px 10px;
-  border: 0;
-  background: transparent;
-  text-align: left;
 }
 .agent-launch-page__logo {
   display: block;
@@ -147,7 +191,6 @@
   text-align: center;
 }
 .agent-launch-page__main strong {
-  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -155,35 +198,270 @@
   font-size: 12px;
   font-weight: 550;
 }
-.agent-launch-page__main .deck-icon,
-.agent-launch-page__missing {
-  flex: none;
-  color: var(--text-muted);
+.agent-launch-page__main > .deck-icon {
+  align-self: flex-end;
+  color: var(--text-faint);
+  transition: color var(--duration) var(--ease);
 }
-.agent-launch-page__missing {
-  font-size: var(--type-micro);
-}
-.agent-launch-page__card:hover .agent-launch-page__main .deck-icon {
+.agent-launch-page__card:hover .agent-launch-page__main > .deck-icon,
+.agent-launch-page__card:focus-within .agent-launch-page__main > .deck-icon {
   color: var(--text-primary);
+}
+.agent-launch-page__missing {
+  align-self: flex-start;
+  font-size: var(--type-micro);
+  color: var(--text-faint);
+}
+/* The disabled rule below is the pending state's wait cursor; a missing tile is not waiting. */
+.agent-launch-page__card--missing .agent-launch-page__main:disabled {
+  cursor: default;
+  opacity: 1;
+}
+.agent-launch-page__card--missing .agent-launch-page__name {
+  opacity: 0.5;
 }
 .agent-launch-page__card .agent-launch-page__alt {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  z-index: 1;
   display: grid;
-  flex: none;
   place-items: center;
-  align-self: stretch;
-  width: 34px;
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  padding: 0;
   border: 0;
-  border-left: 1px solid var(--hair);
-  border-radius: 0 7px 7px 0;
+  border-radius: var(--radius-tight);
   background: transparent;
-  color: var(--text-muted);
+  color: var(--text-faint);
+  transition:
+    color var(--duration) var(--ease),
+    background-color var(--duration) var(--ease);
 }
 .agent-launch-page__card .agent-launch-page__alt:hover:not(:disabled) {
-  background: var(--hair);
+  background: var(--state-hover-bg);
   color: var(--text-primary);
+}
+/* Install / Get sits over the press at full contrast; a failure message stacks above it. */
+.agent-launch-page__card > .agent-install {
+  position: absolute;
+  right: 9px;
+  bottom: 8px;
+  z-index: 1;
+  flex-direction: column-reverse;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  max-width: calc(100% - 18px);
+  text-align: right;
 }
 .agent-launch-page__card button:focus-visible {
   outline-offset: -2px;
+}
+/* The command preview (mock `.preview`). A fixed minimum height keeps the grid from moving as
+   the line changes under the pointer. DL-4.1's one exception: the command is `--board-font`,
+   because its flags, quotes and spaces must read exactly as they will run. */
+.agent-launch-page__preview {
+  /* Pinned to the scrollport's bottom edge (mock `.preview`): tiles scroll under it, so the
+     line is on screen whichever tile is hovered. `margin-top: auto` rests it at the bottom of a
+     page too short to scroll. Above the tiles' own z-index 1 controls. */
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+  min-height: 46px;
+  margin-top: auto;
+  padding: 8px 0;
+  border-top: 1px solid var(--hair);
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: var(--type-meta);
+}
+/* One line: the folder gives way first, the command never does. */
+.agent-launch-page .agent-launch-page__preview-line {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px 10px;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--type-meta);
+}
+.agent-launch-page__preview-path {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-launch-page__preview-where {
+  flex: none;
+  white-space: nowrap;
+}
+.agent-launch-page__preview-line code {
+  /* Wraps only when it alone is wider than 60% of the line; it is never cut short. */
+  flex: 0 0 auto;
+  max-width: 60%;
+  min-width: 0;
+  padding: 3px 7px;
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-tab);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-family: var(--board-font);
+  font-size: var(--type-meta);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.agent-launch-page__preview-faint {
+  color: var(--text-faint);
+}
+/* The profile chip and its popover (DL-13.1, PAGE4). The line is pinned to the page's bottom
+   edge, so the menu opens upward: below it there is no room. The page is always as tall as
+   its scrollport (`__inner` min-height), so the room above is the page's own height. */
+.launch-profile {
+  position: relative;
+  flex: none;
+  margin-left: auto;
+}
+.agent-launch-page .launch-profile__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-tab);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--type-meta);
+  transition:
+    color var(--duration) var(--ease),
+    border-color var(--duration) var(--ease);
+}
+.agent-launch-page .launch-profile__trigger:hover {
+  border-color: var(--hair-strong);
+  color: var(--text-primary);
+}
+.launch-profile__menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  z-index: 3;
+  /* No global reset (traps.md): the padding must stay inside the width. */
+  box-sizing: border-box;
+  width: min(380px, calc(100cqw - 48px));
+  max-height: min(360px, 60vh);
+  display: flex;
+  flex-direction: column;
+  padding: 5px;
+  border-radius: var(--radius-surface);
+  background: var(--chrome-2);
+  box-shadow: inset 0 0 0 1px var(--seam-raised);
+  color: var(--text-primary);
+}
+.launch-profile__list {
+  min-height: 0;
+  overflow-y: auto;
+}
+.agent-launch-page .launch-profile__menu button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  font-size: var(--type-meta);
+  text-align: left;
+}
+.agent-launch-page .launch-profile__menu button:hover,
+.agent-launch-page .launch-profile__menu button:focus-visible {
+  background: var(--state-hover-bg);
+}
+.agent-launch-page .launch-profile__menu button:focus-visible {
+  outline-offset: -2px;
+}
+.launch-profile__section {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 8px 2px;
+  color: var(--text-faint);
+  font-size: var(--type-micro);
+}
+.launch-profile__glyph {
+  display: block;
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+/* A fixed slot, so the commands line up whether or not a row carries the check. */
+.launch-profile__check {
+  flex: none;
+  width: 14px;
+}
+.launch-profile__command {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.launch-profile__default {
+  flex: none;
+  color: var(--text-faint);
+  font-size: var(--type-micro);
+}
+.launch-profile__separator,
+.agent-launch-page .launch-profile__menu > button {
+  flex: none;
+}
+.launch-profile__separator {
+  height: 1px;
+  margin: 5px 8px;
+  background: var(--hair);
+}
+/* A launch that failed before its pane existed (PAGE5): the message, and Retry beside it. */
+.agent-launch-page__notice {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  box-sizing: border-box;
+  margin-bottom: 14px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--red) 45%, transparent);
+  border-radius: var(--radius-control);
+  background: var(--input-bg);
+  font-size: var(--type-meta);
+}
+.agent-launch-page__notice .deck-icon {
+  flex: none;
+  color: var(--red);
+}
+.agent-launch-page__notice-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.agent-launch-page .agent-launch-page__notice button {
+  flex: none;
+  padding: 3px 9px;
+  border: 1px solid var(--hair-strong);
+  border-radius: var(--radius-tab);
+  background: transparent;
+  font-size: var(--type-meta);
+  transition: background-color var(--duration) var(--ease);
+}
+.agent-launch-page .agent-launch-page__notice button:hover:not(:disabled) {
+  background: var(--state-hover-bg);
 }
 .agent-launch-page__empty button {
   padding: 7px 12px;
@@ -191,24 +469,16 @@
   border-radius: 4px;
   background: var(--chrome-1);
 }
-.agent-launch-page__footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 22px;
-  font-size: 11px;
-  color: var(--text-muted);
-}
-.agent-launch-page__footer button {
-  border: 0;
-  padding: 6px;
-  background: transparent;
-}
 .agent-launch-page .agent-launch-page__error {
   color: var(--text-primary);
 }
 @media (prefers-reduced-motion: reduce) {
-  .agent-launch-page__card {
+  .agent-launch-page__card,
+  .agent-launch-page__card .agent-launch-page__alt,
+  .agent-launch-page__main > .deck-icon,
+  .agent-launch-page__context .nt-workspace-picker__trigger,
+  .agent-launch-page .launch-profile__trigger,
+  .agent-launch-page .agent-launch-page__notice button {
     transition: none;
   }
 }
@@ -218,96 +488,4 @@
 }
 .stage--strip.stage--notice > .agent-launch-page {
   top: calc(var(--frame-h) + var(--notice-h));
-}
-
-/* The card that edits the grid: the same box as an agent card, drawn as a gap. */
-.agent-launch-page__add {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-  padding: 8px 10px;
-  border: 1px dashed var(--hair-strong);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-muted) !important;
-  font-size: 12px;
-  transition:
-    border-color 140ms,
-    color 140ms;
-}
-.agent-launch-page__add:hover,
-.agent-launch-page__add[aria-expanded="true"] {
-  border-color: var(--text-muted);
-  color: var(--text-primary) !important;
-}
-.agent-launch-page__editor {
-  margin-top: 12px;
-  border: 1px solid var(--hair);
-  border-radius: 8px;
-  background: var(--chrome-1);
-}
-.agent-launch-page__editor header {
-  display: flex;
-  justify-content: space-between;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--hair);
-  font-size: 11px;
-  color: var(--text-muted);
-}
-.agent-launch-page__editor ul {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  margin: 0;
-  padding: 4px;
-  list-style: none;
-}
-/* The Install / Get control is the label's sibling, never inside it, so a press
-   cannot toggle the checkbox; the dimming of a disabled row below only reaches
-   the label's own children. */
-.agent-launch-page__editor li {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-}
-.agent-launch-page__editor li > label {
-  flex: 1;
-  min-width: 0;
-}
-.agent-launch-page__editor li > .agent-install {
-  margin-right: 8px;
-}
-.agent-launch-page__editor label {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  padding: 6px 8px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-.agent-launch-page__editor label:hover {
-  background: var(--chrome-2);
-}
-.agent-launch-page__editor strong {
-  font-size: 12px;
-  font-weight: 550;
-}
-.agent-launch-page__editor label > span {
-  margin-left: auto;
-  font-size: var(--type-micro);
-  color: var(--text-muted);
-}
-.agent-launch-page__editor input {
-  accent-color: var(--accent);
-}
-.agent-launch-page__editor input:disabled,
-.agent-launch-page__editor input:disabled ~ * {
-  cursor: default;
-  opacity: 0.55;
-}
-@media (prefers-reduced-motion: reduce) {
-  .agent-launch-page__add {
-    transition: none;
-  }
 }

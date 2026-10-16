@@ -6,8 +6,8 @@ import { toggle, type AgentDefinition } from "./agent-definition";
  *
  * No default flag: opencode's `--auto` is opt-in per session and its prompts
  * are already coarse enough that skipping them is not the default anyone
- * wants. Its `--port`/`--hostname` are left out of the flags on purpose — the
- * signal adapter pins the port (`launch-augment.ts`).
+ * wants. Its `--port`/`--hostname` are left out of the flags: Deck no longer pins a
+ * port, since its Signals come from a plugin the wrapper loads.
  */
 export const OPENCODE: AgentDefinition = {
   id: "opencode",

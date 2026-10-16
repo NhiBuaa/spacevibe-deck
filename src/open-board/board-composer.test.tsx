@@ -215,7 +215,10 @@ describe("BoardComposer", () => {
   ])("blocks Run without a ready folder and agent: %j", (props) => {
     const onRunAgent = vi.fn();
     mount({ promptStaging: false, onRunAgent, ...props });
-    const run = host.querySelector<HTMLButtonElement>('[aria-label="Run Claude Code"]')!;
+    // A missing agent's tile is named for what it is, not for the press it lacks.
+    const run = host.querySelector<HTMLButtonElement>(
+      '[aria-label="Run Claude Code"], [aria-label="Claude Code is not installed"]',
+    )!;
     expect(run.disabled).toBe(true);
     run.click();
     expect(onRunAgent).not.toHaveBeenCalled();

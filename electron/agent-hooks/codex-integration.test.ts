@@ -9,7 +9,9 @@ import { parseHookBody } from "./hook-request";
 import { parseHookEvent, contractSignalOf } from "../../src/lib/agent-signal-map";
 import { createAgentAttentionTracker } from "../../src/terminal/agent-attention";
 import { buildEnv } from "../pty/spawn";
+import { codexSignalsMarkerPath } from "../agent-shell/shell-bootstrap";
 import { SIGNAL_ADAPTERS_REVISION } from "../../src/settings/signal-adapter-choice";
+import { writeFakePs } from "./hook-script-harness";
 
 const scratch: string[] = [];
 const servers: HookServer[] = [];
@@ -81,6 +83,70 @@ describe("Codex integration default hook support", () => {
   });
 });
 
+describe("Codex runtime marker (CX2)", () => {
+  const exists = (file: string) =>
+    fs.access(file).then(
+      () => true,
+      () => false,
+    );
+
+  it("exists exactly while Codex Signals is on", async () => {
+    const deps = await setup();
+    const marker = codexSignalsMarkerPath(deps.userData);
+    const integration = createCodexIntegration({ ...deps, supported: true });
+    expect(await exists(marker)).toBe(false);
+    await integration.sync(on);
+    expect(await exists(marker)).toBe(true);
+    await integration.sync(off);
+    expect(await exists(marker)).toBe(false);
+    await integration.sync(on);
+    expect(await exists(marker)).toBe(true);
+  });
+
+  it("is removed at boot when a crash left it behind and the switch is off", async () => {
+    const deps = await setup();
+    const marker = codexSignalsMarkerPath(deps.userData);
+    await fs.mkdir(path.dirname(marker), { recursive: true });
+    await fs.writeFile(marker, "");
+    await createCodexIntegration({ ...deps, supported: true }).sync(off);
+    expect(await exists(marker)).toBe(false);
+  });
+
+  it("is removed first when turning off, even if the script cannot be written", async () => {
+    const deps = await setup();
+    const marker = codexSignalsMarkerPath(deps.userData);
+    const log = vi.fn();
+    const integration = createCodexIntegration({ ...deps, supported: true, log });
+    await integration.sync(on);
+    expect(await exists(marker)).toBe(true);
+    // The script path becomes a directory, so rewriting it fails (as a full disk would).
+    const script = path.join(deps.userData, "agent-hooks", "deck-codex-hook.sh");
+    await fs.rm(script);
+    await fs.mkdir(script);
+    await integration.sync(off);
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(integration.enabled()).toBe(false);
+    expect(await exists(marker)).toBe(false);
+  });
+
+  it("is not created where hooks are unsupported, or when registration fails", async () => {
+    const deps = await setup();
+    const marker = codexSignalsMarkerPath(deps.userData);
+    await createCodexIntegration({ ...deps, supported: false }).sync(on);
+    expect(await exists(marker)).toBe(false);
+    const failing = createCodexIntegration({
+      ...deps,
+      supported: true,
+      syncHooks: async () => {
+        throw new Error("denied");
+      },
+      log: () => {},
+    });
+    await failing.sync(on);
+    expect(await exists(marker)).toBe(false);
+  });
+});
+
 describe("Codex lifecycle bridge", () => {
   it("does not re-enable delivery when a pending enable finishes after disable was requested", async () => {
     const deps = await setup();
@@ -118,6 +184,7 @@ describe("Codex lifecycle bridge", () => {
     const events: HookEventPayload[] = [];
     const server = createHookServer({
       tokenFor: (id) => (id === 7 ? "secret" : null),
+      ttyFor: (id) => (id === 7 ? "ttys009" : null),
       emitToOwner: (_id, payload) => {
         if (integration.enabled()) events.push(payload);
       },
@@ -125,12 +192,21 @@ describe("Codex lifecycle bridge", () => {
     servers.push(server);
     const port = await server.listen();
     expect(port).not.toBeNull();
-    const env = buildEnv(process.env, "test", {
-      paneId: 7,
-      hookToken: "secret",
-      hookPort: port,
-      codexHookScript: integration.scriptPath(),
-    });
+    // The hook's parent is `codex` on the pane's tty, as it is under `codex --no-daemon`.
+    const bin = await writeFakePs(deps.dir, [
+      "- 300 ttys009 sh",
+      "300 200 ttys009 codex",
+      "200 1 ?? zsh",
+    ]);
+    const env = {
+      ...buildEnv(process.env, "test", {
+        paneId: 7,
+        hookToken: "secret",
+        hookPort: port,
+        codexHookScript: integration.scriptPath(),
+      }),
+    };
+    env.PATH = `${bin}:${env.PATH ?? ""}`;
     expect(env.DECK_CODEX_HOOK_SCRIPT).toBe(integration.scriptPath());
     const payload = {
       hook_event_name: "Stop",

@@ -104,6 +104,9 @@ export function createTerminalManager(
     onAttentionSignal(id, signal) {
       callbacks.onAttentionSignal?.(id, signal);
     },
+    onInterruptKey(id) {
+      callbacks.onPaneInterrupt?.(id);
+    },
   });
 
   const layout = createLayoutEngine(container, {

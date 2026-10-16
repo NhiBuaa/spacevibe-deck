@@ -147,7 +147,12 @@ describe("Codex lifecycle", () => {
     send("UserPromptSubmit");
     send("Interrupt");
     redraw();
-    expect(tracker.snapshot(1)).toMatchObject({ phase: "idle", attention: "none", hasRun: false });
+    expect(tracker.snapshot(1)).toMatchObject({
+      phase: "idle",
+      attention: "none",
+      hasRun: false,
+      sessionId: "session-1",
+    });
     send("UserPromptSubmit", "turn-2");
     expect(tracker.snapshot(1)?.phase).toBe("working");
   });
@@ -199,6 +204,40 @@ describe("Codex lifecycle", () => {
       oscState: null,
       observedAt: 110_000,
     });
+    expect(tracker.snapshot(1)?.phase).toBe("working");
+  });
+
+  it("asks on a request_user_input question or an approval, and a PostToolUse answers it", () => {
+    const { tracker, send } = setup();
+    send("UserPromptSubmit");
+    send("PreToolUse");
+    expect(tracker.snapshot(1)).toMatchObject({ attention: "requested", source: "hook" });
+    send("PostToolUse");
+    expect(tracker.snapshot(1)).toMatchObject({ phase: "working", attention: "none" });
+    send("PermissionRequest");
+    expect(tracker.snapshot(1)).toMatchObject({ attention: "requested", source: "hook" });
+    send("PostToolUse");
+    expect(tracker.snapshot(1)).toMatchObject({ phase: "working", attention: "none" });
+    send("Stop");
+    expect(tracker.snapshot(1)).toMatchObject({ phase: "idle", attention: "completed" });
+  });
+
+  it("refuses a retired turn's PostToolUse and one that arrives after its Stop", () => {
+    const { tracker, send } = setup();
+    send("UserPromptSubmit");
+    send("Stop");
+    send("PostToolUse");
+    expect(tracker.snapshot(1)).toMatchObject({ phase: "idle", attention: "completed" });
+    send("UserPromptSubmit", "turn-2");
+    send("PostToolUse", "turn-1");
+    send("PermissionRequest", "turn-1");
+    expect(tracker.snapshot(1)).toMatchObject({ phase: "working", attention: "none" });
+  });
+
+  it("reads SessionEnd as no state", () => {
+    const { tracker, send } = setup();
+    send("UserPromptSubmit");
+    send("SessionEnd");
     expect(tracker.snapshot(1)?.phase).toBe("working");
   });
 });

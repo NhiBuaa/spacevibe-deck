@@ -27,6 +27,16 @@ describe("agent launch page state", () => {
     expect(restoreFocus).toHaveBeenCalledOnce();
   });
 
+  it("hands a profile override to the launch, and none when a Run carries none", async () => {
+    const page = createAgentLaunchPageStore();
+    const launch = vi.fn<AgentLaunchRequest["launch"]>(async () => ({ kind: "cancelled" }));
+    page.open({ target, launch, restoreFocus: vi.fn(), reveal: vi.fn() });
+    const pick = { kind: "profile", command: "claude --plan" } as const;
+    await page.run("claude", "new-space", pick);
+    await page.run("claude");
+    expect(launch.mock.calls.map((call) => call[4])).toEqual([pick, undefined]);
+  });
+
   it("serializes Run and prevents stale completion from closing a newer page", async () => {
     const page = createAgentLaunchPageStore();
     let resolve!: (result: AgentLaunchResult) => void;
@@ -62,9 +72,89 @@ describe("agent launch page state", () => {
       reveal,
     });
     await page.run("claude");
-    expect(page.error.value).toBe("Folder unavailable");
+    expect(page.failure.value?.message).toBe("Folder unavailable");
     expect(page.request.value).not.toBeNull();
     expect(page.pending.value).toBe(false);
+  });
+
+  describe("failure and Retry (PAGE5)", () => {
+    const pick = { kind: "profile", command: "claude --plan" } as const;
+    const failing = () =>
+      vi.fn<AgentLaunchRequest["launch"]>(async () => ({ kind: "failed", message: "No folder" }));
+
+    it("records the attempt, and Retry repeats the same agent, placement and pick", async () => {
+      const page = createAgentLaunchPageStore();
+      const launch = failing();
+      page.open({ target, launch, restoreFocus: vi.fn(), reveal: vi.fn() });
+      await page.run("claude", "new-space", pick);
+      expect(page.failure.value).toEqual({
+        message: "No folder",
+        agentId: "claude",
+        placement: "new-space",
+        override: pick,
+      });
+      await page.retry();
+      expect(launch).toHaveBeenCalledTimes(2);
+      expect(launch.mock.calls[1][0]).toBe("claude");
+      expect(launch.mock.calls[1][2]).toBe("new-space");
+      expect(launch.mock.calls[1][4]).toBe(pick);
+    });
+
+    it("clears the failure when Retry starts, and on success leaves none", async () => {
+      const page = createAgentLaunchPageStore();
+      const launch = failing();
+      page.open({ target, launch, restoreFocus: vi.fn(), reveal: vi.fn() });
+      await page.run("claude");
+      launch.mockImplementationOnce(async () => ({
+        kind: "spawned",
+        receipt: { tabKey: 1, paneId: 1, canFocus: () => true },
+      }));
+      await page.retry();
+      expect(page.failure.value).toBeNull();
+      expect(page.request.value).toBeNull();
+    });
+
+    it("does nothing without a failure, and nothing while a launch is pending", async () => {
+      const page = createAgentLaunchPageStore();
+      const launch = failing();
+      page.open({ target, launch, restoreFocus: vi.fn(), reveal: vi.fn() });
+      await page.retry();
+      expect(launch).not.toHaveBeenCalled();
+      await page.run("claude");
+      launch.mockImplementationOnce(() => new Promise(() => {}));
+      void page.run("codex");
+      expect(page.failure.value).toBeNull();
+      await page.retry();
+      expect(launch).toHaveBeenCalledTimes(2);
+    });
+
+    it("is cleared by a new open, a close, a re-target and a newer run", async () => {
+      const retarget = vi.fn((_path: string) => ({ ...target, workspacePath: "/other" }));
+      const page = createAgentLaunchPageStore();
+      const request = {
+        target,
+        launch: failing(),
+        retarget,
+        restoreFocus: vi.fn(),
+        reveal: vi.fn(),
+      };
+      page.open(request);
+      await page.run("claude");
+      expect(page.failure.value).not.toBeNull();
+      page.open(request);
+      expect(page.failure.value).toBeNull();
+      await page.run("claude");
+      page.close();
+      expect(page.failure.value).toBeNull();
+      page.open(request);
+      await page.run("claude");
+      expect(page.retarget("/other")).toBe(true);
+      expect(page.failure.value).toBeNull();
+      await page.run("claude");
+      request.launch.mockImplementationOnce(async () => ({ kind: "cancelled" }));
+      await page.run("codex");
+      expect(page.failure.value).toBeNull();
+    });
   });
 
   it("leaves the page usable when a launch is cancelled", async () => {
@@ -81,7 +171,7 @@ describe("agent launch page state", () => {
     await page.run("claude");
     // Cancelled is not a failure: no message to show, and nothing was created,
     // so the page keeps the stage and stays ready for another choice.
-    expect(page.error.value).toBeNull();
+    expect(page.failure.value).toBeNull();
     expect(page.request.value).not.toBeNull();
     expect(page.pending.value).toBe(false);
     expect(reveal).not.toHaveBeenCalled();
@@ -114,7 +204,12 @@ describe("agent launch page state", () => {
       reveal: vi.fn(),
     });
     await page.run("claude");
-    expect(page.error.value).toBe("Could not open the agent. Try again.");
+    // A thrown launch keeps the generic message and still records the attempt for Retry.
+    expect(page.failure.value).toEqual({
+      message: "Could not open the agent. Try again.",
+      agentId: "claude",
+      placement: "target",
+    });
     expect(page.request.value).not.toBeNull();
     expect(page.pending.value).toBe(false);
   });

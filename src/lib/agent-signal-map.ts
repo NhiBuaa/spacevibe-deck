@@ -13,16 +13,27 @@
  *                         the matcher, so an unmatched kind reaching here is
  *                         still refused
  * - `PermissionRequest` → requested — fires when a tool call needs a decision
+ * - `UserPromptSubmit`, `PostToolUse`, `PostToolUseFailure`
+ *                       → working — a turn began or went on after a tool call
  * - `SessionEnd`        → nothing for state: the process table makes `ended`
  *                         within a poll, and a session end is not a failure
  * - anything else (`SubagentStop`, `TeammateIdle`, …) → nothing
  *
- * opencode (its server's events, `source: "server"`):
- * - `session.status` (busy/retry) → working; (idle) → completed
- * - `session.idle`                → completed
- * - `session.error`               → error
- * - `permission.asked` / `.v2.`   → requested
- * - `permission.replied` / `.v2.` → the ask was answered
+ * Codex (hook posts, `source: "hook"`, every turn event needs its `turn_id`):
+ * - `SessionStart`                      → the occupant's session (no state)
+ * - `UserPromptSubmit`, `PostToolUse`   → working (a working signal clears a request its own
+ *                                         source raised, so an approval ends the `asked` mark)
+ * - `PermissionRequest`, `PreToolUse`   → requested (`PreToolUse` is registered on
+ *                                         `request_user_input` only: the model asks a question)
+ * - `Stop`                              → completed; `Interrupt` → interrupted
+ * - `SessionEnd` and anything else      → nothing
+ *
+ * opencode (Deck's plugin, `source: "hook"`; the plugin posts for the pane's root session only):
+ * - `SessionStart`      → the occupant's session (no state)
+ * - `Start`             → working; `Stop` → completed
+ * - `Failed`            → error, with the capped message as its detail
+ * - `PermissionRequest` → requested; `PermissionReplied` → the ask was answered
+ * - `SessionEnd`        → nothing
  */
 
 export type ContractKind =
@@ -32,7 +43,7 @@ export type ContractKind =
 export interface HookEvent {
   readonly turnId?: string;
   readonly paneId: number;
-  readonly source: "hook" | "server";
+  readonly source: "hook";
   readonly agent: string;
   readonly event: string;
   readonly sessionId: string;
@@ -46,7 +57,7 @@ export interface HookEvent {
 export interface ContractSignal {
   readonly agent?: string;
   readonly turnId?: string;
-  readonly source: "hook" | "server";
+  readonly source: "hook";
   readonly kind: ContractKind;
   readonly sessionId: string;
   readonly detail: string | null;
@@ -66,6 +77,10 @@ function claudeKind(event: HookEvent): ContractKind | null {
       return "error";
     case "PermissionRequest":
       return "requested";
+    case "UserPromptSubmit":
+    case "PostToolUse":
+    case "PostToolUseFailure":
+      return "working";
     case "Notification":
       return event.detail !== null && NOTIFICATION_KINDS.has(event.detail) ? "requested" : null;
     default:
@@ -78,12 +93,15 @@ function codexKind(event: HookEvent): ContractKind | null {
   if (!event.turnId) return null;
   switch (event.event) {
     case "UserPromptSubmit":
+    case "PostToolUse":
       return "working";
     case "Stop":
       return "completed";
     case "Interrupt":
       return "interrupted";
     case "PermissionRequest":
+    // Registered on `request_user_input` only: the model is asking the user a question.
+    case "PreToolUse":
       return "requested";
     default:
       return null;
@@ -92,19 +110,17 @@ function codexKind(event: HookEvent): ContractKind | null {
 
 function opencodeKind(event: HookEvent): ContractKind | null {
   switch (event.event) {
-    case "session.status":
-      // The client emits `session.status` only for busy/retry — idle comes as
-      // `session.idle` — but the map states the rule rather than trusting it.
-      return event.detail === "idle" ? "completed" : "working";
-    case "session.idle":
+    case "SessionStart":
+      return "session";
+    case "Start":
+      return "working";
+    case "Stop":
       return "completed";
-    case "session.error":
+    case "Failed":
       return "error";
-    case "permission.asked":
-    case "permission.v2.asked":
+    case "PermissionRequest":
       return "requested";
-    case "permission.replied":
-    case "permission.v2.replied":
+    case "PermissionReplied":
       return "answered";
     default:
       return null;
@@ -118,7 +134,7 @@ export function contractSignalOf(event: HookEvent): ContractSignal | null {
       ? claudeKind(event)
       : event.source === "hook" && event.agent === "codex"
         ? codexKind(event)
-        : event.source === "server" && event.agent === "opencode"
+        : event.source === "hook" && event.agent === "opencode"
           ? opencodeKind(event)
           : null;
   if (kind === null) {
@@ -130,18 +146,21 @@ export function contractSignalOf(event: HookEvent): ContractSignal | null {
         ? event.detail === null
           ? "permission prompt"
           : `permission prompt — ${event.detail}`
-        : event.event === "Notification"
-          ? event.detail === "idle_prompt"
-            ? "input needed"
-            : "permission prompt"
-          : event.detail === null
-            ? "permission"
-            : `permission — ${event.detail}`
+        : event.event === "PreToolUse"
+          ? "input needed"
+          : event.event === "Notification"
+            ? event.detail === "idle_prompt"
+              ? "input needed"
+              : "permission prompt"
+            : event.detail === null
+              ? "permission"
+              : `permission — ${event.detail}`
       : kind === "error"
         ? event.detail
         : null;
   return {
     ...(event.agent === "codex" ? { agent: "codex", turnId: event.turnId } : {}),
+    ...(event.agent === "opencode" ? { agent: "opencode" } : {}),
     source: event.source,
     kind,
     sessionId: event.sessionId,
@@ -163,7 +182,7 @@ export function parseHookEvent(raw: unknown): HookEvent | null {
     typeof node.paneId !== "number" ||
     !Number.isSafeInteger(node.paneId) ||
     node.paneId <= 0 ||
-    (node.source !== "hook" && node.source !== "server") ||
+    node.source !== "hook" ||
     typeof node.agent !== "string" ||
     typeof node.event !== "string" ||
     typeof node.sessionId !== "string" ||

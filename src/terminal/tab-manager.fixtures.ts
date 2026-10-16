@@ -118,6 +118,8 @@ export function fakePane(
 
 /** An attention signal a real pane would emit — the tracker adds `observedAt`. */
 export type EmitSignal = (id: number, signal: PaneAttentionSignal) => void;
+/** Escape or Ctrl+C reaching a pane, the way `pane.ts` reports it. */
+export type EmitInterruptKey = (id: number) => void;
 /** Simulates a real focusin/mousedown/keyboard-driven focus landing on a pane. */
 export type FocusPaneDirectly = (id: number) => void;
 
@@ -139,6 +141,7 @@ export function wire(
 ): {
   tm: TabManager;
   emitSignal: EmitSignal;
+  emitInterruptKey: EmitInterruptKey;
   focusPaneDirectly: FocusPaneDirectly;
 } {
   const host = document.createElement("div");
@@ -165,10 +168,13 @@ export function wire(
   const emitSignal: EmitSignal = (id, signal) => {
     eventsById.get(id)?.onAttentionSignal?.(id, signal);
   };
+  const emitInterruptKey: EmitInterruptKey = (id) => {
+    eventsById.get(id)?.onInterruptKey?.(id);
+  };
   const focusPaneDirectly: FocusPaneDirectly = (id) => {
     panesById.get(id)?.focus();
   };
-  return { tm, emitSignal, focusPaneDirectly };
+  return { tm, emitSignal, emitInterruptKey, focusPaneDirectly };
 }
 
 export function setup(options: {
@@ -183,6 +189,7 @@ export function setup(options: {
   tm: TabManager;
   pty: ReturnType<typeof createMemoryPtyClient>;
   emitSignal: EmitSignal;
+  emitInterruptKey: EmitInterruptKey;
   focusPaneDirectly: FocusPaneDirectly;
 } {
   const pty = createMemoryPtyClient({
@@ -190,8 +197,12 @@ export function setup(options: {
     infos: options.infos,
     ...(options.dirs !== undefined ? { dirs: options.dirs } : {}),
   });
-  const { tm, emitSignal, focusPaneDirectly } = wire(pty, options.deps, options.paneOverrides);
-  return { tm, pty, emitSignal, focusPaneDirectly };
+  const { tm, emitSignal, emitInterruptKey, focusPaneDirectly } = wire(
+    pty,
+    options.deps,
+    options.paneOverrides,
+  );
+  return { tm, pty, emitSignal, emitInterruptKey, focusPaneDirectly };
 }
 
 /**
@@ -207,6 +218,7 @@ export function setupControllable(
   tm: TabManager;
   pty: ReturnType<typeof createMemoryPtyClient>;
   emitSignal: EmitSignal;
+  emitInterruptKey: EmitInterruptKey;
 } {
   const base = createMemoryPtyClient({ nextId: 1 });
   const pty = {
@@ -218,8 +230,8 @@ export function setupControllable(
       });
     },
   };
-  const { tm, emitSignal } = wire(pty, deps);
-  return { tm, pty, emitSignal };
+  const { tm, emitSignal, emitInterruptKey } = wire(pty, deps);
+  return { tm, pty, emitSignal, emitInterruptKey };
 }
 
 export function flush(): Promise<void> {

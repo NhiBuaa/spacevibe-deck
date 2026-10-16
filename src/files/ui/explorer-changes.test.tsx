@@ -11,7 +11,18 @@ vi.mock("../../repositories/repositories-store", async () => {
   return { ...actual, ensureRepositoriesScanned: vi.fn() };
 });
 
+vi.mock("../editor-host", async () => {
+  const actual = await vi.importActual<typeof import("../editor-host")>("../editor-host");
+  const { loadStubbedMonaco } = await import("./monaco-diff-stub");
+  return { ...actual, loadMonaco: loadStubbedMonaco };
+});
+
 import { ExplorerTab } from "./explorer-tab";
+import { DiffColumn } from "./diff-column";
+import { resetStub } from "./monaco-diff-stub";
+import { diffFocusRequested } from "../changes/diff-column-focus";
+import { createDiffSelection, type DiffSelectionStore } from "../changes/diff-selection";
+import type { DiffSidesPorts } from "../changes/diff-sides";
 import {
   createFileSurfaceController,
   type FileSurfaceController,
@@ -91,19 +102,24 @@ function fakeChanges(initial: Partial<ChangesState> = {}) {
   });
   const controller: ChangesController = {
     state,
+    readCount: signal(1),
     setShown: vi.fn(),
     setWindowVisible: vi.fn(),
     trigger: vi.fn(),
     turnEnded: vi.fn(),
     dispose: vi.fn(),
   };
+  diff = createDiffSelection(state);
   return { controller, state };
 }
 
 let host: HTMLDivElement;
 let surface: FileSurfaceController;
+/** The selection over the latest `fakeChanges` state, as the window's own is over its controller. */
+let diff: DiffSelectionStore;
 
 beforeEach(() => {
+  resetStub();
   resetFileSurfaces();
   explorerView.value = "files";
   repositoryScans.value = new Map();
@@ -127,6 +143,7 @@ function mount(changes: ChangesController | undefined, available = true): void {
         canCreate
         changesAvailable={available}
         changes={changes}
+        diff={diff}
       />,
       host,
     );
@@ -156,7 +173,8 @@ describe("the switch", () => {
     expect(chip("changes").getAttribute("aria-selected")).toBe("false");
     expect(chip("changes").textContent).toContain("+15 −11");
     expect(host.querySelector(".changes-list")).toBeNull();
-    expect(controller.setShown).toHaveBeenLastCalledWith(null);
+    // The totals need a live read, so Files watches the checkout too.
+    expect(controller.setShown).toHaveBeenLastCalledWith(WS);
   });
 
   it("opens the list on press and hides the tree, and Files brings the tree back", () => {
@@ -169,7 +187,7 @@ describe("the switch", () => {
 
     act(() => chip("files").click());
     expect(host.querySelector(".file-tree")).not.toBeNull();
-    expect(controller.setShown).toHaveBeenLastCalledWith(null);
+    expect(controller.setShown).not.toHaveBeenCalledWith(null);
   });
 
   it("releases the list when the tab unmounts", () => {
@@ -203,6 +221,7 @@ describe("the switch", () => {
     mount(controller);
     expect(chip("changes").getAttribute("aria-disabled")).toBe("true");
     expect(chip("changes").title).toBe("Not a git repository");
+    expect(controller.setShown).not.toHaveBeenCalledWith(WS);
     showChanges();
     expect(host.querySelector(".changes-list")).toBeNull();
     expect(host.querySelector(".file-tree")).not.toBeNull();
@@ -321,33 +340,53 @@ describe("the list", () => {
   });
 });
 
-describe("pressing a row (plan C8)", () => {
-  it("opens the working-tree file in the preview tab", () => {
+describe("pressing a row opens its diff (plan 2026-10-10-diff-column, D4)", () => {
+  it("selects the row, marks it, and does not open the file in the dock", () => {
     const { controller } = fakeChanges();
     const open = vi.spyOn(surface, "openFile").mockResolvedValue(undefined as never);
     mount(controller);
     showChanges();
+    expect(rows().every((row) => row.getAttribute("aria-selected") === "false")).toBe(true);
     act(() => rows()[0].click());
-    expect(open).toHaveBeenCalledWith(WS, `${WS}/src/a.ts`, false);
-  });
-
-  it("does not press a deleted entry, which is shown, not pressable", () => {
-    const { controller } = fakeChanges();
-    const open = vi.spyOn(surface, "openFile").mockResolvedValue(undefined as never);
-    mount(controller);
-    showChanges();
-    const deleted = rows()[2];
-    expect(deleted.getAttribute("aria-disabled")).toBe("true");
-    act(() => deleted.click());
-    act(() => {
-      deleted.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-    });
+    expect(diff.selection.value).toMatchObject({ root: WS, path: "src/a.ts" });
+    expect(rows()[0].getAttribute("aria-selected")).toBe("true");
+    expect(rows()[0].classList.contains("is-selected")).toBe(true);
+    expect(rows().filter((row) => row.classList.contains("is-selected"))).toHaveLength(1);
     expect(open).not.toHaveBeenCalled();
   });
 
-  it("is reachable from the keyboard: one tab stop, arrows move it, Enter presses", () => {
+  it("asks the column to take focus", () => {
     const { controller } = fakeChanges();
-    const open = vi.spyOn(surface, "openFile").mockResolvedValue(undefined as never);
+    mount(controller);
+    showChanges();
+    diffFocusRequested.value = false;
+    act(() => rows()[0].click());
+    expect(diffFocusRequested.value).toBe(true);
+  });
+
+  it("presses a deleted row too: its diff is the old side", () => {
+    const { controller } = fakeChanges();
+    mount(controller);
+    showChanges();
+    const deleted = rows()[2];
+    expect(deleted.hasAttribute("aria-disabled")).toBe(false);
+    act(() => deleted.click());
+    expect(diff.selection.value?.path).toBe("old.txt");
+    expect(deleted.classList.contains("is-deleted")).toBe(true);
+  });
+
+  it("moves the wash when another row is pressed", () => {
+    const { controller } = fakeChanges();
+    mount(controller);
+    showChanges();
+    act(() => rows()[0].click());
+    act(() => rows()[1].click());
+    expect(rows()[0].classList.contains("is-selected")).toBe(false);
+    expect(rows()[1].classList.contains("is-selected")).toBe(true);
+  });
+
+  it("is reachable from the keyboard: one tab stop, arrows move it, Enter and Space press", () => {
+    const { controller } = fakeChanges();
     mount(controller);
     showChanges();
     expect(rows().filter((row) => row.tabIndex === 0)).toHaveLength(1);
@@ -360,7 +399,151 @@ describe("pressing a row (plan C8)", () => {
     act(() => {
       rows()[1].dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     });
-    expect(open).toHaveBeenCalledWith(WS, `${WS}/docs/new.md`, false);
+    expect(diff.selection.value?.path).toBe("docs/new.md");
+    act(() => {
+      rows()[2].dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+    });
+    expect(diff.selection.value?.path).toBe("old.txt");
+  });
+});
+
+describe("the column's life follows the list (D4)", () => {
+  it("closes when the list gives way to Files", () => {
+    const { controller } = fakeChanges();
+    mount(controller);
+    showChanges();
+    act(() => rows()[0].click());
+    act(() => chip("files").click());
+    expect(diff.selection.value).toBeNull();
+  });
+
+  it("closes when the tab unmounts: another dock tab, or a closed dock", () => {
+    const { controller } = fakeChanges();
+    mount(controller);
+    showChanges();
+    act(() => rows()[0].click());
+    act(() => render(null, host));
+    expect(diff.selection.value).toBeNull();
+  });
+
+  it("closes when the Explorer is re-rooted on another workspace", () => {
+    const { controller } = fakeChanges();
+    mount(controller);
+    showChanges();
+    act(() => rows()[0].click());
+    act(() => {
+      render(
+        <ExplorerTab
+          controller={surface}
+          workspacePath="/work/other"
+          canCreate
+          changesAvailable
+          changes={controller}
+          diff={diff}
+        />,
+        host,
+      );
+    });
+    expect(diff.selection.value).toBeNull();
+  });
+
+  it("keeps the selection while the list stays on screen and refreshes", () => {
+    const { controller, state } = fakeChanges();
+    mount(controller);
+    showChanges();
+    act(() => rows()[0].click());
+    act(() => {
+      state.value = { ...state.value, snapshot: snapshot(ENTRIES.slice(0, 3)) };
+    });
+    expect(diff.selection.value?.path).toBe("src/a.ts");
+    expect(rows()[0].classList.contains("is-selected")).toBe(true);
+  });
+});
+
+describe("with the column mounted beside the Explorer", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe(): void {}
+        disconnect(): void {}
+      },
+    );
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  const ports: DiffSidesPorts = {
+    statFiles: async (_root, paths) =>
+      paths.map((path) => ({ path, exists: true, mtimeMs: 1, size: 3 })),
+    readFile: async () => ({
+      kind: "ok",
+      content: "x\n",
+      eol: "lf",
+      encoding: "utf-8",
+      bytes: 2,
+      mixedEol: false,
+      readOnly: false,
+      writable: true,
+      reason: null,
+      mtimeMs: 1,
+      size: 2,
+    }),
+    readHeadFile: async () => ({ kind: "absent" }),
+  };
+
+  function mountBoth(changes: ChangesController): void {
+    act(() => {
+      render(
+        <>
+          <ExplorerTab
+            controller={surface}
+            workspacePath={WS}
+            canCreate
+            changesAvailable
+            changes={changes}
+            diff={diff}
+          />
+          <DiffColumn
+            controller={surface}
+            dockWidth={420}
+            selection={diff}
+            changes={changes}
+            ports={ports}
+            onInset={() => {}}
+          />
+        </>,
+        host,
+      );
+    });
+  }
+
+  const column = (): HTMLElement | null => host.querySelector("[data-diff-column]");
+
+  it("a press opens it and Esc closes it, returning focus to the row", async () => {
+    const { controller } = fakeChanges();
+    mountBoth(controller);
+    showChanges();
+    expect(column()).toBeNull();
+    act(() => rows()[0].click());
+    expect(column()).not.toBeNull();
+    expect(host.querySelector(".diff-column__name")?.textContent).toBe("a.ts");
+    column()!.focus();
+    act(() => {
+      column()!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    });
+    expect(column()).toBeNull();
+    expect(document.activeElement).toBe(rows()[0]);
+  });
+
+  it("never says No longer changed for the list's empty state", async () => {
+    const { controller, state } = fakeChanges();
+    mountBoth(controller);
+    showChanges();
+    act(() => rows()[0].click());
+    act(() => {
+      state.value = { root: null, snapshot: null, failure: null, reading: false };
+    });
+    expect(host.textContent).not.toContain("No longer changed");
   });
 });
 

@@ -80,10 +80,12 @@ function mount(overrides: Partial<AgentLaunchPageProps> = {}) {
     target: { kind: "split", tabKey: 1, paneId: 2, workspacePath: "/repo" },
     contextRow: contextRow(),
     agents: [{ id: "claude", label: "Claude Code", missing: false, detail: "claude" }],
+    commands: { claude: { default: "claude --model opus", commands: ["claude --model opus"] } },
     resolved: true,
     pending: false,
     error: null,
     onRun: vi.fn(),
+    onRetry: vi.fn(),
     onBack: vi.fn(),
     onSettings: vi.fn(),
     ...overrides,
@@ -101,7 +103,8 @@ describe("compact Original launch page", () => {
     act(() => run.click());
     expect(props.onRun).toHaveBeenCalledExactlyOnceWith("claude");
     expect(host.textContent).not.toContain("Recently used");
-    expect(host.textContent).not.toContain("Default profile");
+    // The profile lives in the chip under the grid, not on the cards.
+    expect(host.querySelector(".agent-launch-page__grid")?.textContent).not.toContain("profile");
   });
   it("makes the card Split and offers New space as an icon beside it when the folder has a tab", () => {
     const props = mount({ onRunInNewSpace: vi.fn() });
@@ -149,7 +152,7 @@ describe("compact Original launch page", () => {
     expect(props.onRunInNewSpace).not.toHaveBeenCalled();
   });
 
-  it("shows a missing agent as disabled, with no New space button", () => {
+  it("shows a missing agent as a disabled tile, with no New space button or arrow", () => {
     mount({
       agents: [{ id: "codex", label: "Codex", missing: true, detail: "codex" }],
       onRunInNewSpace: vi.fn(),
@@ -157,7 +160,23 @@ describe("compact Original launch page", () => {
     const buttons = host.querySelectorAll<HTMLButtonElement>(AGENT_BUTTONS);
     expect(buttons).toHaveLength(1);
     expect(buttons[0].disabled).toBe(true);
+    expect(buttons[0].getAttribute("aria-label")).toBe("Codex is not installed");
     expect(buttons[0].textContent).toContain("Not installed");
+    expect(host.querySelector(".agent-launch-page__card--missing")).not.toBeNull();
+  });
+
+  it("puts the Terminal card after the installed agents and before the missing ones", () => {
+    mount({
+      agents: [
+        { id: "claude", label: "Claude Code", missing: false, detail: "claude" },
+        { id: "amp", label: "Amp", missing: true, detail: "amp" },
+        { id: "codex", label: "Codex", missing: false, detail: "codex" },
+      ],
+    });
+    const names = [...host.querySelectorAll(".agent-launch-page__main strong")].map(
+      (name) => name.textContent,
+    );
+    expect(names).toEqual(["Claude Code", "Codex", "Terminal", "Amp"]);
   });
 
   it("never offers the second button to a page that cannot open a space", () => {
@@ -192,7 +211,31 @@ describe("compact Original launch page", () => {
     const props = mount({ pending: true, error: "Folder unavailable" });
     host.querySelector<HTMLButtonElement>("[data-launch-primary]")!.click();
     expect(props.onRun).not.toHaveBeenCalled();
-    expect(host.querySelector('[role="alert"]')?.textContent).toBe("Folder unavailable");
+    expect(host.querySelector(".agent-launch-page__notice-text")?.textContent).toBe(
+      "Folder unavailable",
+    );
+    expect(
+      host.querySelector<HTMLButtonElement>(".agent-launch-page__notice button")?.disabled,
+    ).toBe(true);
+  });
+
+  it("shows a failure as an alert with Retry, and no exit code (PAGE5)", () => {
+    const props = mount({ error: "Could not open the agent. Try again." });
+    const alert = host.querySelector<HTMLElement>(".agent-launch-page__notice")!;
+    expect(alert.getAttribute("role")).toBe("alert");
+    expect(alert.textContent).toContain("Could not open the agent. Try again.");
+    expect(alert.textContent).not.toMatch(/exit|code \d/i);
+    const retry = alert.querySelector<HTMLButtonElement>("button")!;
+    expect(retry.textContent).toBe("Retry");
+    expect(retry.disabled).toBe(false);
+    act(() => retry.click());
+    expect(props.onRetry).toHaveBeenCalledOnce();
+    expect(props.onRun).not.toHaveBeenCalled();
+  });
+
+  it("shows no notice while nothing has failed", () => {
+    mount();
+    expect(host.querySelector(".agent-launch-page__notice")).toBeNull();
   });
   it("shows discovery before empty-state settings, with no invented agent", () => {
     mount({ agents: [], resolved: false });
@@ -202,6 +245,249 @@ describe("compact Original launch page", () => {
     act(() => host.querySelector<HTMLButtonElement>("[data-launch-primary]")!.click());
     expect(props.onSettings).toHaveBeenCalledOnce();
   });
+  it("keeps the route to Settings when only missing tiles are on the page", () => {
+    const props = mount({ agents: [{ id: "amp", label: "Amp", missing: true, detail: "amp" }] });
+    expect(host.textContent).toContain("No quick agents available");
+    const route = host.querySelector<HTMLButtonElement>("[data-launch-primary]:not(:disabled)")!;
+    expect(document.activeElement).toBe(route);
+    act(() => route.click());
+    expect(props.onSettings).toHaveBeenCalledOnce();
+  });
+  describe("command preview", () => {
+    const CLAUDE_COMMAND = "claude --model opus";
+    const preview = () => host.querySelector<HTMLElement>(".agent-launch-page__preview-line")!;
+    const hover = (element: Element) =>
+      act(() => void element.dispatchEvent(new MouseEvent("mouseenter")));
+    const unhover = (element: Element) =>
+      act(() => void element.dispatchEvent(new MouseEvent("mouseleave")));
+    const claudeCard = () => host.querySelector<HTMLElement>(".agent-launch-page__card")!;
+
+    // jsdom answers `false` for a script-driven focus; Chromium answers `true` after a key.
+    function focusVisible(): () => void {
+      const original = Element.prototype.matches;
+      const spy = vi.spyOn(Element.prototype, "matches").mockImplementation(function (
+        this: Element,
+        selector: string,
+      ) {
+        return selector === ":focus-visible" ? true : original.call(this, selector);
+      });
+      return () => spy.mockRestore();
+    }
+
+    it("says how to see the command while nothing is hovered or keyboard-focused", () => {
+      mount();
+      expect(preview().textContent).toBe("Hover or focus an agent to see the exact command");
+      expect(preview().querySelector("code")).toBeNull();
+      // A line that changes on every hover must not be announced.
+      expect(preview().getAttribute("role")).toBeNull();
+      expect(preview().getAttribute("aria-live")).toBeNull();
+    });
+
+    it("prints the exact command, the folder and the chip's placement on hover", () => {
+      mount();
+      hover(claudeCard());
+      expect(preview().querySelector("code")?.textContent).toBe(CLAUDE_COMMAND);
+      expect(preview().textContent).toBe(`${CLAUDE_COMMAND}in /repo· Split beside Claude Code`);
+      unhover(claudeCard());
+      expect(preview().querySelector("code")).toBeNull();
+    });
+
+    it("lets the folder shorten, with its full path as the title, and keeps the placement whole", () => {
+      mount({
+        contextRow: contextRow({ checkoutPath: "/Users/dev/code/a-very-long-checkout-name" }),
+      });
+      hover(claudeCard());
+      const path = preview().querySelector<HTMLElement>(".agent-launch-page__preview-path")!;
+      expect(path.textContent).toBe("in ~/code/a-very-long-checkout-name");
+      expect(path.title).toBe("/Users/dev/code/a-very-long-checkout-name");
+      expect(preview().querySelector(".agent-launch-page__preview-where")?.textContent).toBe(
+        "· Split beside Claude Code",
+      );
+    });
+
+    it("stays the page's last child, below the Opening line, so it can pin to the bottom", () => {
+      mount({ pending: true });
+      const inner = host.querySelector(".agent-launch-page__inner")!;
+      expect(inner.lastElementChild?.className).toBe("agent-launch-page__preview");
+      expect(inner.textContent).toContain("Opening agent…");
+    });
+
+    it("always says New space for the ⊕ button, then falls back to the press", () => {
+      mount({ onRunInNewSpace: vi.fn() });
+      const alt = host.querySelector<HTMLButtonElement>(".agent-launch-page__alt")!;
+      hover(claudeCard());
+      hover(alt);
+      expect(preview().textContent).toContain(CLAUDE_COMMAND);
+      expect(preview().textContent).toContain("· New space");
+      expect(alt.getAttribute("aria-describedby")).toBe(preview().id);
+      unhover(alt);
+      expect(preview().textContent).toContain("· Split beside Claude Code");
+      unhover(claudeCard());
+      expect(preview().querySelector("code")).toBeNull();
+    });
+
+    it("shows it on keyboard focus, names it from the focused press, and drops it on blur", () => {
+      const restore = focusVisible();
+      try {
+        mount();
+        const press = host.querySelector<HTMLButtonElement>("[data-launch-primary]")!;
+        act(() => press.blur());
+        expect(preview().querySelector("code")).toBeNull();
+        act(() => press.focus());
+        expect(preview().querySelector("code")?.textContent).toBe(CLAUDE_COMMAND);
+        expect(press.getAttribute("aria-describedby")).toBe(preview().id);
+        act(() => press.blur());
+        expect(preview().querySelector("code")).toBeNull();
+        expect(press.getAttribute("aria-describedby")).toBeNull();
+      } finally {
+        restore();
+      }
+    });
+
+    it("describes the Terminal card in plain words, without a command", () => {
+      mount();
+      hover(host.querySelector("[data-launch-terminal]")!);
+      expect(preview().querySelector("code")).toBeNull();
+      expect(preview().textContent).toBe("Opens a plain shellin /repo· Split beside Claude Code");
+    });
+
+    it("keeps the hint for a missing tile, which has no command to run", () => {
+      mount({ agents: [{ id: "amp", label: "Amp", missing: true, detail: "amp" }] });
+      hover(host.querySelector(".agent-launch-page__card--missing")!);
+      expect(preview().textContent).toBe("Hover or focus an agent to see the exact command");
+    });
+  });
+
+  describe("profile popover", () => {
+    const PLAN = "claude --plan";
+    const commands = {
+      claude: { default: "claude --model opus", commands: ["claude --model opus", PLAN] },
+      codex: { default: "codex", commands: ["codex"] },
+    };
+    const agents = [
+      { id: "claude", label: "Claude Code", missing: false, detail: "claude" },
+      { id: "codex", label: "Codex", missing: false, detail: "codex" },
+      { id: "amp", label: "Amp", missing: true, detail: "amp" },
+    ];
+    const chip = () => host.querySelector<HTMLButtonElement>(".launch-profile__trigger")!;
+    const menu = () => host.querySelector<HTMLElement>('.launch-profile [role="menu"]');
+    const rows = () => [
+      ...host.querySelectorAll<HTMLButtonElement>('.launch-profile [role^="menuitem"]'),
+    ];
+    const row = (command: string) => rows().find((entry) => entry.title === command)!;
+    const pickRow = (command: string) => act(() => row(command).click());
+    const escape = (target: Element) =>
+      act(() => {
+        target.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
+        );
+      });
+
+    it("lists each installed agent's commands with the active one checked and the default marked", () => {
+      mount({ agents, commands });
+      expect(chip().textContent).toBe("Default profile");
+      expect(menu()).toBeNull();
+      act(() => chip().click());
+      expect(chip().getAttribute("aria-expanded")).toBe("true");
+      const sections = [...host.querySelectorAll('.launch-profile [role="group"]')];
+      // A missing agent has no command to choose.
+      expect(sections.map((section) => section.getAttribute("aria-label"))).toEqual([
+        "Claude Code",
+        "Codex",
+      ]);
+      expect(
+        rows().map((entry) => [entry.textContent, entry.getAttribute("aria-checked")]),
+      ).toEqual([
+        ["claude --model opusdefault", "true"],
+        ["claude --plan", "false"],
+        ["codexdefault", "true"],
+        ["Edit profiles in Settings…", null],
+      ]);
+      expect(document.activeElement).toBe(row("claude --model opus"));
+    });
+
+    it("applies a pick to the preview and the next launch, and forgets it with the page", () => {
+      const props = mount({ agents, commands, onRunInNewSpace: vi.fn() });
+      act(() => chip().click());
+      pickRow(PLAN);
+      expect(menu()).toBeNull();
+      expect(document.activeElement).toBe(chip());
+      expect(chip().textContent).toBe("Custom profile");
+      const card = host.querySelector<HTMLElement>(".agent-launch-page__card")!;
+      act(() => void card.dispatchEvent(new MouseEvent("mouseenter")));
+      expect(host.querySelector(".agent-launch-page__preview-line code")?.textContent).toBe(PLAN);
+      act(() => card.querySelector<HTMLButtonElement>("[data-launch-primary]")!.click());
+      expect(props.onRun).toHaveBeenLastCalledWith("claude", { kind: "profile", command: PLAN });
+      act(() => card.querySelector<HTMLButtonElement>(".agent-launch-page__alt")!.click());
+      expect(props.onRunInNewSpace).toHaveBeenLastCalledWith("claude", {
+        kind: "profile",
+        command: PLAN,
+      });
+      // Another agent's launch is untouched by it.
+      const codex = host.querySelectorAll<HTMLElement>(".agent-launch-page__card")[1];
+      act(() => codex.querySelector<HTMLButtonElement>("[data-launch-primary]")!.click());
+      expect(props.onRun).toHaveBeenLastCalledWith("codex");
+      // Back to the default: no override at all.
+      act(() => chip().click());
+      pickRow("claude --model opus");
+      expect(chip().textContent).toBe("Default profile");
+      act(() => card.querySelector<HTMLButtonElement>("[data-launch-primary]")!.click());
+      expect(props.onRun).toHaveBeenLastCalledWith("claude");
+      // Leaving the page forgets the pick.
+      act(() => chip().click());
+      pickRow(PLAN);
+      act(() => render(null, host));
+      mount({ agents, commands });
+      expect(chip().textContent).toBe("Default profile");
+    });
+
+    it("falls back to the default when settings stop listing the pick", () => {
+      const props = mount({ agents, commands });
+      act(() => chip().click());
+      pickRow(PLAN);
+      expect(chip().textContent).toBe("Custom profile");
+      const trimmed = {
+        ...commands,
+        claude: { ...commands.claude, commands: ["claude --model opus"] },
+      };
+      act(() => render(<AgentLaunchPage {...props} agents={agents} commands={trimmed} />, host));
+      expect(chip().textContent).toBe("Default profile");
+      act(() => host.querySelector<HTMLButtonElement>("[data-launch-primary]")!.click());
+      expect(props.onRun).toHaveBeenLastCalledWith("claude");
+    });
+
+    it("takes Escape before the page, and walks with the arrow keys", () => {
+      const props = mount({ agents, commands });
+      act(() => chip().click());
+      const first = row("claude --model opus");
+      act(() => {
+        first.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+      });
+      expect(document.activeElement).toBe(row(PLAN));
+      escape(document.activeElement!);
+      expect(menu()).toBeNull();
+      expect(props.onBack).not.toHaveBeenCalled();
+      expect(document.activeElement).toBe(chip());
+      escape(chip());
+      expect(props.onBack).toHaveBeenCalledOnce();
+    });
+
+    it("sends Edit profiles to Settings", () => {
+      const props = mount({ agents, commands });
+      act(() => chip().click());
+      act(() => rows().at(-1)!.click());
+      expect(props.onSettings).toHaveBeenCalledOnce();
+      expect(menu()).toBeNull();
+    });
+
+    it("leaves the chip out when no installed agent is on the page", () => {
+      mount({ agents: [agents[2]], commands: {} });
+      expect(host.querySelector(".launch-profile")).toBeNull();
+      mount({ agents: [], commands: {} });
+      expect(host.querySelector(".launch-profile")).toBeNull();
+    });
+  });
+
   it("consumes Escape only when this page owns interaction", () => {
     const props = mount();
     const event = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
@@ -220,45 +506,13 @@ describe("compact Original launch page", () => {
     expect(covered.onBack).not.toHaveBeenCalled();
   });
 
-  it("opens the agent editor from Add agent, and Escape closes it before leaving the page", () => {
-    const onToggleChoice = vi.fn();
-    const props = mount({
-      choices: [
-        { id: "claude", label: "Claude Code", pinned: true, blocked: null, toggleable: true },
-        { id: "droid", label: "Droid", pinned: false, blocked: "Not installed", toggleable: false },
-      ],
-      onToggleChoice,
-    });
-    const add = host.querySelector<HTMLButtonElement>("[data-launch-add]")!;
-    expect(host.querySelector(".agent-launch-page__editor")).toBeNull();
-    act(() => add.click());
-    expect(add.getAttribute("aria-expanded")).toBe("true");
-    const boxes = host.querySelectorAll<HTMLInputElement>(".agent-launch-page__editor input");
-    expect([...boxes].map((box) => [box.checked, box.disabled])).toEqual([
-      [true, false],
-      [false, true],
-    ]);
-    expect(host.querySelector(".agent-launch-page__editor")?.textContent).toContain(
-      "Not installed",
-    );
-    act(() => boxes[0].click());
-    expect(onToggleChoice).toHaveBeenCalledExactlyOnceWith("claude");
-    const escape = () =>
-      act(() => {
-        host
-          .querySelector("section")!
-          .dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-      });
-    escape();
-    expect(host.querySelector(".agent-launch-page__editor")).toBeNull();
-    expect(props.onBack).not.toHaveBeenCalled();
-    escape();
-    expect(props.onBack).toHaveBeenCalledOnce();
-  });
-
-  it("offers no Add agent card when the page cannot edit the list", () => {
+  it("has no heading, Add agent card, editor or footer (PAGE6)", () => {
     mount();
-    expect(host.querySelector("[data-launch-add]")).toBeNull();
+    expect(host.querySelector("h1, header, footer")).toBeNull();
+    expect(host.textContent).not.toContain("QUICK LAUNCH");
+    expect(host.textContent).not.toContain("Add agent");
+    expect(host.querySelector("[data-launch-add], .agent-launch-page__editor")).toBeNull();
+    expect(host.querySelector('[aria-label="Choose quick agents"]')).toBeNull();
   });
 
   it("lets an open popover take Escape before the page does", () => {
@@ -320,5 +574,27 @@ describe("launch cards and a pending install", () => {
   it("does not probe when nothing is pending", () => {
     mount();
     expect(probe.ensureAgentsDetected).not.toHaveBeenCalled();
+  });
+
+  it("carries Install on a missing tile as a sibling of its disabled press", () => {
+    const unregister = registerAgentInstallHost({ open: vi.fn(), focus: vi.fn() });
+    try {
+      mount({ agents: [{ id: "amp", label: "Amp", missing: true, detail: "amp" }] });
+      const card = host.querySelector<HTMLElement>(".agent-launch-page__card--missing")!;
+      const press = card.querySelector<HTMLButtonElement>("[data-launch-primary]")!;
+      const install = card.querySelector<HTMLButtonElement>('[aria-label="Install Amp"]');
+      expect(press.disabled).toBe(true);
+      expect(install).not.toBeNull();
+      expect(install!.disabled).toBe(false);
+      expect(press.contains(install)).toBe(false);
+      expect(card.contains(install)).toBe(true);
+    } finally {
+      unregister();
+    }
+  });
+
+  it("offers no Install control where the host cannot install", () => {
+    mount({ agents: [{ id: "amp", label: "Amp", missing: true, detail: "amp" }] });
+    expect(host.querySelector("[data-agent-install]")).toBeNull();
   });
 });

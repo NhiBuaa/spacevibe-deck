@@ -86,6 +86,42 @@ export function agentLaunchCommand(
   return catalogLaunchCommand(agentId, customAgents);
 }
 
+/** The commands one agent can start with, for the launch page's profile popover. */
+export interface LaunchCommandChoices {
+  /** What a plain press types: `agentLaunchCommand`. */
+  readonly default: string;
+  /** Every command the agent can start with, the default first, none twice. */
+  readonly commands: readonly string[];
+}
+
+/**
+ * The default, then the agent's other own commands and the catalog's, as ONE
+ * list: it is both what the popover offers and what `launchAgentAtTarget`
+ * accepts as a per-visit pick, so a command typed at a shell can only be one
+ * that already passed `COMMAND_SAFE` or the catalog. Null when the agent
+ * launches with nothing, as `agentLaunchCommand` does.
+ */
+export function agentLaunchCommandChoices(
+  agentId: string,
+  profiles: readonly LaunchProfile[],
+  defaults: Readonly<Record<string, string>>,
+  customAgents: readonly CustomAgent[] = [],
+): LaunchCommandChoices | null {
+  const preferred = agentLaunchCommand(agentId, profiles, defaults, customAgents);
+  if (preferred === null) {
+    return null;
+  }
+  const commands = new Set([
+    preferred,
+    ...profilesForAgent(agentId, profiles).map((profile) => profile.command),
+  ]);
+  const shipped = catalogLaunchCommand(agentId, customAgents);
+  if (shipped !== null) {
+    commands.add(shipped);
+  }
+  return { default: preferred, commands: [...commands] };
+}
+
 /**
  * Session restore: put the pane's flags back on the command that resumes its
  * conversation. Only `claude` is handled, and only when both commands are

@@ -258,6 +258,21 @@ describe("Electron IPC contract", () => {
     }
   });
 
+  it("git_head_file carries the flat { root, path } payload on both sides", () => {
+    // The diff column's HEAD-side read; `path` is root-relative, so the root
+    // travels with it like every Explorer call.
+    const sites = callSites.filter((site) => site.channel === "git_head_file");
+    expect(sites.length).toBeGreaterThan(0);
+    for (const site of sites) {
+      expect(site.keys).toEqual(["root", "path"]);
+    }
+    const headHandlers = handlers.filter((handler) => handler.channel === "git_head_file");
+    expect(headHandlers.length).toBeGreaterThan(0);
+    for (const handler of headHandlers) {
+      expect(handler.required).toEqual(["root", "path"]);
+    }
+  });
+
   it("pty_kill_foreground carries the flat { id } payload on both sides", () => {
     // The Agent Board's Stop (spec §5.6, §11.6), pinned the way
     // `create_directory` above is: proof this generic scanner actually reaches

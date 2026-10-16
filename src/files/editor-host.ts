@@ -133,6 +133,22 @@ function bare(color: string): string {
   return color.startsWith("#") ? color.slice(1) : color;
 }
 
+/** `#rrggbb` plus an alpha, as the 8-digit hex Monaco's `colors` map parses. */
+function withAlpha(color: string, alpha: number): string {
+  const digits = color.replace("#", "");
+  const full = digits.length === 3 ? [...digits].map((digit) => digit + digit).join("") : digits;
+  return `#${full.slice(0, 6)}${Math.round(alpha * 255)
+    .toString(16)
+    .padStart(2, "0")}`;
+}
+
+/** The diff's washes: a line, the changed words inside it, and the gutter beside
+ * it. A gutter keeps a low alpha so a hunk's margin reads as its line's colour,
+ * never a solid stripe. */
+const DIFF_LINE_ALPHA = 0.12;
+const DIFF_WORD_ALPHA = 0.25;
+const DIFF_GUTTER_ALPHA = 0.25;
+
 /**
  * Deck's palette as a Monaco theme.
  *
@@ -198,6 +214,21 @@ export function monacoThemeFor(settings: Settings): MonacoThemeData {
       // DL-1.3: no shadows anywhere. Monaco draws one under its scroll edge by
       // default, and a fully transparent value is how it is turned off.
       "scrollbar.shadow": "#00000000",
+      // The diff column (DL-3.2): an added line or word on a low green wash and
+      // a removed one on a low red wash, from the live theme. Monaco's own
+      // defaults are fixed hex that ignores the theme (DL-2.1).
+      "diffEditor.insertedLineBackground": withAlpha(green, DIFF_LINE_ALPHA),
+      "diffEditor.removedLineBackground": withAlpha(red, DIFF_LINE_ALPHA),
+      "diffEditor.insertedTextBackground": withAlpha(green, DIFF_WORD_ALPHA),
+      "diffEditor.removedTextBackground": withAlpha(red, DIFF_WORD_ALPHA),
+      "diffEditorGutter.insertedLineBackground": withAlpha(green, DIFF_GUTTER_ALPHA),
+      "diffEditorGutter.removedLineBackground": withAlpha(red, DIFF_GUTTER_ALPHA),
+      // DL-1.3 again: the band over a folded run of unchanged lines blurs a shadow.
+      "diffEditor.unchangedRegionShadow": "#00000000",
+      "diffEditor.unchangedRegionBackground": chrome.chrome1,
+      "diffEditor.unchangedRegionForeground": chrome.textMuted,
+      "diffEditor.diagonalFill": chrome.chrome2,
+      "diffEditor.border": chrome.chrome2,
     },
   };
 }
@@ -256,6 +287,13 @@ export function loadMonaco(): Promise<MonacoApi> {
       import("monaco-editor/languages/definitions/graphql/register.js"),
       import("monaco-editor/languages/definitions/protobuf/register.js"),
       import("monaco-editor/languages/definitions/hcl/register.js"),
+      // The codicon font and its `.codicon` rules. Without them the diff's `+` /
+      // `−` signs and its unfold chevrons draw no glyph, and the fold and find
+      // icons of the file editor stay blank. Blank icons are all a failed load
+      // costs, so it warns rather than failing the editor with it.
+      import("monaco-editor/features/codicon/register.js").catch((error: unknown) => {
+        console.warn("Deck: Monaco's codicon font failed to load", error);
+      }),
     ]);
     return monaco;
   })();

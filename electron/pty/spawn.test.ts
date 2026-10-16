@@ -3,12 +3,20 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ spawn: vi.fn(() => ({ ptsName: "/dev/ttys001" })) }));
+const mocks = vi.hoisted(() => ({
+  spawn: vi.fn(() => ({ ptsName: "/dev/ttys001" })),
+  shellLaunch: vi.fn(
+    (_bootstrap?: unknown): { executable: string; args: string[]; env?: object } => ({
+      executable: "/bin/zsh",
+      args: ["-l"],
+    }),
+  ),
+}));
 
 vi.mock("electron", () => ({ app: { getVersion: () => "test" } }));
 vi.mock("node-pty", () => ({ spawn: mocks.spawn }));
 vi.mock("../platform/macos", () => ({
-  shellLaunch: () => ({ executable: "/bin/zsh", args: ["-l"] }),
+  shellLaunch: (bootstrap?: unknown) => mocks.shellLaunch(bootstrap),
   userHome: () => "/Users/dev",
 }));
 vi.mock("../platform/windows", () => ({
@@ -61,6 +69,88 @@ describe("buildEnv — the pane's identity for its hooks (stage 2, 2026-09-03)",
     expect(env).not.toHaveProperty("DECK_HOOK_TOKEN");
   });
 
+  it("never passes an inherited agent identity, or Claude Code's marks, to a pane", () => {
+    const env = buildEnv(
+      {
+        DECK_AGENT_ID: "claude",
+        DECK_AGENT_NESTED: "1",
+        DECK_AGENT_PID: "41",
+        CLAUDECODE: "1",
+        CLAUDE_PID: "42",
+        PATH: "/bin",
+      },
+      "1.2.3",
+      {
+        paneId: 7,
+        hookToken: "t",
+        hookPort: 1,
+      },
+    );
+    for (const name of [
+      "DECK_AGENT_ID",
+      "DECK_AGENT_NESTED",
+      "DECK_AGENT_PID",
+      "CLAUDECODE",
+      "CLAUDE_PID",
+    ]) {
+      expect(env).not.toHaveProperty(name);
+    }
+    expect(env.PATH).toBe("/bin");
+    expect(buildEnv({ DECK_AGENT_ID: "codex" }, "1.2.3")).not.toHaveProperty("DECK_AGENT_ID");
+  });
+
+  // The macOS seam is what a Windows build never reaches.
+  it.skipIf(process.platform === "win32")(
+    "hands the provisioned bootstrap to the shell launch and merges its env",
+    () => {
+      const agentShell = { binDir: "/d/bin", zshDir: "/d/zsh", bashRcfile: "/d/bash/rcfile" };
+      mocks.shellLaunch.mockReturnValueOnce({
+        executable: "/bin/zsh",
+        args: ["-l"],
+        env: { ZDOTDIR: "/d/zsh" },
+      });
+      spawnShell(
+        { cols: 80, rows: 24, cwd: TEST_ROOT },
+        { paneId: 3, hookToken: "t", hookPort: 9, agentShell },
+      );
+      expect(mocks.shellLaunch).toHaveBeenLastCalledWith(agentShell);
+      const options = mocks.spawn.mock.calls[0]?.[2] as { env: Record<string, string> } | undefined;
+      expect(options?.env.ZDOTDIR).toBe("/d/zsh");
+      expect(options?.env.DECK_PANE_ID).toBe("3");
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "asks for a plain launch when no bootstrap was provisioned",
+    () => {
+      spawnShell({ cols: 80, rows: 24, cwd: TEST_ROOT });
+      expect(mocks.shellLaunch).toHaveBeenLastCalledWith(null);
+    },
+  );
+
+  it("adds no bootstrap env on Windows, even when one was provisioned", () => {
+    const agentShell = { binDir: "/d/bin", zshDir: "/d/zsh", bashRcfile: "/d/bash/rcfile" };
+    const platform = Object.getOwnPropertyDescriptor(process, "platform");
+    Object.defineProperty(process, "platform", { value: "win32" });
+    try {
+      spawnShell(
+        { cols: 80, rows: 24, cwd: TEST_ROOT },
+        { paneId: 3, hookToken: "t", hookPort: 9, agentShell },
+      );
+    } finally {
+      Object.defineProperty(process, "platform", platform!);
+    }
+    const [executable, , options] = mocks.spawn.mock.calls[0] as unknown as [
+      string,
+      string[],
+      { env: Record<string, string> },
+    ];
+    expect(executable).toBe("pwsh.exe");
+    expect(mocks.shellLaunch).not.toHaveBeenCalled();
+    expect(options.env).not.toHaveProperty("ZDOTDIR");
+    expect(options.env).not.toHaveProperty("DECK_ORIG_ZDOTDIR");
+  });
+
   it("passes the pane into the spawned shell's environment", () => {
     spawnShell(
       { cols: 80, rows: 24, cwd: TEST_ROOT },
@@ -86,6 +176,7 @@ afterAll(() => {
 
 beforeEach(() => {
   mocks.spawn.mockClear();
+  mocks.shellLaunch.mockClear();
 });
 
 describe("resolveSpawnCwd", () => {

@@ -121,6 +121,33 @@ describe("PtyManager", () => {
       hookToken: expect.stringMatching(/^[a-f0-9]{32}$/),
     });
   });
+  it("answers a live pane's tty without /dev/ and null once it is gone", () => {
+    const id = manager.spawn("main", { cols: 80, rows: 24, cwd: null });
+    expect(manager.ttyNameOf(id)).toBe("ttys999");
+    expect(manager.ttyNameOf(id + 1)).toBeNull();
+  });
+
+  it("passes the provisioned shell bootstrap to every spawn, read per spawn", () => {
+    let agentShell: { binDir: string; zshDir: string; bashRcfile: string } | null = null;
+    const bootstrapped = new PtyManager({
+      emitToOwner: () => {},
+      register: () => {},
+      unregister: () => {},
+      assertOwner: () => {},
+      agentShell: () => agentShell,
+    });
+    bootstrapped.spawn("main", { cols: 80, rows: 24, cwd: null });
+    expect(spawnShell).toHaveBeenLastCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ agentShell: null }),
+    );
+    agentShell = { binDir: "/d/bin", zshDir: "/d/zsh", bashRcfile: "/d/bash/rcfile" };
+    bootstrapped.spawn("main", { cols: 80, rows: 24, cwd: null });
+    expect(spawnShell).toHaveBeenLastCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ agentShell }),
+    );
+  });
   it("emits opt-in startup milestones without terminal content", () => {
     const previous = process.env.DECK_PTY_STARTUP_TRACE;
     process.env.DECK_PTY_STARTUP_TRACE = "1";

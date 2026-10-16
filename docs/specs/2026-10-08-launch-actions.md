@@ -1,7 +1,8 @@
 # Launch actions: one launcher and one create row
 
 Date: 2026-10-08
-Status: Active — every decision taken 2026-10-08 (1–9 from the mock, 10–13 as recommended).
+Status: Active — decisions 1–13 taken 2026-10-08 (1–9 from the mock, 10–13 as recommended),
+14–15 on 2026-10-11 when package C was planned.
 The work is split into six packages over three waves ([Work packages](#work-packages)); the
 wave-1 plans await approval.
 Owner checkout: `/Users/kyantran/Documents/Development/spacevibe-workspace/spacevibe-deck`
@@ -91,6 +92,18 @@ The owner took the agent's recommendation on the four questions the mock could n
 13. **The collapsed rail shows the three verbs as stacked icons** above the avatar column,
     with tooltips. Turned down: one `+` into the page; hiding them while collapsed.
 
+The owner took two more on 2026-10-11, when package C was planned:
+
+14. **Missing agents show on the page with Install.** The agent-install work (2026-10-10)
+    put `Install` in the `Add agent` editor that decision 8 removes. Missing agents therefore
+    render as dimmed tiles after the installed ones, each carrying the existing Install/Get
+    control; the tile itself has no press. Choosing which agents show stays in Settings.
+    Turned down: dimmed tiles without Install (Install only in Settings); hiding missing
+    agents as today.
+15. **The DL-4.1 exception reads:** "One exception in chrome: the launch page's command
+    preview (DL-32.6) prints the exact command in `--board-font`, because a shell line's
+    flags, quotes and spaces must read exactly as they will run." Approved verbatim.
+
 ## Requirements and acceptance criteria
 
 IDs map to the parent's LAUNCH1–2 where noted. LAUNCH3 (prompt delivery) is out of scope.
@@ -133,7 +146,8 @@ IDs map to the parent's LAUNCH1–2 where noted. LAUNCH3 (prompt delivery) is ou
 - **PAGE3** (LAUNCH1): Hovering or focusing a card shows the exact command in monospace,
   with the chosen profile applied, followed by the folder and the placement. With nothing
   hovered, the line says how to see the command. An agent that is not installed is dimmed,
-  reads `Not installed` and has no press.
+  reads `Not installed` and has no press. Missing agents follow the installed ones, and each
+  carries the Install/Get control where Deck has one (decision 14).
 - **PAGE4**: The profile chip opens a popover listing each agent's launch commands, with the
   default marked, plus a row to edit profiles in Settings. A pick changes the preview and the
   next launch from this visit. Leaving the page forgets it.
@@ -141,7 +155,8 @@ IDs map to the parent's LAUNCH1–2 where noted. LAUNCH3 (prompt delivery) is ou
   message on the page, with Retry repeating the same agent and placement. No exit code is
   shown.
 - **PAGE6**: The page has no eyebrow or heading, no `Add agent` card or editor, and no
-  footer or gear. The empty-agents state still offers its route to Settings.
+  footer or gear. The empty-agents state still offers its route to Settings. Which agents
+  show is chosen in Settings → Agents, which also offers Install.
 - **PAGE7**: Card = Split, ⊕ = New space, Back/Esc and focus return behave as DL-32.6
   states today.
 
@@ -189,7 +204,7 @@ named. A change outside both is a hard stop for that package.
 | B. Launch page context row | 1 | PAGE1, PAGE7 | — | context-row component (new), `agent-launch-page-store.ts` | `agent-launch-page.tsx` (the destination block only), `app.tsx` (`openAgentLaunchPage` only), DL §32 | [launch-page-context](../plans/2026-10-08-launch-page-context.md) | **Done** — 2026-10-08, `487941d7` `1129506d` `591e0122` `d64fa652` `bb9bd6f4` `578f3f72` `98819f92` `6044a517` |
 | E. Retire the legacy pieces | 1 | RETIRE1 | — | `launcher-store.ts`, `quick-launch.tsx`, `app-policy.ts`, gallery `board-section.tsx` | `launcher-fields.tsx` (the `Create worktree…` option), `worktree-card-menus.tsx` (the `Create branch from here` row), `tab-manager.ts` (the `newTab` fallback line only, R4), `app.tsx` (`closeQuickLaunch` callers), DL-32.4 | [launch-retire-legacy](../plans/2026-10-08-launch-retire-legacy.md) | **Done** — 2026-10-08, `10fb2912` `a684e26c` `1988bdd3` `d08ed321` `63dbcd3c` `741477f1` |
 | B2. Create from the page | 2 | PAGE2 | A, B | — | B's context-row component, A's form and folder action | drafted when wave 1 is `Done` | Not started |
-| C. Launch page details | 2 | PAGE3–PAGE6 | B | `agent-launch-cards.tsx`, `quick-agent-editor.tsx`, `agent-launch-page.css`, profile popover (new) | `agent-launch-page.tsx` (cards, preview, footer), `tab-manager.ts` (`launchAgentAtTarget` command override, R4), DL §4 and §32 | drafted when B is `Done` | Not started |
+| C. Launch page details | 2 | PAGE3–PAGE6 | B | `agent-launch-cards.tsx`, `quick-agent-editor.tsx`, `agent-launch-page.css`, profile popover (new) | `agent-launch-page.tsx` (cards, preview, footer), `tab-manager.ts` (`launchAgentAtTarget` command override, R4), DL §4 and §32 | [launch-page-details](../plans/2026-10-11-launch-page-details.md) | **Done** — 2026-10-11, `c12f5929` `270d2fc0` `a9f5d674` `f88ae67e` `492afa93` `4256d62e` `27d083d1` `d441fb58` `8b45ddf0` (local `main`, not pushed) |
 | D. No tab open → launcher | 3 | EMPTY1, EMPTY2 | B2 | — | `app.tsx` (boot and `openTaskLauncher`), `agent-launch-target.ts`, the context row, the Open board's last-session and drop modules, DL-32.1 (R4) | drafted when B2 is `Done` | Not started |
 
 Wave 1 needs three worktrees at once. Wave 2 needs two. Wave 3 is one package on its own,

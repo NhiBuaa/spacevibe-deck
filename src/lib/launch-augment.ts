@@ -15,17 +15,25 @@
  * Per agent, v1:
  * - **claude** — unchanged. User-level guarded hooks and the session registry
  *   cover both launcher and manual invocations.
- * - **codex** — `-c tui.notification_condition=always`, so Codex's BEL rings
- *   for `approval-requested` and `agent-turn-complete` whether or not the
- *   pane is focused (spec §10.6's default: the mark is worth the beep).
- * - **opencode** — `--port <n>` with the port main reserved for the pane, so
- *   its server can be subscribed to.
+ * - **codex** — where a wrapper runs (the pane shell was bootstrapped), nothing:
+ *   the wrapper adds the hook-trust bypass and `--no-daemon` itself. Without
+ *   one, on a POSIX host whose Codex accepts the bypass, the same flags are
+ *   inserted right after `codex` (CX2). Otherwise
+ *   `-c tui.notification_condition=always`, so Codex's BEL rings for
+ *   `approval-requested` and `agent-turn-complete` whether or not the pane is
+ *   focused (spec §10.6's default: the mark is worth the beep). A daemon
+ *   command (`agents`, `app-server`, `remote-control`, `--remote`) is launched
+ *   with the pane's `DECK_*` credentials emptied, so the shared daemon never
+ *   keeps them.
+ * - **opencode** — nothing: Deck's plugin loads through the wrapper's
+ *   `OPENCODE_CONFIG_DIR`, never through the typed command.
  *
  * A flag the user already typed is never doubled (spec §6): Deck's addition
  * is skipped and the row stays inferred for that half. Typed VISIBLY
  * (spec §10.3): the user sees exactly what Deck runs.
  */
-import { commandAgentId } from "./launch-profile";
+import { CODEX_BYPASS_FLAG, CODEX_NO_DAEMON_FLAG, classifyCodexArgs } from "./codex-launch-form";
+import { commandAgentId, commandFlags } from "./launch-profile";
 
 export interface SignalAdapters {
   readonly claude: boolean;
@@ -40,8 +48,14 @@ export interface AugmentContext {
   readonly claudeSettingsPath: string | null;
   /** A uuid minted for a fresh Claude launch, or null to leave the id to Claude. */
   readonly sessionId: string | null;
-  /** The port main reserved for an opencode pane, or null. */
-  readonly opencodePort: number | null;
+  /** The host registers hooks at all (false on Windows). */
+  readonly hooksSupported: boolean;
+  /** Pane shells start through Deck's bootstrap, so the agent wrappers run. */
+  readonly shellBootstrap: boolean;
+  /** The installed Codex accepts `--dangerously-bypass-hook-trust`. */
+  readonly codexBypassHookTrust: boolean;
+  /** The installed Codex lists `--no-daemon`. */
+  readonly codexNoDaemon: boolean;
 }
 
 export interface Augmented {
@@ -59,11 +73,6 @@ function tokens(command: string): string[] {
   return command.trim().split(/\s+/).filter(Boolean);
 }
 
-/** Whether `flag` (or `flag=…`) appears as its own argument. */
-function hasFlag(command: string, flag: string): boolean {
-  return tokens(command).some((token) => token === flag || token.startsWith(`${flag}=`));
-}
-
 /** Whether a `-c key=value` / `--config key=value` pair for `key` was typed. */
 function hasConfigKey(command: string, key: string): boolean {
   const parts = tokens(command);
@@ -73,18 +82,57 @@ function hasConfigKey(command: string, key: string): boolean {
   );
 }
 
+/**
+ * Unsets the pane's credentials for a daemon command. `env -u` works in sh, csh and fish
+ * alike, which a `NAME= command` prefix does not (csh rejects it), and exists in BSD and GNU env.
+ */
+const CLEARED_PANE_CREDENTIALS = "env -u DECK_PANE_ID -u DECK_HOOK_TOKEN -u DECK_HOOK_PORT";
+
+/** Codex's flags for a composed command where no wrapper runs: after the `codex` word. */
+function insertCodexFlags(command: string, flags: readonly string[]): string {
+  const rest = commandFlags(command);
+  const head = command.trim().split(/\s+/)[0] ?? "";
+  return [head, ...flags, ...(rest === "" ? [] : [rest])].join(" ");
+}
+
 export function augmentLaunchCommand(command: string, context: AugmentContext): Augmented {
   const agent = commandAgentId(command);
   const extra: string[] = [];
   const sessionId: string | null = null;
 
-  if (agent === "codex" && context.adapters.codex) {
-    if (!hasConfigKey(command, "tui.notification_condition")) {
-      extra.push("-c", "tui.notification_condition=always");
+  if (agent === "codex") {
+    const form = classifyCodexArgs(tokens(command).slice(1));
+    // Only a POSIX host registers hooks; Windows keeps today's behaviour. With a
+    // bootstrapped shell the wrapper does the work (and the daemon strip) itself.
+    const posix = context.platform !== "windows" && context.hooksSupported;
+    const unwrapped = posix && !context.shellBootstrap;
+    // The wrapper decides everything, including what an old Codex gets: nothing is added here
+    // even when main's probe failed, since a `-c` override alone makes Codex skip the shared
+    // daemon (and `codex queue` then refuses to run while one is up).
+    if (posix && context.shellBootstrap) {
+      return { command, sessionId };
     }
-  } else if (agent === "opencode" && context.adapters.opencode) {
-    if (context.opencodePort !== null && !hasFlag(command, "--port")) {
-      extra.push("--port", String(context.opencodePort));
+    if (unwrapped && form.daemon && !form.infoOnly) {
+      return { command: `${CLEARED_PANE_CREDENTIALS} ${command.trim()}`, sessionId };
+    }
+    // No path ever adds a flag to a command that talks to the shared daemon.
+    if (form.daemon) {
+      return { command, sessionId };
+    }
+    if (context.adapters.codex) {
+      if (posix && context.codexBypassHookTrust) {
+        if (unwrapped && !form.infoOnly) {
+          const flags = [
+            ...(form.interactive && !form.remote && !form.hasNoDaemon && context.codexNoDaemon
+              ? [CODEX_NO_DAEMON_FLAG]
+              : []),
+            ...(form.hasBypass ? [] : [CODEX_BYPASS_FLAG]),
+          ];
+          return { command: insertCodexFlags(command, flags), sessionId };
+        }
+      } else if (!hasConfigKey(command, "tui.notification_condition")) {
+        extra.push("-c", "tui.notification_condition=always");
+      }
     }
   }
 
@@ -92,9 +140,4 @@ export function augmentLaunchCommand(command: string, context: AugmentContext): 
     command: extra.length === 0 ? command : `${command.trim()} ${extra.join(" ")}`,
     sessionId,
   };
-}
-
-/** Which agents a launch would ASK main for something before arming. */
-export function needsOpencodePort(command: string, adapters: SignalAdapters): boolean {
-  return commandAgentId(command) === "opencode" && adapters.opencode && !hasFlag(command, "--port");
 }

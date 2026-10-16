@@ -1,0 +1,139 @@
+/* ── Diff column: the selected change's diff, left of the dock (DL-19.11) ──
+   `DiffColumn` mounts beside `DockPanel` and renders only while a Changes row
+   is selected (src/files/ui/diff-column.tsx). Docked, it stands on the dock's
+   inner edge and the stage's inset grows by its width (`--diff-w`, which
+   `--stage-inset` in 14-dock.css adds to the dock's), so panes resize around it
+   as around the dock (DL-19.1). Folded, it covers the Explorer under the dock's
+   tab row and the grid keeps its width. It appears and leaves without motion,
+   and its width never transitions: every change in width resizes each pane's
+   terminal (DL-1.2). */
+
+.diff-column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
+  background: var(--sidebar-bg);
+  color: var(--text-primary);
+  font-family: var(--ui-font);
+  font-size: var(--type-body);
+}
+
+/* The root takes focus only as a resting place while Monaco loads or a file
+   swaps; the ring belongs to the controls inside it. */
+.diff-column:focus {
+  outline: none;
+}
+
+/* DL-19.2: one --hair seam on the inner edge, no shadow. */
+.diff-column--docked {
+  position: absolute;
+  top: 0;
+  right: var(--dock-w);
+  bottom: 0;
+  border-left: 1px solid var(--hair);
+}
+
+/* The first paint measures the stage before the column knows where to stand. */
+.diff-column--pending {
+  position: absolute;
+  visibility: hidden;
+}
+
+/* Over the Explorer, under the dock's tab row, at the dock's own width. */
+.diff-column--folded {
+  position: absolute;
+  z-index: 2;
+  top: var(--frame-h);
+  right: 0;
+  bottom: 0;
+  width: var(--dock-w);
+}
+
+/* DL-19.3: the header is --frame-h tall and closes on the dock's own row. */
+.diff-column__head {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 2px;
+  height: var(--frame-h);
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 0 4px 0 8px;
+  border-bottom: 1px solid var(--hair);
+}
+
+.diff-column__head .changes-row__mark {
+  margin-right: 4px;
+}
+
+/* The name gives way first: it is the one item with a tooltip to fall back on. */
+.diff-column__name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--type-body);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diff-column__counts,
+.diff-column__position {
+  flex: none;
+  color: var(--text-muted);
+  font-size: var(--type-meta);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.diff-column__counts {
+  margin-left: 8px;
+}
+
+.diff-column__position {
+  margin-left: auto;
+  padding-left: 8px;
+  color: var(--text-faint);
+}
+
+.diff-column__btn {
+  flex: none;
+}
+
+/* DL-23.6: a control with nothing to do keeps its place, quieter. */
+.diff-column__btn[aria-disabled="true"],
+.diff-column__btn[aria-disabled="true"]:hover {
+  background: transparent;
+  color: var(--text-faint);
+  cursor: default;
+}
+
+.diff-column__body {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg);
+}
+
+.diff-editor {
+  position: absolute;
+  inset: 0;
+}
+
+.diff-column__note {
+  margin: 0;
+  padding: 10px 12px;
+  color: var(--text-faint);
+  font-size: var(--type-meta);
+}
+
+/* Monaco's unified view pushes a filler into the hidden original editor's
+   margin beside every hunk's added lines, and paints it with the REMOVED
+   gutter colour: a red margin next to green lines. The filler is the one
+   `.gutter-delete` in the margin's view zones; real deleted lines mark their
+   margin through a line decoration instead. Beside added lines it is the
+   added colour. */
+.diff-editor .editor.original .margin-view-zones .gutter-delete {
+  background-color: var(--vscode-diffEditorGutter-insertedLineBackground);
+}

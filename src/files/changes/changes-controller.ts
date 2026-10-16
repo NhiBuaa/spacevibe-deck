@@ -4,11 +4,11 @@
  *
  * It owns three things and nothing else: the last good reply per shown root,
  * the scheduler that decides when git runs, and the host watch that is held only
- * while the list is shown and the window is visible. The Explorer view reads
+ * while the Explorer shows the root (either view) and the window is visible. The Explorer view reads
  * `state` and calls `setShown`; the window installs the focus, visibility and
  * turn-end triggers once (`installChangesTriggers`).
  */
-import { signal, type ReadonlySignal } from "@preact/signals";
+import { batch, signal, type ReadonlySignal } from "@preact/signals";
 import * as hostFacade from "../../host/git-changes-host";
 import type { ChangesFailure, ChangesReply, ChangesSnapshot } from "../../host/git-changes-host";
 import { createChangesScheduler, type SchedulerClock, type TriggerKind } from "./changes-scheduler";
@@ -36,6 +36,15 @@ const EMPTY: ChangesState = { root: null, snapshot: null, failure: null, reading
 
 export interface ChangesController {
   readonly state: ReadonlySignal<ChangesState>;
+  /**
+   * Rises after every completed read of the shown root — a failure reply too —
+   * even when the reply is unchanged and `state` stays put (plan
+   * 2026-10-10-diff-column, D7). A consumer that must look again when git says
+   * nothing new (the open diff, whose file can change without its counts
+   * changing) follows this, not `state`. Never raised by `setShown`, a hidden
+   * list or a reply for a root that was left.
+   */
+  readonly readCount: ReadonlySignal<number>;
   /** The root whose list is on screen, or null. */
   setShown(root: string | null): void;
   setWindowVisible(visible: boolean): void;
@@ -61,6 +70,7 @@ function sameFailure(a: ChangesFailure | null, b: ChangesFailure | null): boolea
 export function createChangesController(deps: ChangesControllerDeps): ChangesController {
   const { host } = deps;
   const state = signal<ChangesState>(EMPTY);
+  const readCount = signal(0);
   let root: string | null = null;
   let windowVisible = true;
   let watchedRoot: string | null = null;
@@ -100,18 +110,22 @@ export function createChangesController(deps: ChangesControllerDeps): ChangesCon
       return;
     }
     const current = state.peek();
-    if (reply.kind === "changes") {
-      publish({ root: target, snapshot: reply, failure: null, reading: false });
-    } else {
-      // A transient failure keeps the last list; a folder that is no longer a
-      // repository has nothing true left to show.
-      publish({
-        root: target,
-        snapshot: reply.kind === "not-repository" ? null : current.snapshot,
-        failure: reply,
-        reading: false,
-      });
-    }
+    // One batch, so a reader of both sees the new state with the new count.
+    batch(() => {
+      if (reply.kind === "changes") {
+        publish({ root: target, snapshot: reply, failure: null, reading: false });
+      } else {
+        // A transient failure keeps the last list; a folder that is no longer a
+        // repository has nothing true left to show.
+        publish({
+          root: target,
+          snapshot: reply.kind === "not-repository" ? null : current.snapshot,
+          failure: reply,
+          reading: false,
+        });
+      }
+      readCount.value += 1;
+    });
   }
 
   const scheduler = createChangesScheduler({ read, clock: deps.clock });
@@ -144,6 +158,7 @@ export function createChangesController(deps: ChangesControllerDeps): ChangesCon
 
   return {
     state,
+    readCount,
     setShown(next) {
       if (next === root) {
         return;

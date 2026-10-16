@@ -70,6 +70,20 @@ describe("Claude user settings ownership", () => {
     expect(ORIGINAL.hooks.Stop[0].hooks).toEqual([USER]);
   });
 
+  it("registers the turn events with their matchers and keeps a user's own group in place", () => {
+    const own = { matcher: "Bash", hooks: [USER] };
+    const added = reconcileClaudeHooks({ hooks: { PostToolUse: [own] } }, SCRIPT, true);
+    const hooks = added.hooks as Record<string, Array<Record<string, unknown>>>;
+    expect(hooks.PostToolUse[0]).toEqual(own);
+    expect(hooks.PostToolUse[1]).toEqual({
+      matcher: "*",
+      hooks: [{ type: "command", command: managedHookCommand(SCRIPT, "PostToolUse") }],
+    });
+    expect(hooks.PostToolUseFailure[0].matcher).toBe("*");
+    expect(hooks.UserPromptSubmit[0]).not.toHaveProperty("matcher");
+    expect(reconcileClaudeHooks(added, SCRIPT, false)).toEqual({ hooks: { PostToolUse: [own] } });
+  });
+
   it.each([null, [], { hooks: [] }, { hooks: { Stop: {} } }, { hooks: { Stop: [{}] } }])(
     "refuses malformed settings: %j",
     (value) => {

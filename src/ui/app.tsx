@@ -7,8 +7,7 @@ import { createAgentInstallHost } from "../launcher/agent-install-host";
 import { registerAgentInstallHost } from "../launcher/agent-install-store";
 import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { useSignal, useSignalEffect } from "@preact/signals";
-import { quickAgentChoices, toggleQuickAgent } from "../settings/quick-agent-choices";
-import { quickAgentOptions } from "../settings/quick-agents";
+import { launchPageAgents, quickAgentOptions } from "../settings/quick-agents";
 import { activeCategory } from "./settings/active-category-store";
 import { listen, type UnlistenFn } from "../host/bridge";
 import { getCurrentWindow, currentWindowLabel } from "../host/window-host";
@@ -87,7 +86,11 @@ import { ensureTelemetryStateLoaded, usageConsentOpen } from "../telemetry/conse
 import { installUsageCounterEffects } from "../telemetry/usage-counters";
 import { OpenBoard } from "../open-board/open-board";
 import { clearDraft, newTaskDraft, taskDraftTouched } from "../launcher/launcher-store";
-import { agentLaunchCommand } from "../lib/launch-command";
+import {
+  agentLaunchCommand,
+  agentLaunchCommandChoices,
+  type LaunchCommandChoices,
+} from "../lib/launch-command";
 import type { NewTaskDraft } from "../launcher/new-task-draft";
 import { composeLaunchCommand } from "../launcher/compose-launch-command";
 import { mergeRuntimeDefaults, runtimeFor } from "../launcher/runtime-catalog";
@@ -203,6 +206,9 @@ import {
   type FileSurfaceController,
 } from "../files/file-surface-controller";
 import { ExplorerTab } from "../files/ui/explorer-tab";
+import { DiffColumn } from "../files/ui/diff-column";
+import { diffColumnFolded, diffColumnInset } from "../files/changes/diff-layout";
+import { closeDiffColumn } from "../files/changes/diff-column-focus";
 import { CreateEntryDialog } from "../files/ui/create-entry-dialog";
 import { available as fileCreateAvailable } from "../host/file-create-host";
 import { available as gitChangesAvailable } from "../host/git-changes-host";
@@ -305,6 +311,9 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
       // the strip's status without either module knowing about the other.
       beforeActivate: () => {
         agentLaunchPage.close();
+        // A folded diff column lies over the document panel, so the document
+        // about to take the keyboard would be one the user cannot see.
+        if (diffColumnFolded.value) closeDiffColumn();
         if (!settings.value.dockOpen || settings.value.dockTab !== "explorer") {
           updateSettings({ dockOpen: true, dockTab: "explorer" });
         }
@@ -1500,7 +1509,7 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
           element.inert = false;
       },
       retarget: (path) => manager.captureAgentLaunchTarget(path, roots()),
-      launch: async (agentId, canCommit, placement, current) => {
+      launch: async (agentId, canCommit, placement, current, override) => {
         const result = await manager.launchAgentAtTarget(
           placement === "new-space"
             ? { kind: "new-space", workspacePath: current.workspacePath }
@@ -1508,6 +1517,7 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
           agentId,
           canCommit,
           roots,
+          override,
         );
         // A space the launch created beside the folder's others — the `New
         // space` press, or a captured new-space target (RAIL4) — is named
@@ -1587,6 +1597,22 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
   /** The live agent choices shared by both launcher surfaces. */
   const launcherAgents = () =>
     agentOptions(detectedAgents.value, settings.value.customAgents, settings.value.disabledAgents);
+
+  /** Each launch-page agent's commands (PAGE3/PAGE4): the page never reads settings itself. */
+  const launchPageCommands = (): Readonly<Record<string, LaunchCommandChoices>> => {
+    const { launchProfiles, defaultLaunchProfiles, customAgents } = settings.value;
+    return Object.fromEntries(
+      launcherAgents().flatMap((agent) => {
+        const choices = agentLaunchCommandChoices(
+          agent.id,
+          launchProfiles,
+          defaultLaunchProfiles,
+          customAgents,
+        );
+        return choices === null ? [] : [[agent.id, choices]];
+      }),
+    );
+  };
 
   /** Editor confirm: save the preset, then materialize a new tab. */
   async function handleEditorCreate(name: string, artifact: PresetArtifact): Promise<void> {
@@ -2555,6 +2581,9 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
           // catching up when the pointer is released.
           style={{
             "--dock-w": `${dockWidth()}px`,
+            // The open diff column's width, docked left of the dock; 0 while it
+            // is closed or folded over the Explorer (DL-19.11).
+            "--diff-w": `${diffColumnInset.value}px`,
           }}
         >
           {/* DL-18.6: sidebar mode's half of the frame row. The stage spans
@@ -2642,10 +2671,17 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
             <AgentLaunchPage
               target={agentLaunchPage.request.value.target}
               contextRow={launchContextRow(agentLaunchPage.request.value.target)}
-              agents={quickAgentOptions(launcherAgents(), settings.value.quickAgentIds)}
+              agents={launchPageAgents(launcherAgents(), settings.value.quickAgentIds, {
+                probed: agentsProbed.value,
+                disabledAgents: settings.value.disabledAgents,
+              })}
+              commands={launchPageCommands()}
               resolved={agentsProbed.value}
               pending={agentLaunchPage.pending.value}
-              error={agentLaunchPage.error.value}
+              error={agentLaunchPage.failure.value?.message ?? null}
+              onRetry={() => {
+                void agentLaunchPage.retry();
+              }}
               active={
                 !settingsOpen.value &&
                 !boardOpen.value &&
@@ -2654,14 +2690,12 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
                 !agentQuickPickerOpen.value &&
                 !usageConsentOpen.value
               }
-              onRun={(id) => {
-                void agentLaunchPage.run(id);
+              onRun={(id, override) => {
+                void agentLaunchPage.run(id, "target", override);
               }}
-              onRunInNewSpace={(id) => {
-                void agentLaunchPage.run(id, "new-space");
+              onRunInNewSpace={(id, override) => {
+                void agentLaunchPage.run(id, "new-space", override);
               }}
-              choices={quickAgentChoices()}
-              onToggleChoice={toggleQuickAgent}
               onBack={() => agentLaunchPage.close(true)}
               onSettings={() => {
                 activeCategory.value = "agents";
@@ -2689,6 +2723,17 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
           {/* DL-35.1: Mission Control covers the stage above a document or the
               browser (the latter hidden through `overlayCoversPane`). */}
           {missionControl.view}
+          {/* Left of the dock, while a Changes row is selected and only while the
+              dock is at rest open, so it never floats where a sliding dock used
+              to be. Before the panel in the DOM, so the dock's resize grip, which
+              overhangs its inner edge, stays on top of the column's seam. */}
+          {dockPresence.entered ? (
+            <DiffColumn
+              controller={fileController}
+              dockWidth={dockWidth()}
+              onFocusReleased={() => tabsRef.current?.focusActive()}
+            />
+          ) : null}
           {/* Gated on the `dockOpen` setting. The column hosts three
               surfaces since 2026-08-16, so `App` picks the body — that is
               what keeps `DockPanel` from importing every feature it can

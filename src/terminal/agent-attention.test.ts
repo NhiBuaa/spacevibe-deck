@@ -665,7 +665,6 @@ describe("AgentAttentionTracker — contract signals (stage 2/3, 2026-09-03)", (
       detail: string | null;
       message: string | null;
       observedAt: number;
-      source: "hook" | "server";
     }> = {},
   ) => ({
     source: "hook" as const,
@@ -681,6 +680,13 @@ describe("AgentAttentionTracker — contract signals (stage 2/3, 2026-09-03)", (
     const { tracker } = setup();
     tracker.noteProcess(1, "zsh", false);
     expect(tracker.noteContract(1, hook("completed"))).toBeNull();
+  });
+
+  it("drops a Claude hook signal on a pane running another agent, and lets an unclassified one pass", () => {
+    const { tracker } = setup();
+    tracker.noteProcess(1, "codex", true);
+    expect(tracker.noteContract(1, hook("completed"))).toBeNull();
+    expect(tracker.snapshot(1)?.attention).toBe("none");
   });
 
   it("Stop completes explicitly with the hook as source, even when no working was seen", () => {
@@ -722,45 +728,12 @@ describe("AgentAttentionTracker — contract signals (stage 2/3, 2026-09-03)", (
     expect(tracker.snapshot(1)?.attention).toBe("error");
   });
 
-  it("a server's working/idle drive the phase explicitly, and answered clears its own request", () => {
-    const { tracker } = setup();
-    tracker.noteProcess(1, "opencode", true);
-    const working = tracker.noteContract(
-      1,
-      hook("working", { source: "server", sessionId: "ses_a" }),
-    );
-    expect(working?.phase).toBe("working");
-    expect(working?.phaseConfidence).toBe("explicit");
-    tracker.noteContract(
-      1,
-      hook("requested", { source: "server", sessionId: "ses_a", detail: "bash" }),
-    );
-    const answered = tracker.noteContract(
-      1,
-      hook("answered", { source: "server", sessionId: "ses_a" }),
-    );
-    expect(answered?.attention).toBe("none");
-    const idle = tracker.noteContract(
-      1,
-      hook("completed", { source: "server", sessionId: "ses_a" }),
-    );
-    expect(idle?.phase).toBe("idle");
-    expect(idle?.attention).toBe("completed");
-  });
-
-  it("a hook from a previous occupant is dropped; a server event rotates the session", () => {
+  it("a hook from a previous occupant is dropped, and a new SessionStart rotates the session", () => {
     const { tracker } = setup();
     tracker.noteProcess(1, "claude", true);
     tracker.noteContract(1, hook("session", { sessionId: "s-1" }));
     expect(tracker.noteContract(1, hook("completed", { sessionId: "s-OLD" }))).toBeNull();
     expect(tracker.noteContract(1, hook("session", { sessionId: "s-2" }))?.sessionId).toBe("s-2");
-
-    tracker.noteProcess(2, "opencode", true);
-    tracker.noteContract(2, hook("working", { source: "server", sessionId: "ses_a" }));
-    expect(
-      tracker.noteContract(2, hook("completed", { source: "server", sessionId: "ses_b" }))
-        ?.sessionId,
-    ).toBe("ses_b");
   });
 
   it("a minted session becomes the pane's session when the gate opens, and only then", () => {

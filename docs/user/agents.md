@@ -66,8 +66,12 @@ Each agent is one row showing its name and the command it launches with:
     installed agents whose CLI takes those flags
     ([model settings](../../src/ui/settings/launch-profile-editor.tsx)).
   - **Integrations → Signals** — on Claude Code, Codex and opencode: use the status the agent reports instead
-    of Deck's estimate, for new sessions. Claude Signals installs Deck hooks in your Claude
-    settings and also covers Claude commands you type manually inside Deck. Turning it off
+    of Deck's estimate, for new sessions. It is on by default for all three. For Claude Code and Codex, Signals installs Deck hooks
+    in their settings; opencode loads a small Deck plugin instead and nothing is written to its
+    config. It also covers commands you type manually inside Deck. For Codex, Deck starts
+    its terminal sessions without Codex's shared background service so the reports reach the
+    right pane, which means those sessions do not appear in `codex agents`. For opencode, a
+    `OPENCODE_CONFIG_DIR` you set yourself is not used inside Deck terminals. Turning it off
     removes this installation's hooks. Reopen terminals created before this integration was
     installed. [Signal integration](../internals/terminal.md#the-contract-layer).
 - For an agent under **Available to install**, choose **Configure launch** to prepare its
@@ -85,8 +89,8 @@ this rule.
 
 ### Installing a missing agent
 
-A built-in agent that Deck did not find shows **Install** on its row, here and in Settings →
-Quick agents and the launcher's **Add agent** list. Hover it to see the exact command. It opens
+A built-in agent that Deck did not find shows **Install** on its row in Settings → Quick agents
+and as a dimmed tile on the launcher, after the agents you can run. Hover it to see the exact command. It opens
 a terminal named `Install <Agent>` in a new space (in your home folder when no folder is open),
 types the vendor's install command and runs it there, so you see every prompt and answer them
 in that terminal. Pressing **Install** again while that terminal is open takes you back to it.
@@ -102,11 +106,18 @@ ones, and only in the Electron app
 
 ## Quick agents
 
-Quick agents are the cards on the quick launcher and the rows in the checkout menu. Choose
-them in Settings → Agents → Quick agents or from the launcher itself: its last card,
-**Add agent**, opens a list with a box per agent. Your choices are saved; agents you disable or
-uninstall stop appearing in the menu without being replaced by another agent
+Quick agents are the tiles on the quick launcher and the rows in the checkout menu. Choose
+them in Settings → Agents → Quick agents; the launcher has no list of its own to edit. Your
+choices are saved; agents you disable or uninstall stop appearing in the menu without being
+replaced by another agent
 ([quick agent settings](../../src/ui/settings/quick-agents-section.tsx)).
+
+Hover or focus a tile to see the exact command it will type, the folder and where it lands.
+The **Default profile** chip under the tiles lets you pick another of an agent's launch commands
+for that visit; leaving the launcher forgets the pick, and **Edit profiles in Settings…** opens
+where commands are written. If an agent cannot be started, the launcher says why and offers
+**Retry**
+([launcher](../../src/launcher/agent-launch-page.tsx)).
 
 The checkout menu's **Open shell** opens a new terminal tab inside Deck at that checkout.
 Use **New split here** for a pane beside the existing tab
@@ -135,11 +146,11 @@ logs only for the built-ins it knows.
 | Other built-ins | no                   | relaunch bare                              |
 | Custom      | no                       | relaunches the declared command unchanged  |
 
-By default, working, needs-you and failed states come from the terminal itself (bell,
-notification and progress sequences the tool emits, plus sustained output) and work for any
-agent. When Deck reads a needs-you or done state from output timing rather than from the
-agent, the row's tooltip says **(inferred)**. With **Signals** on for Claude Code, Codex or
-OpenCode, the state is the agent's own report for new sessions, and a needs-you state can say
+Working, needs-you and failed states come from the terminal itself (bell, notification and
+progress sequences the tool emits, plus sustained output) and work for any agent. When Deck
+reads a needs-you or done state from output timing rather than from the agent, the row's
+tooltip says **(inferred)**. With **Signals** on, which is the default,
+the state is the agent's own report for new sessions, and a needs-you state can say
 what it waits on, such as a permission prompt. An agent whose process has left its pane reads
 as **ended** ([rail states](../../src/ui/worktree-card-row.tsx)).
 

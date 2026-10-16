@@ -9,6 +9,8 @@ import {
 
 const TOKEN = "0123456789abcdef0123456789abcdef";
 const tokenFor = (paneId: number) => (paneId === 7 ? TOKEN : null);
+const TTY = "ttys009";
+const ttyFor = (paneId: number) => (paneId === 7 ? TTY : null);
 
 function head(over: {
   method?: string;
@@ -29,43 +31,60 @@ function head(over: {
 
 describe("validateHookHead", () => {
   it("accepts a POST to /hook from a live pane with its own token", () => {
-    expect(validateHookHead(head({}), tokenFor)).toEqual({ ok: true, paneId: 7 });
-    expect(validateHookHead(head({ url: "/hook?x=1" }), tokenFor)).toEqual({ ok: true, paneId: 7 });
+    expect(validateHookHead(head({}), tokenFor, ttyFor)).toEqual({ ok: true, paneId: 7 });
+    expect(validateHookHead(head({ url: "/hook?x=1" }), tokenFor, ttyFor)).toEqual({
+      ok: true,
+      paneId: 7,
+    });
   });
 
   it("answers 404 for any other path and 405 for any other method", () => {
-    expect(validateHookHead(head({ url: "/" }), tokenFor).ok).toBe(false);
-    expect(validateHookHead(head({ url: "/hooks" }), tokenFor)).toMatchObject({ status: 404 });
-    expect(validateHookHead(head({ method: "GET" }), tokenFor)).toMatchObject({ status: 405 });
+    expect(validateHookHead(head({ url: "/" }), tokenFor, ttyFor).ok).toBe(false);
+    expect(validateHookHead(head({ url: "/hooks" }), tokenFor, ttyFor)).toMatchObject({
+      status: 404,
+    });
+    expect(validateHookHead(head({ method: "GET" }), tokenFor, ttyFor)).toMatchObject({
+      status: 405,
+    });
   });
 
   it("refuses a missing or malformed pane header with 400", () => {
     expect(
-      validateHookHead(head({ headers: { "x-deck-pane": undefined } }), tokenFor),
+      validateHookHead(head({ headers: { "x-deck-pane": undefined } }), tokenFor, ttyFor),
     ).toMatchObject({
       status: 400,
     });
-    expect(validateHookHead(head({ headers: { "x-deck-pane": "0" } }), tokenFor)).toMatchObject({
+    expect(
+      validateHookHead(head({ headers: { "x-deck-pane": "0" } }), tokenFor, ttyFor),
+    ).toMatchObject({
       status: 400,
     });
-    expect(validateHookHead(head({ headers: { "x-deck-pane": "7; rm" } }), tokenFor)).toMatchObject(
-      {
-        status: 400,
-      },
-    );
+    expect(
+      validateHookHead(head({ headers: { "x-deck-pane": "7; rm" } }), tokenFor, ttyFor),
+    ).toMatchObject({
+      status: 400,
+    });
   });
 
   it("answers one 403 for an unknown pane, a wrong token and a missing token alike", () => {
-    expect(validateHookHead(head({ headers: { "x-deck-pane": "8" } }), tokenFor)).toMatchObject({
+    expect(
+      validateHookHead(head({ headers: { "x-deck-pane": "8" } }), tokenFor, ttyFor),
+    ).toMatchObject({
       status: 403,
     });
     expect(
-      validateHookHead(head({ headers: { "x-deck-token": TOKEN.replace("0", "1") } }), tokenFor),
+      validateHookHead(
+        head({ headers: { "x-deck-token": TOKEN.replace("0", "1") } }),
+        tokenFor,
+        ttyFor,
+      ),
     ).toMatchObject({ status: 403 });
     expect(
-      validateHookHead(head({ headers: { "x-deck-token": undefined } }), tokenFor),
+      validateHookHead(head({ headers: { "x-deck-token": undefined } }), tokenFor, ttyFor),
     ).toMatchObject({ status: 403 });
-    expect(validateHookHead(head({ headers: { "x-deck-token": "" } }), tokenFor)).toMatchObject({
+    expect(
+      validateHookHead(head({ headers: { "x-deck-token": "" } }), tokenFor, ttyFor),
+    ).toMatchObject({
       status: 403,
     });
   });
@@ -75,14 +94,47 @@ describe("validateHookHead", () => {
       validateHookHead(
         head({ headers: { "content-length": String(HOOK_MAX_BODY_BYTES + 1) } }),
         tokenFor,
+        ttyFor,
       ),
     ).toMatchObject({ status: 413 });
     expect(
       validateHookHead(
         head({ headers: { "content-length": String(HOOK_MAX_BODY_BYTES) } }),
         tokenFor,
+        ttyFor,
       ).ok,
     ).toBe(true);
+  });
+});
+
+describe("validateHookHead — Codex tty guard", () => {
+  const codex = (headers: Record<string, string | undefined>) =>
+    head({ url: "/hook/codex", headers: { "x-deck-tty": TTY, ...headers } });
+
+  it("accepts a Codex post whose host process is on the pane's tty", () => {
+    expect(validateHookHead(codex({}), tokenFor, ttyFor)).toEqual({ ok: true, paneId: 7 });
+  });
+
+  it.each([
+    ["a missing header", undefined],
+    ["an empty header", ""],
+    ["a daemon with no tty on macOS", "??"],
+    ["a daemon with no tty on Linux", "?"],
+    ["another pane's tty", "ttys010"],
+  ])("refuses %s with 403", (_label, value) => {
+    expect(validateHookHead(codex({ "x-deck-tty": value }), tokenFor, ttyFor)).toMatchObject({
+      ok: false,
+      status: 403,
+    });
+  });
+
+  it("refuses when the pane's own tty is unknown", () => {
+    expect(validateHookHead(codex({}), tokenFor, () => null)).toMatchObject({ status: 403 });
+    expect(validateHookHead(codex({}), tokenFor, () => "")).toMatchObject({ status: 403 });
+  });
+
+  it("does not ask Claude's endpoint for a tty", () => {
+    expect(validateHookHead(head({}), tokenFor, () => null)).toEqual({ ok: true, paneId: 7 });
   });
 });
 
@@ -198,5 +250,122 @@ describe("nextPaneSession — the generation check", () => {
     const rotated = nextPaneSession("a", { event: "SessionStart", sessionId: "b" });
     expect(rotated).toEqual({ accept: true, current: "b" });
     expect(nextPaneSession(rotated.current, { event: "Stop", sessionId: "a" }).accept).toBe(false);
+  });
+});
+
+describe("parseHookBody — Codex events", () => {
+  const base = { session_id: "session-1", turn_id: "turn-1" };
+  const parse = (body: object) => parseHookBody(7, JSON.stringify(body), "codex");
+
+  it("accepts the eight registered events", () => {
+    for (const event of [
+      "SessionStart",
+      "SessionEnd",
+      "UserPromptSubmit",
+      "PreToolUse",
+      "PostToolUse",
+      "PermissionRequest",
+      "Stop",
+      "Interrupt",
+    ]) {
+      expect(parse({ ...base, hook_event_name: event })).toMatchObject({ event, agent: "codex" });
+    }
+    expect(parse({ ...base, hook_event_name: "SubagentStop" })).toBeNull();
+    expect(parse({ ...base, hook_event_name: "PreCompact" })).toBeNull();
+  });
+
+  it("needs a safe turn_id on every event except the two session-scoped ones", () => {
+    const { turn_id: _turn, ...noTurn } = base;
+    expect(parse({ ...noTurn, hook_event_name: "PostToolUse" })).toBeNull();
+    expect(parse({ ...noTurn, hook_event_name: "PermissionRequest" })).toBeNull();
+    expect(parse({ ...base, turn_id: "../x", hook_event_name: "PostToolUse" })).toBeNull();
+    expect(parse({ ...noTurn, hook_event_name: "SessionEnd" })).toMatchObject({
+      event: "SessionEnd",
+    });
+    expect(parse({ ...noTurn, hook_event_name: "SessionStart" })).toMatchObject({
+      event: "SessionStart",
+    });
+  });
+
+  it("drops any post that carries an agent_id, whatever its event", () => {
+    for (const event of ["PostToolUse", "Stop", "SessionStart", "PermissionRequest"]) {
+      expect(parse({ ...base, hook_event_name: event, agent_id: "agent-1" })).toBeNull();
+    }
+    expect(parse({ ...base, hook_event_name: "Stop", agent_id: null })).not.toBeNull();
+  });
+
+  it("reads the tool name of a PreToolUse as the detail", () => {
+    expect(
+      parse({ ...base, hook_event_name: "PreToolUse", tool_name: "request_user_input" }),
+    ).toMatchObject({ detail: "request_user_input" });
+  });
+});
+
+describe("opencode endpoint (OC1)", () => {
+  const opencodeHead = (headers: Record<string, string | undefined> = {}) =>
+    head({ url: "/hook/opencode", headers });
+  const parse = (body: object) => parseHookBody(7, JSON.stringify(body), "opencode");
+  const base = { session_id: "ses_abc" };
+
+  it("accepts a POST from a live pane with its token, and asks for no tty", () => {
+    expect(validateHookHead(opencodeHead(), tokenFor, () => null)).toEqual({ ok: true, paneId: 7 });
+    expect(
+      validateHookHead(opencodeHead({ "x-deck-token": "nope" }), tokenFor, ttyFor),
+    ).toMatchObject({ status: 403 });
+    expect(validateHookHead(head({ url: "/hook/opencode/x" }), tokenFor, ttyFor)).toMatchObject({
+      status: 404,
+    });
+  });
+
+  it("holds the 64 KiB cap that Claude's endpoint has", () => {
+    expect(
+      validateHookHead(
+        opencodeHead({ "content-length": String(HOOK_MAX_BODY_BYTES + 1) }),
+        tokenFor,
+        ttyFor,
+      ),
+    ).toMatchObject({ status: 413 });
+    expect(
+      parseHookBody(
+        7,
+        JSON.stringify({ ...base, hook_event_name: "Stop", pad: "x".repeat(HOOK_MAX_BODY_BYTES) }),
+        "opencode",
+      ),
+    ).toBeNull();
+  });
+
+  it("accepts the seven wire names and nothing else", () => {
+    for (const event of [
+      "SessionStart",
+      "SessionEnd",
+      "Start",
+      "Stop",
+      "Failed",
+      "PermissionRequest",
+      "PermissionReplied",
+    ]) {
+      expect(parse({ ...base, hook_event_name: event })).toMatchObject({
+        event,
+        agent: "opencode",
+        sessionId: "ses_abc",
+      });
+    }
+    for (const event of ["session.status", "UserPromptSubmit", "PostToolUse", "SubagentStop"]) {
+      expect(parse({ ...base, hook_event_name: event })).toBeNull();
+    }
+  });
+
+  it("needs a safe session id", () => {
+    expect(parse({ hook_event_name: "Start" })).toBeNull();
+    expect(parse({ hook_event_name: "Start", session_id: "../x" })).toBeNull();
+  });
+
+  it("reads only the error message of a Failed, first line and capped", () => {
+    expect(
+      parse({ ...base, hook_event_name: "Failed", message: "Rate limited\nstack", tool_name: "x" }),
+    ).toMatchObject({ detail: "Rate limited", message: null, cwd: null });
+    expect(
+      parse({ ...base, hook_event_name: "Stop", message: "ignored", last_assistant_message: "no" }),
+    ).toMatchObject({ detail: null, message: null });
   });
 });

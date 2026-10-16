@@ -10,7 +10,8 @@ initCrashReporting();
 // main process" dialog.
 for (const stream of [process.stdout, process.stderr]) stream.on("error", () => {});
 
-import { createCodexIntegration } from "./agent-hooks/codex-integration";
+import { codexSignalsEnabled, createCodexIntegration } from "./agent-hooks/codex-integration";
+import { createOpencodeIntegration } from "./agent-hooks/opencode-integration";
 /**
  * Electron main process — the host.
  *
@@ -66,8 +67,11 @@ import { registerDevServers } from "./ipc/register-dev-servers";
 import { registerChanges } from "./ipc/register-changes";
 import { registerAgentSignals } from "./ipc/register-agent-signals";
 import { createHookServer } from "./agent-hooks/hook-server";
-import { createOpencodeClients } from "./agent-hooks/opencode-client";
 import { createClaudeIntegration } from "./agent-hooks/claude-integration";
+import { provisionAgentShell } from "./agent-shell/provision";
+import { bootstrapLaunch, type AgentShellPaths } from "./agent-shell/shell-bootstrap";
+import { createCodexCapabilities } from "./agent-shell/codex-capabilities";
+import { hooksSupported } from "./agent-hooks/hooks-supported";
 
 // __dirname is `dist-electron/electron`, so the Vite output is two levels up.
 const RENDERER_DIR = path.join(__dirname, "..", "..", "dist");
@@ -150,37 +154,66 @@ const browserPanels = new BrowserPanels({
 
 // ---------------------------------------------- Agent-signal contract layer
 // Stage 2 (`docs/internals/terminal.md`):
-// a loopback endpoint the CLI hooks Deck installs post to, and one opencode
-// subscription per pane. Both deliver through the coordinator, so an event
-// reaches the window that owns the pane and no other. Created BEFORE the PTY
+// a loopback endpoint the CLI hooks and Deck's opencode plugin post to. It
+// delivers through the coordinator, so an event reaches the window that owns
+// the pane and no other. Created BEFORE the PTY
 // manager because every shell learns the endpoint's port at spawn.
 const hookServer = createHookServer({
   tokenFor: (paneId) => pty.hookTokenOf(paneId),
+  ttyFor: (paneId) => pty.ttyNameOf(paneId),
   emitToOwner: (paneId, payload) => {
-    const enabled =
-      payload.agent === "codex" ? codexIntegration.enabled() : claudeIntegration.enabled();
+    const integration =
+      payload.agent === "codex"
+        ? codexIntegration
+        : payload.agent === "opencode"
+          ? opencodeIntegration
+          : claudeIntegration;
+    const enabled = integration.enabled();
     if (enabled) coordinator.deliver(paneId, EVENTS.hookEvent, payload);
   },
 });
-const opencodeClients = createOpencodeClients({
-  emitToOwner: (paneId, payload) => coordinator.deliver(paneId, EVENTS.hookEvent, payload),
-});
 const claudeIntegration = createClaudeIntegration({ userData: app.getPath("userData") });
 const codexIntegration = createCodexIntegration({ userData: app.getPath("userData") });
+const opencodeIntegration = createOpencodeIntegration({ userData: app.getPath("userData") });
+
+/** The wrappers and shell bootstrap, written at boot; null leaves panes on `$SHELL -l`. */
+let agentShell: AgentShellPaths | null = null;
+
+/** What the installed Codex accepts; re-probed whenever the integrations sync. */
+const codexCapabilities = createCodexCapabilities();
+
+let probedWithCodexSignals: boolean | null = null;
+
+/**
+ * Register or remove both hook sets, and follow the opencode switch. Codex is re-probed at boot
+ * and whenever its switch flips, without holding the caller up: discovery starts a login shell.
+ */
+async function syncAgentIntegrations(settings: unknown): Promise<void> {
+  const codexOn = codexSignalsEnabled(settings);
+  if (hooksSupported() && probedWithCodexSignals !== codexOn) {
+    probedWithCodexSignals = codexOn;
+    void codexCapabilities.refresh();
+  }
+  await Promise.all([
+    claudeIntegration.sync(settings),
+    codexIntegration.sync(settings),
+    opencodeIntegration.sync(settings),
+  ]);
+}
 
 const pty = new PtyManager({
   emitToOwner: (paneId, event, payload) => coordinator.deliver(paneId, event, payload),
   register: (paneId, label) => coordinator.register(paneId, label),
   unregister: (paneId) => {
     coordinator.unregister(paneId);
-    // A pane's generation and its opencode subscription die with its PTY.
+    // A pane's generation dies with its PTY.
     hookServer.forgetPane(paneId);
-    opencodeClients.detach(paneId);
   },
   assertOwner: (paneId, label) => coordinator.assertAccess(paneId, label),
   hookPort: () => hookServer.port(),
   hookScript: () => claudeIntegration.scriptPath(),
   codexHookScript: () => codexIntegration.scriptPath(),
+  agentShell: () => agentShell,
 });
 
 /** The label of the window that sent an IPC message. Every pane command needs
@@ -412,15 +445,25 @@ registerServices({ labelOf, setRecording: menuState.setRecording });
 
 // ------------------------------------------------- Agent-signal adapters
 registerAgentSignals({
-  config: () => ({
-    // POSIX only: the hook script is `sh` + `curl`. Windows keeps the
-    // fallback (spec §8) until a PowerShell script exists.
-    claudeSettingsPath: null,
-    hookPort: hookServer.port(),
-  }),
-  opencode: opencodeClients,
-  assertOwner: (paneId, label) => coordinator.assertAccess(paneId, label),
-  labelOf,
+  config: async () => {
+    const shellBootstrap =
+      hooksSupported() &&
+      agentShell !== null &&
+      bootstrapLaunch(process.env.SHELL || "/bin/zsh", agentShell) !== null;
+    // Where no wrapper runs, a probe started by a Signals change must land before a launch reads
+    // the answer, and a Codex upgraded or downgraded since the last probe is probed again. A
+    // wrapper probes for itself, so window init never waits on a login shell for it.
+    const codex = await codexCapabilities.forLaunch(shellBootstrap);
+    return {
+      // POSIX only: the hook script is `sh` + `curl`. Windows keeps the
+      // fallback (spec §8) until a PowerShell script exists.
+      claudeSettingsPath: null,
+      hookPort: hookServer.port(),
+      shellBootstrap,
+      codexBypassHookTrust: codex.bypassHookTrust,
+      codexNoDaemon: codex.noDaemon,
+    };
+  },
 });
 
 // ------------------------------------------------- Dev server discovery
@@ -440,7 +483,7 @@ registerSettingsIpc({
   emitTo,
   adoptMenuKeymap: menuState.adoptMenuKeymap,
   syncAgentSettings: async (settings) => {
-    await Promise.all([claudeIntegration.sync(settings), codexIntegration.sync(settings)]);
+    await syncAgentIntegrations(settings);
   },
 });
 
@@ -614,6 +657,8 @@ app.whenReady().then(async () => {
   // Every initial shell must inherit a bound endpoint and the installation's
   // hook script. Registration failure keeps registry-based discovery available.
   await hookServer.listen();
+  // Same reason: the wrappers must exist before any pane's shell asks for them.
+  agentShell = await provisionAgentShell(app.getPath("userData"));
   // Read the stored rebinds BEFORE the first window exists. `createWindow`
   // rebuilds the menu itself, so resolving afterwards would install the
   // shipped accelerators first and correct them a moment later — a window in
@@ -623,7 +668,7 @@ app.whenReady().then(async () => {
     .then(async (store) => {
       const settings = store.get("settings");
       menuState.adoptMenuKeymap(settings);
-      await Promise.all([claudeIntegration.sync(settings), codexIntegration.sync(settings)]);
+      await syncAgentIntegrations(settings);
     })
     .catch((error: unknown) => {
       // Defaults are already installed; an unreadable settings file must not

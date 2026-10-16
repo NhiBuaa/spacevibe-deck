@@ -22,10 +22,16 @@
  *   `TERM_PROGRAM` (trust audit §4.2).
  * - `PermissionRequest` — fires WHEN a tool call needs a decision, before the
  *   ~6 s `permission_prompt` delay.
+ * - `UserPromptSubmit`, `PostToolUse *`, `PostToolUseFailure *` — a turn began
+ *   or went on after a tool call: the explicit `working` mark, and the one that
+ *   replaces a `requested` once the user approved. They carry the whole prompt
+ *   and the whole tool response, so the script never forwards their stdin: it
+ *   posts a small body of its own (see `BOUNDED_EVENTS`).
  * `SubagentStop` and `TeammateIdle` are deliberately NOT installed (Superset
  * #6641: a sub-agent's stop is not the row's state).
  *
- * The script is POSIX `sh` + `curl` (both ship with macOS and every Linux)
+ * The script is POSIX `sh` + `curl` (both ship with macOS and every Linux; `--noproxy '*'` keeps
+ * a proxy variable from routing the loopback post, and the pane token, through a proxy)
  * and exits 0 on every path, so a dead endpoint is never the CLI's failure.
  * When the post fails on a `Notification`, it prints the `terminalSequence`
  * Claude documents — an OSC 777 that the pane's existing handler already
@@ -33,6 +39,7 @@
  */
 import fs from "node:fs/promises";
 import path from "node:path";
+import { BOUNDED_BODY_AWK, BOUNDED_PREFIX_BYTES } from "./bounded-body-awk";
 
 export const AGENT_HOOKS_DIR = "agent-hooks";
 export const CLAUDE_HOOKS_FILE = "claude.json";
@@ -46,9 +53,26 @@ export const CLAUDE_HOOK_EVENTS = [
   "SessionEnd",
   "Notification",
   "PermissionRequest",
+  "UserPromptSubmit",
+  "PostToolUse",
+  "PostToolUseFailure",
 ] as const;
 
 export const NOTIFICATION_MATCHER = "permission_prompt|idle_prompt";
+
+/**
+ * The matcher each event is registered with; an event absent here has none.
+ * Shared by the `--settings` document and the user-settings registration, so
+ * the two cannot drift.
+ */
+export const CLAUDE_HOOK_MATCHERS: Readonly<Record<string, string>> = {
+  Notification: NOTIFICATION_MATCHER,
+  PostToolUse: "*",
+  PostToolUseFailure: "*",
+};
+
+/** Events whose stdin is too big to forward; the script posts a bounded body instead. */
+const BOUNDED_EVENTS = ["UserPromptSubmit", "PostToolUse", "PostToolUseFailure"];
 
 /** POSIX single-quoting: the only escape a `'…'` string needs is `'` itself. */
 export function shellQuote(value: string): string {
@@ -65,11 +89,34 @@ export function hookScriptSource(): string {
     "#!/bin/sh",
     "# SpaceVibe Deck agent hook — posts this CLI event to the Deck that launched the pane.",
     "# Written by Deck; edits are overwritten at the next launch. Exits 0 on every path.",
-    'EVENT="$1"',
-    'if [ -z "$DECK_HOOK_PORT" ] || [ -z "$DECK_PANE_ID" ] || [ -z "$DECK_HOOK_TOKEN" ]; then',
+    // A nested agent (another CLI run by this pane's agent) is not the pane's occupant: its
+    // hooks must not rotate the generation or draw its marks on the outer agent's row.
+    // `${VAR-}`: an inherited `set -u` (SHELLOPTS) must not kill the hook on an unset variable.
+    '[ -n "${DECK_AGENT_NESTED-}" ] && exit 0',
+    '[ -n "${DECK_AGENT_ID-}" ] && [ "${DECK_AGENT_ID-}" != claude ] && exit 0',
+    // Claude Code (2.1.296) puts its own pid in a hook's `CLAUDE_PID`; the wrapper exec'd the
+    // pane's agent as `DECK_AGENT_PID`. A claude that skipped the wrapper (absolute path, npx)
+    // inherits the outer agent's identity but runs as another process. Either unset: no check.
+    '[ -n "${DECK_AGENT_PID-}" ] && [ -n "${CLAUDE_PID-}" ] && [ "$CLAUDE_PID" != "$DECK_AGENT_PID" ] && exit 0',
+    'EVENT="${1-}"',
+    'if [ -z "${DECK_HOOK_PORT-}" ] || [ -z "${DECK_PANE_ID-}" ] || [ -z "${DECK_HOOK_TOKEN-}" ]; then',
     "  exit 0",
     "fi",
-    "if ! curl -s -m 2 -o /dev/null --data-binary @- \\",
+    // The three turn events carry the whole prompt or tool response: post a body built from a
+    // bounded prefix of stdin instead, then drain the rest so Claude never sees a broken pipe.
+    `case "$EVENT" in ${BOUNDED_EVENTS.join("|")})`,
+    `  BODY=$(head -c ${BOUNDED_PREFIX_BYTES} | LC_ALL=C awk '${BOUNDED_BODY_AWK}')`,
+    "  cat >/dev/null",
+    // `-q` (first, or curl ignores it) skips ~/.curlrc, whose `write-out` would reach stdout,
+    // which Claude adds to the conversation.
+    "  [ -n \"$BODY\" ] && printf '%s' \"$BODY\" | curl -q --noproxy '*' -s -m 2 -o /dev/null --data-binary @- \\",
+    '    -H "Content-Type: application/json" \\',
+    '    -H "X-Deck-Pane: $DECK_PANE_ID" \\',
+    '    -H "X-Deck-Token: $DECK_HOOK_TOKEN" \\',
+    '    "http://127.0.0.1:$DECK_HOOK_PORT/hook"',
+    "  exit 0 ;;",
+    "esac",
+    "if ! curl -q --noproxy '*' -s -m 2 -o /dev/null --data-binary @- \\",
     '    -H "Content-Type: application/json" \\',
     '    -H "X-Deck-Pane: $DECK_PANE_ID" \\',
     '    -H "X-Deck-Token: $DECK_HOOK_TOKEN" \\',
@@ -88,22 +135,13 @@ export function hookScriptSource(): string {
 /** The settings document Claude loads through `--settings`. */
 export function claudeHooksDocument(scriptPath: string): Record<string, unknown> {
   const command = (event: string) => `${shellQuote(scriptPath)} ${event}`;
-  const entry = (event: string, matcher?: string) => [
+  const entry = (event: string) => [
     {
-      ...(matcher === undefined ? {} : { matcher }),
+      ...(event in CLAUDE_HOOK_MATCHERS ? { matcher: CLAUDE_HOOK_MATCHERS[event] } : {}),
       hooks: [{ type: "command", command: command(event) }],
     },
   ];
-  return {
-    hooks: {
-      SessionStart: entry("SessionStart"),
-      Stop: entry("Stop"),
-      StopFailure: entry("StopFailure"),
-      SessionEnd: entry("SessionEnd"),
-      Notification: entry("Notification", NOTIFICATION_MATCHER),
-      PermissionRequest: entry("PermissionRequest"),
-    },
-  };
+  return { hooks: Object.fromEntries(CLAUDE_HOOK_EVENTS.map((event) => [event, entry(event)])) };
 }
 
 export interface ClaudeHooksFiles {

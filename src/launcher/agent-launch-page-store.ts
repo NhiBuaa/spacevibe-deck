@@ -4,6 +4,7 @@ import type {
   AgentLaunchPlacement,
   AgentLaunchResult,
   AgentLaunchReceipt,
+  LaunchCommandOverride,
 } from "../terminal/agent-launch-target";
 
 export interface AgentLaunchPageRequest {
@@ -14,6 +15,8 @@ export interface AgentLaunchPageRequest {
     placement: AgentLaunchPlacement,
     /** The target as it stands when the press runs: a re-target may have replaced the opened one. */
     target: AgentLaunchTarget,
+    /** The command a profile pick (PAGE4) asks to type instead of the agent's default. */
+    override?: LaunchCommandOverride,
   ) => Promise<AgentLaunchResult>;
   /**
    * Re-captures the target for another workspace path; null when none can be
@@ -31,26 +34,40 @@ export interface AgentLaunchPageRequest {
 }
 
 /**
+ * A launch that failed before its pane existed (PAGE5): the message the page
+ * shows, and the attempt `retry` repeats. No exit code — Deck does not watch
+ * the PTY after spawn (decision 7).
+ */
+export interface LaunchFailure {
+  readonly message: string;
+  readonly agentId: string;
+  readonly placement: AgentLaunchPlacement;
+  readonly override?: LaunchCommandOverride;
+}
+
+/**
  * True when a key event comes from inside a launch-page popover that is open
  * (its menu or its trigger). That popover answers Escape itself; the page and
  * the window-level shortcut handler must leave the key alone.
  */
 export function eventInOpenLaunchPopover(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
-  const picker = target.closest(".agent-launch-page .nt-workspace-picker");
-  return picker?.querySelector('[role="menu"]') != null;
+  const popover = target.closest(
+    ".agent-launch-page .nt-workspace-picker, .agent-launch-page .launch-profile",
+  );
+  return popover?.querySelector('[role="menu"]') != null;
 }
 
 /** A page request owns navigation until another explicit navigation supersedes it. */
 export function createAgentLaunchPageStore() {
   const request = signal<AgentLaunchPageRequest | null>(null);
   const pending = signal(false);
-  const error = signal<string | null>(null);
+  const failure = signal<LaunchFailure | null>(null);
   let epoch = 0;
 
   function open(next: AgentLaunchPageRequest): void {
     epoch += 1;
-    error.value = null;
+    failure.value = null;
     request.value = next;
   }
 
@@ -59,7 +76,7 @@ export function createAgentLaunchPageStore() {
     epoch += 1;
     request.value = null;
     previous?.releaseStage?.();
-    error.value = null;
+    failure.value = null;
     // A launch in flight can no longer commit to this request, so the Run
     // guard must not outlive it: without this, reopening the page lands on a
     // disabled Run until the abandoned promise settles.
@@ -80,31 +97,37 @@ export function createAgentLaunchPageStore() {
     const target = current.retarget(path);
     if (target === null) return false;
     epoch += 1;
-    error.value = null;
+    failure.value = null;
     request.value = { ...current, target };
     return true;
   }
 
-  async function run(agentId: string, placement: AgentLaunchPlacement = "target"): Promise<void> {
+  async function run(
+    agentId: string,
+    placement: AgentLaunchPlacement = "target",
+    override?: LaunchCommandOverride,
+  ): Promise<void> {
     const current = request.value;
     if (current === null || pending.value) return;
     const ownEpoch = epoch;
     const isCurrent = () => epoch === ownEpoch && request.value === current;
     pending.value = true;
-    error.value = null;
+    failure.value = null;
+    const attempt = { agentId, placement, ...(override === undefined ? {} : { override }) };
     try {
-      const result = await current.launch(agentId, isCurrent, placement, current.target);
+      const result = await current.launch(agentId, isCurrent, placement, current.target, override);
       if (!isCurrent()) return;
       if (result.kind === "spawned") {
         request.value = null;
         current.releaseStage?.();
         current.reveal(result.receipt, () => epoch === ownEpoch && request.value === null);
       } else if (result.kind === "failed") {
-        error.value = result.message;
+        failure.value = { ...attempt, message: result.message };
       }
     } catch (cause) {
       console.error("Agent launcher request failed:", cause);
-      if (isCurrent()) error.value = "Could not open the agent. Try again.";
+      if (isCurrent())
+        failure.value = { ...attempt, message: "Could not open the agent. Try again." };
     } finally {
       // Only this request's own guard: `close()` already cleared it, and a
       // newer run may have armed it again since.
@@ -112,7 +135,14 @@ export function createAgentLaunchPageStore() {
     }
   }
 
-  return { request, pending, error, open, close, retarget, run };
+  /** Repeats the failed attempt exactly: the same agent, placement and profile pick. */
+  async function retry(): Promise<void> {
+    const last = failure.value;
+    if (last === null) return;
+    await run(last.agentId, last.placement, last.override);
+  }
+
+  return { request, pending, failure, open, close, retarget, run, retry };
 }
 
 export const agentLaunchPage = createAgentLaunchPageStore();
