@@ -44,6 +44,7 @@ const LIMITS = {
       observedAtMs: NOW,
       windows: [
         { durationMinutes: 300, usedPercent: 91, resetsAtMs: NOW + 2 * HOUR_MS },
+        { durationMinutes: 1440, usedPercent: 12, resetsAtMs: NOW + 9 * HOUR_MS },
         { durationMinutes: 10080, usedPercent: 46, resetsAtMs: NOW + 35 * HOUR_MS },
       ],
     },
