@@ -502,14 +502,6 @@
   border-radius: var(--radius-tight);
   background: color-mix(in srgb, var(--fg) 8%, transparent);
 }
-/* Where an even spend would sit; taller than the track so it reads as a tick. */
-.usage-allowance__pace {
-  position: absolute;
-  top: -3px;
-  bottom: -3px;
-  width: 1px;
-  background: var(--text-muted);
-}
 .usage-allowance__fill {
   display: block;
   height: 100%;

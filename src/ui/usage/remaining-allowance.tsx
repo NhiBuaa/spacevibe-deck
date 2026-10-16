@@ -13,8 +13,6 @@ import type { AgentLimitsView } from "./use-agent-limits";
 export const LOW_ALLOWANCE_PERCENT = 15;
 /** Below this the bar warms up; at LOW_ALLOWANCE_PERCENT it turns red and says so in words. */
 export const WARM_ALLOWANCE_PERCENT = 30;
-/** Within this many points of an even spend the pace reads "on pace". */
-const PACE_TOLERANCE_POINTS = 8;
 const FIVE_HOURS = 300;
 const WEEK_MINUTES = 10080;
 const MINUTE_MS = 60_000;
@@ -55,28 +53,6 @@ const RESET_DATE_FORMAT: Intl.DateTimeFormatOptions = {
   minute: "2-digit",
 };
 
-type Pace = "ahead" | "on" | "behind";
-
-/**
- * Where an even spend would sit on the bar: the share of the window still to
- * run. Remaining above it means the agent is being used slower than the clock.
- */
-function evenSpendPercent(window: LimitWindow, nowMs: number): number {
-  const left = (window.resetsAtMs - nowMs) / (window.durationMinutes * MINUTE_MS);
-  return Math.min(100, Math.max(0, left * 100));
-}
-
-function paceOf(remaining: number, target: number): Pace {
-  if (remaining > target + PACE_TOLERANCE_POINTS) return "ahead";
-  return remaining < target - PACE_TOLERANCE_POINTS ? "behind" : "on";
-}
-
-const PACE_LABEL: Readonly<Record<Pace, string>> = {
-  ahead: "Using it slower than the clock",
-  on: "On pace",
-  behind: "Using it faster than the clock",
-};
-
 function fillColor(agent: UsageAgent, remaining: number): string {
   if (remaining <= LOW_ALLOWANCE_PERCENT) return "var(--allowance-low)";
   if (remaining <= WARM_ALLOWANCE_PERCENT) return "var(--allowance-warm)";
@@ -95,26 +71,18 @@ function AllowanceWindow({
   const remaining = Math.floor(100 - window.usedPercent);
   const low = remaining <= LOW_ALLOWANCE_PERCENT;
   const resetsAt = new Date(window.resetsAtMs);
-  const target = evenSpendPercent(window, nowMs);
   return (
     <li class={low ? "usage-allowance__window usage-allowance__low" : "usage-allowance__window"}>
       <span class="usage-allowance__label">
         {durationLabel(window.durationMinutes)}
         {low && <span class="usage-allowance__warning">Low</span>}
       </span>
-      {/* The bar repeats the percentage beside it; the pace mark is the part that
-          adds meaning, so the bar is named by it (DL-16.6). */}
-      <span
-        class="usage-allowance__bar"
-        role="img"
-        aria-label={PACE_LABEL[paceOf(remaining, target)]}
-        title={PACE_LABEL[paceOf(remaining, target)]}
-      >
+      {/* aria-hidden: the percentage beside it states the same amount (DL-16.6). */}
+      <span class="usage-allowance__bar" aria-hidden="true">
         <span
           class="usage-allowance__fill"
           style={{ width: `${remaining}%`, background: fillColor(agent, remaining) }}
         />
-        <span class="usage-allowance__pace" style={{ left: `${target}%` }} />
       </span>
       <strong>{remaining}%</strong>
       <time

@@ -86,25 +86,6 @@ it.each([
   expect(host.textContent).toContain(expected);
   expect(host.querySelector("strong")).toBeNull();
 });
-it.each([
-  [10, "Using it slower than the clock"],
-  [90, "Using it faster than the clock"],
-])("names the pace when the 5-hour window has used %s%% of its quota", (usedPercent, label) => {
-  const props = fixture();
-  mount({
-    ...props,
-    snapshot: [
-      {
-        ...props.snapshot[0],
-        windows: [{ durationMinutes: 300, usedPercent, resetsAtMs: now + 150 * 60_000 }],
-      },
-    ],
-  });
-  const bar = host.querySelector(".usage-allowance__bar");
-  expect(bar?.getAttribute("role")).toBe("img");
-  expect(bar?.getAttribute("aria-label")).toBe(label);
-  expect(host.querySelector<HTMLElement>(".usage-allowance__pace")?.style.left).toBe("50%");
-});
 it("warms the bar under 30% and turns it red with a Low word under 15%", () => {
   const props = fixture();
   const withUsed = (usedPercent: number) =>
