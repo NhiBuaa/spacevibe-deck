@@ -316,7 +316,7 @@ easier to spot in the rail.
   They launch bare, without flag, model or effort controls (Droid keeps its
   autonomy level and spec mode).
 - **Add agents from Quick Launch.** An **Add agent** card on the
-  [launcher](src/launcher/quick-agent-editor.tsx) picks which agents appear
+  launcher picks which agents appear
   there, and it shares one list with Settings → Quick agents.
 - **Appearance and Agents settings have a new layout.**
   [Appearance](src/ui/settings/sections/appearance-section.tsx) shows each
