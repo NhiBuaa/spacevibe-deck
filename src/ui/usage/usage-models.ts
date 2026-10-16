@@ -52,12 +52,15 @@ export function buildModelTable(
       counters: addCounters(lines.get(key)?.counters ?? EMPTY_COUNTERS, counters),
     });
   }
-  const priced = [...lines.entries()].map(([key, line]) => ({
-    key,
-    ...line,
-    costUsd: estimateCostUsd(line.model, line.counters),
-    tokens: totalTokens(line.counters),
-  }));
+  // A model with no tokens says nothing: Claude Code writes `<synthetic>` turns with zero usage.
+  const priced = [...lines.entries()]
+    .map(([key, line]) => ({
+      key,
+      ...line,
+      costUsd: estimateCostUsd(line.model, line.counters),
+      tokens: totalTokens(line.counters),
+    }))
+    .filter((row) => row.tokens > 0);
   const tenths = largestRemainderTenths(priced.map((row) => row.costUsd ?? 0));
   const rows = priced
     .map(({ counters: _counters, ...row }, index) => ({

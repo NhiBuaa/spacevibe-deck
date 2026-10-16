@@ -46,6 +46,16 @@ it("merges buckets of one model and keeps an agent's same-named model apart", ()
   ]);
 });
 
+it("leaves out a model that used no tokens", () => {
+  const table = buildModelTable(
+    [bucket("<synthetic>", 0), bucket("claude-opus-4-5", 10)],
+    "all",
+    NOW,
+  );
+  expect(table.rows.map((row) => row.model)).toEqual(["claude-opus-4-5"]);
+  expect(table.hidden).toBe(0);
+});
+
 it("caps the list and reports how many models it hid", () => {
   const many = Array.from({ length: MODEL_ROWS_SHOWN + 3 }, (_, index) =>
     bucket(`model-${index}`, index + 1),
