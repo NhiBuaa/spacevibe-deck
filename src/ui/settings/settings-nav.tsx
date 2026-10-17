@@ -33,10 +33,11 @@ export function SettingsNav() {
 
   // SET-2: when the page on screen has no match, move to the first one that does.
   useEffect(() => {
-    if (!searching || result.pages.size === 0 || result.pages.has(activeCategory.value as never)) {
+    const { pages } = searchSettings(query);
+    if (query.trim() === "" || pages.size === 0 || pages.has(activeCategory.value as never)) {
       return;
     }
-    const first = SETTINGS_CATEGORIES.find((category) => result.pages.has(category.id as never));
+    const first = SETTINGS_CATEGORIES.find((category) => pages.has(category.id as never));
     if (first) {
       activeCategory.value = first.id;
     }
