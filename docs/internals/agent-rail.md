@@ -52,12 +52,13 @@ grouping rather than regrouping on its own.
 | ----------------------------------- | --------- | -------- | ---------- | ---------------------- |
 | `error`                             | any       | any      | `failed`   | red badge              |
 | `requested`, `warning`, `completed` | any       | any      | `asked`    | yellow badge           |
+| `none`                              | `exited`  | any      | `ended`    | quiet gray square      |
 | `none`                              | `working` | any      | `working`  | braille spinner badge  |
 | `none`                              | other     | true     | `done`     | quiet gray badge       |
 | `none`                              | other     | false    | `idle`     | nothing                |
 
-The row's accessible name carries the lower-case words (`failed`, `needs you`, `working`, `done`,
-`idle`); its second line carries a capitalised state word only until the agent has a sentence
+The row's accessible name carries the lower-case words (`failed`, `needs you`, `ended`, `working`,
+`done`, `idle`); its second line carries a capitalised state word only until the agent has a sentence
 (`stateWord` in [`agent-rail-card-model.ts`](../../src/ui/agent-rail-card-model.ts)). Where
 attention and phase come from is in
 [terminal.md](terminal.md#agent-phase-and-attention).

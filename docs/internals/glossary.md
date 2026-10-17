@@ -129,8 +129,8 @@ classified as an agent. Not: busy, attention.
 `warning`, `error`. Explicit signals outrank the heuristic, which produces only `completed`.
 Never downgraded until acknowledged; the UI reads it before phase. Not: notification, unread.
 
-**Acknowledge** — Focusing a pane, which clears its attention and unread. Never clears phase.
-Not: selectTab, dismiss.
+**Acknowledge** — Focusing a pane, which clears its attention and unread. Never clears a live
+phase; an ended agent's pane goes back to `idle`. Not: selectTab, dismiss.
 
 **Unread** — Per pane, whether output has been seen since it last changed; cleared only on
 real DOM focus while the window is foreground. Distinct from the tab-level unread flag.

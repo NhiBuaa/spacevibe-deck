@@ -304,7 +304,9 @@ poll having classified the pane's foreground process as an agent.
   bell) outrank the heuristic, which may only ever produce `completed`. The UI reads
   attention before phase. `hasRun` separates a pane that finished and was checked (`done`)
   from one that never ran anything (`idle`).
-- **Acknowledge** clears attention and per-pane unread, never phase. Focus counts only when
+- **Acknowledge** clears attention and per-pane unread, never a live phase. The one exception
+  is an `exited` phase whose pane is no longer an agent: acknowledging it, or visible output
+  in that pane, turns it `idle`, so the `ended` row goes back to being a shell. Focus counts only when
   the window is foreground, the tab is active, and DOM focus rests inside the pane.
 - Notifications dedupe on the latch identity, so only a newly raised or escalated kind is
   forwarded, and the OSC classifier never carries the payload's title or body text.
@@ -354,7 +356,7 @@ runs independently of the switch. Without hooks, API failures cannot produce the
   `PostToolUseFailure` say `working`; their stdin carries the whole prompt or tool response,
   and the endpoint's 64 KiB cap would drop "back to working" exactly on large tool output. The
   [script](../../electron/agent-hooks/claude-hooks-file.ts) therefore reads a bounded prefix,
-  posts only the event name, session id and tool name, and drains the rest of stdin. It posts
+  posts only the event name, session id, turn id and tool name, and drains the rest of stdin. It posts
   nothing for a subagent: a top-level `agent_id` marks one, and only depth-1 keys are read, so
   a tool argument of that name cannot fake it. `working` clears a `requested` the hooks raised
   (the tool was approved); a registry-raised `requested` stays the registry's to clear.
@@ -365,8 +367,9 @@ runs independently of the switch. Without hooks, API failures cannot produce the
   120 seconds of silence, and the heuristic applies again.
 - **Escape and Ctrl+C clear hook-backed work.** [`pane.ts`](../../src/terminal/pane.ts) reports
   the key without changing what it writes to the PTY. If the last contract signal was
-  `working` or `requested` (an OSC 9;4 transition after it does not disarm), the pane reads
-  idle with no completion latch; `warning` and `error` stay, and the next hook overwrites.
+  `working` or a hook-raised `requested` (an OSC 9;4 transition after it does not disarm), the
+  pane reads idle with no completion latch. A registry-raised `requested`, `warning` and
+  `error` stay, and the next hook overwrites.
 - **Endpoint and script precede the first window.**
   [`main.ts`](../../electron/main.ts) waits for the hook listener and integration setup;
   [`spawn.ts`](../../electron/pty/spawn.ts) stamps each shell with its installation's script
@@ -397,7 +400,8 @@ runs independently of the switch. Without hooks, API failures cannot produce the
   makes Codex ask the user to review hooks that did not change.
 - **The wrapper trusts Deck's hooks and keeps Codex out of its shared daemon.**
   [`codex-wrapper-branch.ts`](../../electron/agent-shell/codex-wrapper-branch.ts) adds
-  `--dangerously-bypass-hook-trust` to every launch in a pane, and `--no-daemon` to the
+  `--dangerously-bypass-hook-trust` to every launch in a pane except the info flags and the
+  shared-daemon commands listed below, and `--no-daemon` to the
   interactive forms (bare `codex`, `resume`, `fork`; not `exec`, `review` or `--remote`).
   - *Why the bypass:* without it every Codex session opens on a hook-review screen. It runs
     every enabled hook in every config layer, trusted or not; a hook the user disabled in
@@ -413,15 +417,17 @@ runs independently of the switch. Without hooks, API failures cannot produce the
   - The wrapper adds the flags only while a marker file under `<userData>/agent-shell/` exists
     (created after the hooks are registered, removed before they go), so turning Signals off
     needs no wrapper rewrite. It also requires the real binary's `--help` to list the bypass;
-    an older Codex launches unchanged.
+    an older Codex launches unchanged. `--no-daemon` is added only when `--help` lists it too.
   - `--help`, `--version`, and a flag already present are left alone, and a flag after `--` is
     prompt text.
 - **A daemon never speaks for a pane.** The daemon keeps the environment of whoever started it,
   which may hold a live pane's credentials. So the script sends the tty of the first `codex`
   process above it in `X-Deck-Tty`, and main accepts a Codex post only when that equals the
-  pane's own tty ([`hook-server.ts`](../../electron/agent-hooks/hook-server.ts)); a daemon has
-  none. Commands that use the shared daemon (`agents`, `app-server`, `remote-control`, `queue`, `archive`, `unarchive`, `delete`, `--remote`)
-  are launched with `DECK_PANE_ID`, `DECK_HOOK_TOKEN` and `DECK_HOOK_PORT` unset (`env -u`, which csh and fish accept too).
+  pane's own tty ([`hook-request.ts`](../../electron/agent-hooks/hook-request.ts)); a daemon has
+  none. Commands that use the shared daemon (`agents`, `app-server`, `remote-control`, `queue`, `archive`, `unarchive`, `delete`, `--remote`, `--remote-auth-token-env`)
+  run with `DECK_PANE_ID`, `DECK_HOOK_TOKEN` and `DECK_HOOK_PORT` unset: the wrapper `unset`s
+  them, and a launch command composed where no wrapper runs prefixes `env -u`, which csh and
+  fish accept too.
 - **opencode reports through a plugin the wrapper loads.** Deck writes
   [`opencode-plugin.ts`](../../electron/agent-shell/opencode-plugin.ts) under
   `<userData>/agent-shell/opencode/plugin/deck-signals.js` with the wrappers. While a runtime marker exists
