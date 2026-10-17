@@ -62,5 +62,33 @@ and stop. Do not substitute the browser preview or another automation tool.
 Walk each affected flow and report it with its result: what you did, what you observed, and
 whether it matched the spec. Screenshots go to the scratch directory, never the repo.
 
+Collect errors for the whole run, from before the first action:
+
+```js
+const errors = [];
+page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+page.on("pageerror", (e) => errors.push(String(e)));
+```
+
+The report states:
+
+- **Instance under test:** checkout path, commit (`git rev-parse --short HEAD`), the
+  `userData` scratch directory and the Electron PID. A result with no instance named cannot be
+  tied to the build it judged.
+- **Baseline:** a screenshot and the relevant measured state, captured before the feature is
+  exercised, so "after" has something to differ from.
+- **Input kind per step:** real input (`page.click`, `page.keyboard`, `page.mouse`) or
+  synthetic (`app.evaluate`, `page.evaluate`, a direct store or IPC call). A synthetic step is
+  diagnostic support, never proof of the flow; the flow passes only on real input.
+- **Evidence pairs:** each screenshot sits beside a measured value that agrees with the
+  picture: the focused element, a text, a count, or the persisted file content.
+- **Errors:** `errors` asserted empty at the end, or every entry listed.
+- **Repetition:** the main interaction done, undone, then done again, or repeated rapidly. One
+  pass hides state that leaks between runs.
+- **Not checked:** each flow or state you did not exercise, with the reason. Never omit the
+  line and never guess; write "Not checked: none" only when nothing was skipped.
+- **Skill gaps:** anything in this skill that was wrong, missing or cost a retry, as a
+  suggested edit. Suggest only; do not edit the skill mid-run.
+
 Stop only the processes you started, by PID. Do not `pkill -f` on a pattern: other sessions run
 Electron too. Delete the scratch directory when the report is written.

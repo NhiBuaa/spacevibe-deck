@@ -2,6 +2,7 @@
 name: landing-sync
 description: Report which parts of the Deck landing page (marketing/landing-prototype, marketing/stage) are stale against the app (src/, electron/, docs, CHANGELOG). Read-only by default. Use for "landing drift", "sync landing", "is the landing stale", or as the "before release" check before tagging. Takes an optional git range.
 argument-hint: "[<base>[..<rev>]]"
+disallowed-tools: Edit Write NotebookEdit
 ---
 
 # landing-sync — does the landing still describe the app?
@@ -12,7 +13,9 @@ restates the app in prose, fixtures and comments that cite the app source they m
 `electron/` or `docs/` never fails a landing check. This skill is that check, run by hand.
 
 **Read-only by default.** Produce the report, stop, and wait for the owner. Do not edit
-anything under `marketing/` in the same pass — see "After the report".
+anything under `marketing/` in the same pass — see "After the report". The
+`disallowed-tools` frontmatter blocks the edit tools while this skill runs, but Bash can still
+write, so the read-only rule still binds.
 
 Shell state does not survive between tool calls, so step 0 writes the three values every
 later block needs to `/tmp/landing-sync.env`, and every block opens by sourcing it. Never
@@ -142,7 +145,14 @@ One entry per landing surface, keyed `file:line`. Group as **Stale** (the app co
   locale.
 
 End the report with `REV` and `BASE` from `/tmp/landing-sync.env` and which of the five
-passes ran. An empty **Stale** group is a finding only if every pass ran. Then clean up:
+passes ran. An empty **Stale** group is a finding only if every pass ran. Add two last lines:
+
+- **Not checked:** each surface or claim you could not judge, with the reason. Never omit it
+  and never guess; write "Not checked: none" only when nothing was skipped.
+- **Skill gaps:** anything in this skill that was wrong, missing or cost a retry, as a
+  suggested edit. Suggest only; do not edit the skill.
+
+Then clean up:
 
 ```bash
 . /tmp/landing-sync.env && git worktree remove --force "$W" && rm /tmp/landing-sync.env
