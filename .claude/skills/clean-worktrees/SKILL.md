@@ -11,7 +11,8 @@ git commands from the primary checkout and read plans there by absolute path.
 
 ## Step 1: report only
 
-No git write command in this step. For every worktree in `git worktree list --porcelain`,
+Run `git fetch --prune origin` first so the `origin/main` and unpushed columns are not judged
+against stale remote-tracking refs. No other git write command in this step. For every worktree in `git worktree list --porcelain`,
 except the primary checkout, collect:
 
 | Column | How |
@@ -25,7 +26,8 @@ except the primary checkout, collect:
 | Live process | processes whose cwd is inside the path: `lsof -a -d cwd -Fpn` or `pgrep`, filtered by path prefix. Never `lsof +D` (slow) |
 | Named by a plan | `grep -rl` the path and the branch name in the primary checkout's `docs/plans/` |
 
-Then list local branches that have no worktree, with the same merged and unpushed columns.
+Then list local branches that have no worktree, with the same merged, unpushed and
+named-by-a-plan columns.
 `backup/*` branches are left out of the table; report only their count.
 
 Print one table and propose a verdict per row:
