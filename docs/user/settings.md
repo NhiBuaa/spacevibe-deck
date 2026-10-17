@@ -68,9 +68,12 @@ the file untouched; the day's counts are lost when you quit.
 
 ## Reset
 
-[**Restore defaults**](../../src/ui/settings/sections/reset-section.tsx) resets app
-settings, custom agents, launch configurations and prompt templates after a confirmation.
-Your custom logo, workspaces and agents’ own session logs stay.
+The [Reset page](../../src/ui/settings/sections/reset-section.tsx) has three rows: preferences,
+layout, and custom agents with launch configurations and prompt templates. Each asks first and
+lists the settings it will change and what it keeps. A row is disabled while nothing in its
+group differs from the defaults. Pages that hold preferences also show how many differ and a
+**reset page** action that touches only that page. Your custom logo, workspaces and agents’
+own session logs stay.
 
 ## Where Deck keeps its data
 
