@@ -231,6 +231,8 @@ describe("ShortcutsSection", () => {
     };
     mount();
     expect(rowFor("Split Vertically").querySelector(".cfg-clear")).toBeNull();
+    expect(rowFor("Find…").classList.contains("is-changed")).toBe(true);
+    expect(rowFor("Split Vertically").classList.contains("is-changed")).toBe(false);
 
     const reset = rowFor("Find…").querySelector<HTMLButtonElement>(".cfg-clear");
     expect(reset).not.toBeNull();

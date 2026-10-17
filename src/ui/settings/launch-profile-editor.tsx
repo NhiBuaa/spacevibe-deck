@@ -349,7 +349,7 @@ function RuntimeSettings({ agent }: { readonly agent: BuiltinAgent }) {
     <section class="lp-runtime lp-agent-group" data-runtime-agent={agent.id}>
       <ConfigGroup label="Model" />
       {capability.modelFlag !== null && (models.length > 0 || stored.model !== null) ? (
-        <ConfigRow label="Default model">
+        <ConfigRow label="Default model" changed={stored.model !== null}>
           <AgentChoiceValue
             label={`Default model for ${agent.label}`}
             value={stored.model ?? ""}
@@ -359,7 +359,7 @@ function RuntimeSettings({ agent }: { readonly agent: BuiltinAgent }) {
         </ConfigRow>
       ) : null}
       {capability.effortFlag === null ? null : (
-        <ConfigRow label="Default effort">
+        <ConfigRow label="Default effort" changed={stored.effort !== null}>
           <AgentChoiceValue
             label={`Default effort for ${agent.label}`}
             value={stored.effort ?? ""}
@@ -369,7 +369,11 @@ function RuntimeSettings({ agent }: { readonly agent: BuiltinAgent }) {
         </ConfigRow>
       )}
       {capability.modelFlag === null ? null : (
-        <ConfigRow label="Additional models" desc="Model IDs, separated by commas.">
+        <ConfigRow
+          label="Additional models"
+          desc="Model IDs, separated by commas."
+          changed={declared.length > 0}
+        >
           <div class="lp-models">
             <CommitInput
               ariaLabel={`Additional models for ${agent.label}`}

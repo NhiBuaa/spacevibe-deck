@@ -28,17 +28,31 @@ interface ConfigRowProps {
   danger?: boolean;
   /** The `Settings` key this row edits; lets search highlight it and a deep link reveal it. */
   settingKey?: keyof Settings;
+  /**
+   * Overrides the mark derived from `settingKey`, for a row that edits one
+   * entry of a per-agent map where the whole key is not the unit that changed.
+   */
+  changed?: boolean;
   /** The single interactive value (plus an optional clear button, DL-6.1). */
   children: ComponentChildren;
 }
 
 /** The one control: key (+ desc) left, one interactive value right (DL-5). */
-export function ConfigRow({ label, desc, note, danger, settingKey, children }: ConfigRowProps) {
+export function ConfigRow({
+  label,
+  desc,
+  note,
+  danger,
+  settingKey,
+  changed: changedOverride,
+  children,
+}: ConfigRowProps) {
   const ref = useRef<HTMLDivElement>(null);
   const isTarget = settingKey !== undefined && settingsTarget.value === settingKey;
   const isMatch =
     settingKey !== undefined && searchSettings(settingsQuery.value).keys.has(settingKey);
-  const changed = settingKey !== undefined && isChanged(settings.value, settingKey);
+  const changed =
+    changedOverride ?? (settingKey !== undefined && isChanged(settings.value, settingKey));
   useEffect(() => {
     if (isTarget) {
       ref.current?.scrollIntoView({ block: "center" });

@@ -93,7 +93,10 @@ export function ShortcutsSection() {
             const conflict = conflictDesc(row.action);
             const overridden = isOverridden(overrides, running, row.action);
             return (
-              <div key={row.action} class="cfg-row cfg-row--shortcut">
+              <div
+                key={row.action}
+                class={`cfg-row cfg-row--shortcut ${overridden ? "is-changed" : ""}`}
+              >
                 <div class="cfg-row__key">
                   <span class="cfg-row__label">{row.label}</span>
                   {conflict !== undefined && (
