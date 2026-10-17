@@ -123,8 +123,9 @@ Several agent sessions run against this repo at once. The owner's standing rule 
   across checkouts.
 - **Merge the same day.** Rebase on `main`, fast-forward `main` to the branch, then
   `git worktree remove` and delete the branch. Write the `CHANGELOG.md` entry on `main` at merge
-  time, not on the branch. Keep at most three worktrees alive; work that stays open overnight
-  records why in its plan.
+  time, not on the branch. Keep at most three worktrees alive
+  ([`clean-worktrees`](.claude/skills/clean-worktrees/SKILL.md) reports what can go); work that
+  stays open overnight records why in its plan.
 
 ## Unattended routine
 
