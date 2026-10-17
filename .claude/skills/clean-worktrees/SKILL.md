@@ -12,32 +12,43 @@ git commands from the primary checkout and read plans there by absolute path.
 ## Step 1: report only
 
 Run `git fetch --prune origin` first so the `origin/main` and unpushed columns are not judged
-against stale remote-tracking refs. No other git write command in this step. For every worktree in `git worktree list --porcelain`,
-except the primary checkout, collect:
+against stale remote-tracking refs. No other git write command in this step. For every
+worktree in `git worktree list --porcelain`, except the primary checkout, collect:
 
 | Column | How |
 | --- | --- |
 | Path, branch or `detached` | porcelain output |
 | Last commit date | `git log -1 --format=%cs <head>` |
-| In `main` / `origin/main` | `git merge-base --is-ancestor <head> main` (and `origin/main`); exit 0 = merged |
-| Dirty | `git -C <path> status --porcelain` is non-empty |
-| Unpushed | `git rev-list <head> --not --remotes` is non-empty |
+| Merged | `git merge-base --is-ancestor <head> origin/main` exits 0, **or** the tip equals the `head.sha` of a merged PR (command below). Squash and rebase merges leave the branch off `origin/main`, so the ancestor test alone misses them. Note "local `main` only" separately |
+| Dirty | the ignored-aware status below prints anything. Ignored files count: `git worktree remove` deletes them without `--force`, and `.env*` and `docs/plans/` are ignored here |
+| Unpushed | `git rev-list <head> --not --remotes` is non-empty. A tip that equals a merged PR's `head.sha` has nothing unpushed |
 | Detached, orphaned | `git branch -a --contains <head>` is empty |
-| Live process | processes whose cwd is inside the path: `lsof -a -d cwd -Fpn` or `pgrep`, filtered by path prefix. Never `lsof +D` (slow) |
+| Live process | `lsof -a -d cwd -Fn` lines equal to `n<path>` or starting with `n<path>/` (the slash keeps `landing` from matching `landing-standout`). Never `lsof +D` (slow) |
+| Recently touched | `find <path> -mmin -1440 -not -path '*/node_modules/*' -not -path '*/.git/*' -print -quit` prints a file. Agent sessions run from the primary checkout and edit worktrees by absolute path, so the process column cannot see them; this one can |
 | Named by a plan | `grep -rl` the path and the branch name in the primary checkout's `docs/plans/` |
 
-Then list local branches that have no worktree, with the same merged, unpushed and
-named-by-a-plan columns.
-`backup/*` branches are left out of the table; report only their count.
+```bash
+# Merged PR for a branch: prints "<number> <head.sha>"; compare with `git rev-parse <branch>`
+gh api "repos/mxrsv/spacevibe-deck/pulls?state=closed&head=mxrsv:<branch>" \
+  --jq '.[] | select(.merged_at) | "\(.number) \(.head.sha)"'
+# Dirty, ignored files included; build output at any depth is dropped
+git -C <path> status --porcelain --ignored \
+  | grep -vE '^!! (.*/)?(node_modules|dist|dist-electron|dist-electron-app)/$'
+```
+
+Then list local branches that have no worktree, with the merged, unpushed and named-by-a-plan
+columns. `backup/*` branches are left out of the table; report only their count.
 
 Print one table and propose a verdict per row:
 
-- `remove`: merged into `origin/main`, clean, nothing unpushed, no process, not detached-orphaned.
-- `keep (reason)`: name the reason, for example dirty, unpushed, live process, open plan.
-- `ask`: any other case, such as merged into local `main` only, or a plan still names it.
+- `remove`: merged, clean, nothing unpushed, not orphaned, no live process, not recently
+  touched, not named by a plan.
+- `keep (reason)`: dirty, unpushed, orphaned or a live process — name which.
+- `ask`: every other case — named by a plan, recently touched, merged into local `main` only.
 
-Never propose `remove` for: the primary checkout, a dirty worktree, one with unpushed or
-unreachable commits, one with a live process, or a `backup/*` branch.
+Never propose `remove` for: the primary checkout, a dirty worktree (ignored files included), one
+with unpushed or unreachable commits, a live process, a recent touch, a plan naming it, or a
+`backup/*` branch.
 
 End the report with two lines:
 
@@ -48,11 +59,14 @@ Stop here until the owner replies.
 
 ## Step 2: remove the confirmed rows
 
-Only rows the owner named. Re-run the dirty, unpushed and process checks on each one first; the
-state may have changed since the report.
+Only rows the owner named. Re-run the merged, dirty, unpushed, process and recently-touched
+checks on each one first; the state may have changed since the report.
 
 1. `git worktree remove <path>`. No `--force`.
-2. `git branch -d <branch>`. Never `-D`; if `-d` refuses, report that and leave the branch.
+2. `git branch -d <branch>`. Never `-D`, with one exception: `-d` refuses a squash- or
+   rebase-merged branch, so `-D` is allowed only when the re-check just showed its tip equals a
+   merged PR's `head.sha` (those commits stay on GitHub as `refs/pull/<n>/head`); name the PR in
+   the report. Any other refusal: report it and leave the branch.
 
 If any command fails or times out, stop. Report `git worktree list` and whether the directory
 still exists. Do not retry, do not force, do not clean up the half-done state: a timed-out
