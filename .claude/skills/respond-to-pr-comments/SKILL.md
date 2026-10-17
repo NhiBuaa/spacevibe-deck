@@ -47,7 +47,8 @@ Columns: id, author, `path:line` or "conversation", label, one-line gist, planne
 `answer`, `decline`, `ask`).
 
 Label from the code, not from the reviewer's own severity tag: read the cited lines on
-`head.sha` and confirm the defect before calling it a `BLOCKER`. A claim you cannot confirm is a
+`head.sha` (`git fetch origin pull/<n>/head`, which works for fork PRs too, then
+`git show <head.sha>:<path>`) and confirm the defect before calling it a `BLOCKER`. A claim you cannot confirm is a
 `QUESTION`.
 
 A comment whose fix touches an area under [AGENTS.md Forks](../../../AGENTS.md#forks) is `ask`:
@@ -57,11 +58,18 @@ write no code, name the fork and the question for the owner.
 
 Work only when the session's task says to fix. Never in the primary checkout, never on `main`.
 
-1. Worktree on the PR's existing head branch, beside the others named in
-   [AGENTS.md Sessions and checkouts](../../../AGENTS.md#sessions-and-checkouts):
-   `git fetch origin <head.ref>` then
-   `git worktree add ../../spacevibe-deck-worktrees/pr-<n> <head.ref>`, then `npm install`
-   inside it. A fork PR whose branch you cannot push: report and stop at drafts.
+1. Pick the checkout from `head.repo.full_name`, `head.ref` and `head.sha` (step 1):
+   - Not `mxrsv/spacevibe-deck`: a fork PR. You cannot push to it; stop at drafts and put the
+     proposed change in the reply.
+   - `git worktree list --porcelain` already has a worktree on `head.ref`: work there. If it
+     holds changes you did not make, stop and ask.
+   - Otherwise `git fetch origin <head.ref>`. No local branch of that name:
+     `git worktree add ../../spacevibe-deck-worktrees/pr-<n> -b <head.ref> origin/<head.ref>`.
+     A local branch that is not at `head.sha`: report the divergence and stop.
+
+   Before editing, `git -C <worktree> rev-parse HEAD` must equal `head.sha`. Then
+   `npm install` inside it, as in
+   [AGENTS.md Sessions and checkouts](../../../AGENTS.md#sessions-and-checkouts).
 2. Blockers first. One commit per comment, or a tight group sharing one cause. Conventional
    commit with a scope, English.
 3. Run the tests beside the changed files and lint them, plus `scripts/` and `src/styles/`:
