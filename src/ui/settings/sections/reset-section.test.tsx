@@ -41,9 +41,15 @@ const mockedAsk = vi.mocked(ask);
  * pending microtask has drained first. */
 const flushMicrotasks = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
-describe("ResetSection — Restore defaults confirm", () => {
+describe("ResetSection — scoped resets", () => {
   let host: HTMLDivElement;
-  const CUSTOM = { ...DEFAULT_SETTINGS, fontSize: 20, themeId: "dracula" };
+  const CUSTOM = {
+    ...DEFAULT_SETTINGS,
+    fontSize: 20,
+    themeId: "dracula",
+    sidebarWidth: 300,
+    promptTemplates: [{ id: "t", name: "t", body: "b" }] as never,
+  };
 
   beforeEach(() => {
     document.body.innerHTML = "";
@@ -66,8 +72,8 @@ describe("ResetSection — Restore defaults confirm", () => {
     });
   };
 
-  const getReset = (): HTMLButtonElement =>
-    host.querySelector(".cfg-btn--danger") as HTMLButtonElement;
+  const buttons = (): HTMLButtonElement[] =>
+    Array.from(host.querySelectorAll<HTMLButtonElement>(".cfg-btn--danger"));
 
   const click = async (button: HTMLButtonElement): Promise<void> => {
     await act(async () => {
@@ -76,45 +82,45 @@ describe("ResetSection — Restore defaults confirm", () => {
     });
   };
 
-  it("keeps the word next to the icon on a consequential action", () => {
+  it("offers preferences, layout and data as three separate rows with the word reset", () => {
     mount();
-    const reset = getReset();
-
-    // DL-14.4: icon-only is for familiar actions. Restoring defaults is not
-    // one, so the icon supplements the label rather than replacing it.
-    expect(reset.textContent?.trim()).toBe("reset");
-    expect(
-      reset.querySelector("svg")?.classList.contains("deck-icon--arrow-counter-clockwise"),
-    ).toBe(true);
+    expect(buttons().map((button) => button.textContent?.trim())).toEqual([
+      "reset",
+      "reset",
+      "reset",
+    ]);
   });
 
-  it("does NOT reset on render, and asks before resetting", async () => {
+  it("asks first, names what it resets and keeps, and resets only preferences", async () => {
     mockedAsk.mockResolvedValueOnce(true);
     mount();
     expect(mockedAsk).not.toHaveBeenCalled();
 
-    await click(getReset());
+    await click(buttons()[0]);
 
-    expect(mockedAsk).toHaveBeenCalledTimes(1);
-    // The sentence names everything the reset wipes — declared agents and
-    // prompt templates included, since both live in the same settings object.
     expect(mockedAsk).toHaveBeenCalledWith(
-      "Theme, font, colors, behavior, declared agents and prompt templates all go back to their defaults. This can't be undone.",
-      expect.objectContaining({ title: "Restore Defaults" }),
+      expect.stringMatching(/Resets: .*Font size.*Theme.*\nKeeps: layout/s),
+      expect.objectContaining({ title: "Reset preferences" }),
     );
     expect(settings.value.fontSize).toBe(DEFAULT_SETTINGS.fontSize);
     expect(settings.value.themeId).toBe(DEFAULT_SETTINGS.themeId);
+    expect(settings.value.sidebarWidth).toBe(300);
+    expect(settings.value.promptTemplates).toEqual(CUSTOM.promptTemplates);
+  });
+
+  it("a row is disabled when nothing in its scope differs", () => {
+    settings.value = { ...DEFAULT_SETTINGS };
+    mount();
+    expect(buttons().every((button) => button.disabled)).toBe(true);
   });
 
   it("cancelling the prompt leaves every setting untouched", async () => {
     mockedAsk.mockResolvedValueOnce(false);
     mount();
 
-    await click(getReset());
+    await click(buttons()[0]);
 
-    expect(mockedAsk).toHaveBeenCalledTimes(1);
     expect(settings.value.fontSize).toBe(20);
-    expect(settings.value.themeId).toBe("dracula");
     expect(mockedReportPersistError).not.toHaveBeenCalled();
   });
 
@@ -122,7 +128,7 @@ describe("ResetSection — Restore defaults confirm", () => {
     mockedAsk.mockRejectedValueOnce(new Error("no dialog"));
     mount();
 
-    await click(getReset());
+    await click(buttons()[0]);
 
     expect(settings.value.fontSize).toBe(20);
     expect(mockedReportPersistError).toHaveBeenCalledTimes(1);
@@ -137,7 +143,7 @@ describe("ResetSection — Restore defaults confirm", () => {
         }),
     );
     mount();
-    const button = getReset();
+    const button = buttons()[0];
 
     await act(async () => {
       button.dispatchEvent(new MouseEvent("click", { bubbles: true }));

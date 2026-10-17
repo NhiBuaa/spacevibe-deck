@@ -1,16 +1,26 @@
 import type { Settings } from "./settings-schema";
 
 /** The rail pages a setting can live on. Mirrors `CategoryId`; a test keeps them equal. */
-export type SettingsPage =
-  "appearance" | "browser" | "terminal" | "agents" | "links-editor" | "shortcuts" | "notifications";
+export const SETTINGS_PAGES = [
+  "appearance",
+  "browser",
+  "terminal",
+  "agents",
+  "links-editor",
+  "shortcuts",
+  "notifications",
+] as const;
+
+export type SettingsPage = (typeof SETTINGS_PAGES)[number];
 
 /**
  * `preference` is something the user chose in Settings, `layout` is window
- * chrome the app also writes while it is used (widths, open flags), and `data`
- * is content or remembered state the user did not set as a preference.
- * Restore-defaults and page reset use this to say what they keep (FBK-3).
+ * chrome the app also writes while it is used (widths, open flags), `data` is
+ * content the user wrote (agents, prompts), and `state` is what the app
+ * remembers on its own (last page, answered asks). Reset rows act on the
+ * first three and never touch `state` (FBK-3).
  */
-export type SettingScope = "preference" | "layout" | "data";
+export type SettingScope = "preference" | "layout" | "data" | "state";
 
 export interface SettingEntry {
   /** Where the row is mounted; null when no Settings row edits the key. */
@@ -137,7 +147,7 @@ export const SETTINGS_REGISTRY: Readonly<Record<keyof Settings, SettingEntry>> =
   },
   signalAdaptersRevision: {
     page: null,
-    scope: "data",
+    scope: "state",
     label: "Signal adapters revision",
     keywords: [],
   },
@@ -154,7 +164,7 @@ export const SETTINGS_REGISTRY: Readonly<Record<keyof Settings, SettingEntry>> =
     label: "Browser home page",
     keywords: ["url", "localhost", "port"],
   },
-  browserLastUrl: { page: null, scope: "data", label: "Last browser page", keywords: [] },
+  browserLastUrl: { page: null, scope: "state", label: "Last browser page", keywords: [] },
   dockOpen: { page: null, scope: "layout", label: "Dock open", keywords: [] },
   dockWidth: { page: null, scope: "layout", label: "Dock width", keywords: [] },
   dockTab: { page: null, scope: "layout", label: "Dock tab", keywords: [] },
@@ -164,5 +174,5 @@ export const SETTINGS_REGISTRY: Readonly<Record<keyof Settings, SettingEntry>> =
     label: "Keyboard shortcuts",
     keywords: ["keys", "chord", "hotkey"],
   },
-  githubStarred: { page: null, scope: "data", label: "GitHub star asked", keywords: [] },
+  githubStarred: { page: null, scope: "state", label: "GitHub star asked", keywords: [] },
 };

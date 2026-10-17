@@ -7,6 +7,7 @@ import {
   type Settings,
   type TerminalColors,
 } from "./settings-schema";
+import { defaultsFor } from "./settings-changes";
 import { reportPersistError } from "../chrome/events";
 import { listen } from "../host/bridge";
 import { createTauriSettingsSync, type SettingsSyncClient } from "./settings-sync";
@@ -265,6 +266,7 @@ export async function flushSettingsSave(): Promise<void> {
   }
 }
 
-export function resetSettings(): void {
-  updateSettings(DEFAULT_SETTINGS);
+/** Puts only the named keys back to their defaults; every other key keeps its value. */
+export function resetSettingsKeys(keys: readonly (keyof Settings)[]): void {
+  updateSettings(defaultsFor(keys));
 }

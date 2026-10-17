@@ -45,3 +45,25 @@
 .cfg-row.is-target {
   background: var(--tab-active-bg);
 }
+
+/* SET-4: a row whose value differs from the default carries a dot at its key. */
+.cfg-row.is-changed .cfg-row__label::after {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  vertical-align: middle;
+}
+
+.settings-screen__changed {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  color: var(--text-faint);
+  font-family: var(--ui-font);
+  font-size: var(--type-meta);
+}

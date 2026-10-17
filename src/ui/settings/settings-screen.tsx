@@ -4,6 +4,8 @@ import { DeckIcon, ROW_ICON } from "../controls/deck-icon";
 import { GithubStarButton } from "../controls/github-star-button";
 import { activeCategory } from "./active-category-store";
 import { categoryTabId, SECTION_PANEL_ID, SETTINGS_CATEGORIES } from "./settings-categories";
+import { SETTINGS_PAGES, type SettingsPage } from "../../settings/settings-registry";
+import { PageResetBar } from "./page-reset-bar";
 import { SettingsNav } from "./settings-nav";
 import { trapTab } from "../focus-trap";
 import { initSettings, settingsLoadState } from "../../settings/settings-store";
@@ -156,6 +158,9 @@ export function SettingsScreen({ open, onClose }: SettingsScreenProps) {
             <header class="settings-screen__intro">
               <h2 class="settings-screen__title">{active.label}</h2>
               <p class="settings-screen__lede">{active.description}</p>
+              {(SETTINGS_PAGES as readonly string[]).includes(active.id) ? (
+                <PageResetBar page={active.id as SettingsPage} label={active.label} />
+              ) : null}
             </header>
             {settingsLoadState.value.status === "error" ? (
               <LoadError

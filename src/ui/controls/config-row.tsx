@@ -1,6 +1,8 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef } from "preact/hooks";
 import type { Settings } from "../../settings/settings-schema";
+import { isChanged } from "../../settings/settings-changes";
+import { settings } from "../../settings/settings-store";
 import { searchSettings } from "../../settings/settings-search";
 import { settingsQuery, settingsTarget } from "../settings/settings-focus-store";
 
@@ -36,6 +38,7 @@ export function ConfigRow({ label, desc, note, danger, settingKey, children }: C
   const isTarget = settingKey !== undefined && settingsTarget.value === settingKey;
   const isMatch =
     settingKey !== undefined && searchSettings(settingsQuery.value).keys.has(settingKey);
+  const changed = settingKey !== undefined && isChanged(settings.value, settingKey);
   useEffect(() => {
     if (isTarget) {
       ref.current?.scrollIntoView({ block: "center" });
@@ -44,7 +47,7 @@ export function ConfigRow({ label, desc, note, danger, settingKey, children }: C
   return (
     <div
       ref={ref}
-      class={`cfg-row ${isMatch ? "is-match" : ""} ${isTarget ? "is-target" : ""}`}
+      class={`cfg-row ${isMatch ? "is-match" : ""} ${isTarget ? "is-target" : ""} ${changed ? "is-changed" : ""}`}
       data-setting={settingKey}
     >
       <div class="cfg-row__key">

@@ -381,7 +381,9 @@ const EXPECTED_ROWS = [
   // reset — its own rail category since 2026-08-19, a pinned foot before that
   // (so this row used to be reachable from every category, and is now reached
   // by selecting one).
-  "Restore defaults",
+  "Reset agents and templates",
+  "Reset layout",
+  "Reset preferences",
 ] as const;
 
 /**
