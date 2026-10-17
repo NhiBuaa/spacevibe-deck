@@ -83,6 +83,8 @@ and why — a fork nobody can reconstruct is a decision that will be re-litigate
 | `npm test`                    | Vitest suite                                                                                                                                                            |
 | `npm run build`               | TypeScript + shipping renderer bundle                                                                                                                                   |
 | `npm run lint`                | oxlint + prettier check; max-lines stays a warning (101 pre-existing over-length files are backlog)                                                                     |
+| [`scripts/check-changed.sh [files]`](scripts/check-changed.sh) | prettier, `tsc`, oxlint and the sibling tests on the files you touched (default: the whole working-tree diff) |
+| [`scripts/sync-origin.sh`](scripts/sync-origin.sh) | fetch, then dirty files, last commits and ahead/behind against `origin/main` — before a push or rebase |
 | `npm run prototype:gallery`   | visual comparison gallery at `127.0.0.1:5175`                                                                                                                           |
 | `npm run build:landing`       | landing production build                                                                                                                                                |
 | `npm run video:render`        | render marketing video from DOM stage                                                                                                                                   |
