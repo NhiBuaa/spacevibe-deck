@@ -118,12 +118,12 @@ stop where the table says.
 | Skill                                                                     | Run it when                                                                                              | It stops at                                       |
 | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
 | [`test-deck-app`](.claude/skills/test-deck-app/SKILL.md)                   | a new feature or UI-flow change is about to be reported done (the E2E gate above)                        | the flow report                                   |
-| [`landing-sync`](.claude/skills/landing-sync/SKILL.md)                     | before `npm run release:cut`, or after a change to a surface the landing shows                           | the drift report; landing edits wait for the owner |
-| [`clean-worktrees`](.claude/skills/clean-worktrees/SKILL.md)               | before `git worktree add` when three worktrees besides the primary already exist                          | the report; each removal needs the owner's yes    |
+| [`landing-sync`](.claude/skills/landing-sync/SKILL.md)                     | before `npm run release:cut`                                                                             | the drift report; landing edits wait for the owner |
+| [`clean-worktrees`](.claude/skills/clean-worktrees/SKILL.md)               | once per session, when you are about to add a worktree and more than three exist besides the primary (scratch worktrees under `/tmp` do not count) | the report; it never blocks your `git worktree add`, and each removal needs the owner's yes |
 | [`respond-to-pr-comments`](.claude/skills/respond-to-pr-comments/SKILL.md) | the owner asks to handle a PR's comments, or a PR this session opened gets review comments              | drafted replies; posting needs the owner's yes    |
 
-In the [unattended routine](#unattended-routine) only `test-deck-app` applies;
-`respond-to-pr-comments` is not enabled there yet.
+None of these is wired into the [unattended routine](#unattended-routine) yet:
+`test-deck-app`'s launch recipe is macOS-only, and `respond-to-pr-comments` is not enabled there.
 
 ## Sessions and checkouts
 
