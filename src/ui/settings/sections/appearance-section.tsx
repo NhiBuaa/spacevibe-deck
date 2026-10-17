@@ -38,7 +38,7 @@ export function AppearanceSection() {
             value={current.fontFamily}
             onChange={(fontFamily) => updateSettings({ fontFamily })}
           />
-          <ConfigRow label="Font size">
+          <ConfigRow settingKey="fontSize" label="Font size">
             <span class="cfg-btn cfg-step" role="group" aria-label="Font size">
               <button
                 type="button"
@@ -63,7 +63,11 @@ export function AppearanceSection() {
           </ConfigRow>
         </SettingsGroup>
         <SettingsGroup title="Workspace">
-          <ConfigRow label="Tab bar position" desc="Where the tab list sits">
+          <ConfigRow
+            settingKey="tabBarPosition"
+            label="Tab bar position"
+            desc="Where the tab list sits"
+          >
             <AgentChoiceValue
               label="Tab bar position"
               value={current.tabBarPosition}
@@ -72,12 +76,14 @@ export function AppearanceSection() {
             />
           </ConfigRow>
           <ToggleRow
+            settingKey="showPaneBar"
             label="Show pane bar"
             desc="Pane name bar inside splits"
             checked={current.showPaneBar}
             onToggle={() => updateSettings({ showPaneBar: !current.showPaneBar })}
           />
           <ToggleRow
+            settingKey="showStatusBar"
             label="Show status bar"
             desc="Branch, path and window readout along the bottom"
             checked={current.showStatusBar}

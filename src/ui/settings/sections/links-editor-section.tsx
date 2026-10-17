@@ -62,7 +62,7 @@ export function LinksEditorSection() {
   // by keyboard (DL-23.6). The stored choice is left alone.
   if (getDesktopEnvironment().platform === "windows") {
     return (
-      <ConfigRow label="Open with" desc={desc}>
+      <ConfigRow settingKey="externalAppId" label="Open with" desc={desc}>
         <button
           type="button"
           class="cfg-btn cfg-btn--disabled cfg-btn--unavailable"
@@ -80,7 +80,7 @@ export function LinksEditorSection() {
   }
 
   return (
-    <ConfigRow label="Open with" desc={desc}>
+    <ConfigRow settingKey="externalAppId" label="Open with" desc={desc}>
       <span class="cfg-btn cfg-btn--overlay">
         <span class="cfg-btn__text">{pillLabel}</span>
         <span class="cfg-btn__hint">

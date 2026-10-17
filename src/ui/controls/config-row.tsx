@@ -1,4 +1,8 @@
 import type { ComponentChildren } from "preact";
+import { useEffect, useRef } from "preact/hooks";
+import type { Settings } from "../../settings/settings-schema";
+import { searchSettings } from "../../settings/settings-search";
+import { settingsQuery, settingsTarget } from "../settings/settings-focus-store";
 
 /**
  * The tooltip on a row whose control the Windows host cannot back. The row
@@ -20,14 +24,29 @@ interface ConfigRowProps {
   /** A control under the key, where `desc` would sit; the value slot keeps its one control. */
   note?: ComponentChildren;
   danger?: boolean;
+  /** The `Settings` key this row edits; lets search highlight it and a deep link reveal it. */
+  settingKey?: keyof Settings;
   /** The single interactive value (plus an optional clear button, DL-6.1). */
   children: ComponentChildren;
 }
 
 /** The one control: key (+ desc) left, one interactive value right (DL-5). */
-export function ConfigRow({ label, desc, note, danger, children }: ConfigRowProps) {
+export function ConfigRow({ label, desc, note, danger, settingKey, children }: ConfigRowProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const isTarget = settingKey !== undefined && settingsTarget.value === settingKey;
+  const isMatch =
+    settingKey !== undefined && searchSettings(settingsQuery.value).keys.has(settingKey);
+  useEffect(() => {
+    if (isTarget) {
+      ref.current?.scrollIntoView({ block: "center" });
+    }
+  }, [isTarget]);
   return (
-    <div class="cfg-row">
+    <div
+      ref={ref}
+      class={`cfg-row ${isMatch ? "is-match" : ""} ${isTarget ? "is-target" : ""}`}
+      data-setting={settingKey}
+    >
       <div class="cfg-row__key">
         <span class={`cfg-row__label ${danger ? "cfg-row__label--danger" : ""}`}>{label}</span>
         {desc !== undefined && <span class="cfg-row__desc">{desc}</span>}
@@ -42,6 +61,7 @@ interface ToggleRowProps {
   label: string;
   desc?: string;
   note?: ComponentChildren;
+  settingKey?: keyof Settings;
   checked: boolean;
   onToggle: () => void;
   /** Disables the native button (real enforcement, not just styling); default false. */
@@ -49,9 +69,17 @@ interface ToggleRowProps {
 }
 
 /** toggle value kind: `on` (green) / `off` (faint), click flips (DL-6). */
-export function ToggleRow({ label, desc, note, checked, onToggle, disabled }: ToggleRowProps) {
+export function ToggleRow({
+  label,
+  desc,
+  note,
+  settingKey,
+  checked,
+  onToggle,
+  disabled,
+}: ToggleRowProps) {
   return (
-    <ConfigRow label={label} desc={desc} note={note}>
+    <ConfigRow label={label} desc={desc} note={note} settingKey={settingKey}>
       <button
         type="button"
         role="switch"

@@ -8,7 +8,7 @@ import { registerAgentInstallHost } from "../launcher/agent-install-store";
 import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { useSignal, useSignalEffect } from "@preact/signals";
 import { launchPageAgents, quickAgentOptions } from "../settings/quick-agents";
-import { activeCategory } from "./settings/active-category-store";
+import { openSettingsAt } from "./settings/settings-focus-store";
 import { listen, type UnlistenFn } from "../host/bridge";
 import { getCurrentWindow, currentWindowLabel } from "../host/window-host";
 import { ask, message, open as openDialog } from "../host/dialog-host";
@@ -2385,8 +2385,7 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
       void tabsRef.current?.openQuickAgent(null, workspacePath);
     },
     onManageAgents: () => {
-      activeCategory.value = "agents";
-      settingsOpen.value = true;
+      openSettingsAt("agents");
     },
     onSplitHere: (workspacePath) => {
       agentLaunchPage.close();
@@ -2654,8 +2653,7 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
               }}
               onBack={() => agentLaunchPage.close(true)}
               onSettings={() => {
-                activeCategory.value = "agents";
-                settingsOpen.value = true;
+                openSettingsAt("agents");
               }}
             />
           )}

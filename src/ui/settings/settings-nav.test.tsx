@@ -25,6 +25,7 @@ vi.mock("./appearance-preview", () => ({ AppearancePreview: () => null }));
 
 import { SettingsNav } from "./settings-nav";
 import { activeCategory } from "./active-category-store";
+import { settingsQuery } from "./settings-focus-store";
 import { SETTINGS_CATEGORIES } from "./settings-categories";
 
 describe("SettingsNav", () => {
@@ -38,6 +39,7 @@ describe("SettingsNav", () => {
     // reset it so no case here passes merely because an earlier file (or an
     // earlier case) left it in a convenient state.
     activeCategory.value = "appearance";
+    settingsQuery.value = "";
   });
 
   afterEach(() => {
@@ -146,5 +148,26 @@ describe("SettingsNav", () => {
     });
 
     expect(activeCategory.value).toBe("reset");
+  });
+
+  const type = (value: string): void => {
+    act(() => {
+      settingsQuery.value = value;
+    });
+  };
+
+  it("search moves to the first page with a match and shows counts", () => {
+    mount();
+    type("history");
+    expect(activeCategory.value).toBe("terminal");
+    expect(host.querySelector('[role="status"]')?.textContent).toBe("1 match");
+    expect(host.querySelector(".settings-nav__count")?.textContent).toBe("1");
+  });
+
+  it("search with no match says so and leaves the page alone", () => {
+    mount();
+    type("zzzz");
+    expect(activeCategory.value).toBe("appearance");
+    expect(host.querySelector('[role="status"]')?.textContent).toBe("No matching settings");
   });
 });

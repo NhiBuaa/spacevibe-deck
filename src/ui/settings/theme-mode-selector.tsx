@@ -152,7 +152,7 @@ export function ThemeModeSelector({
   return presentation === "cards" ? (
     chooser
   ) : (
-    <ConfigRow label="Appearance" desc="Use a light or dark surface across Deck">
+    <ConfigRow settingKey="themeId" label="Appearance" desc="Use a light or dark surface across Deck">
       {chooser}
     </ConfigRow>
   );

@@ -1,5 +1,7 @@
-import { useRef } from "preact/hooks";
+import { useEffect, useRef } from "preact/hooks";
+import { searchSettings } from "../../settings/settings-search";
 import { activeCategory } from "./active-category-store";
+import { settingsQuery, settingsTarget } from "./settings-focus-store";
 import { categoryTabId, SECTION_PANEL_ID, SETTINGS_CATEGORIES } from "./settings-categories";
 
 /**
@@ -25,7 +27,23 @@ import { categoryTabId, SECTION_PANEL_ID, SETTINGS_CATEGORIES } from "./settings
 export function SettingsNav() {
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
+  const query = settingsQuery.value;
+  const result = searchSettings(query);
+  const searching = query.trim() !== "";
+
+  // SET-2: when the page on screen has no match, move to the first one that does.
+  useEffect(() => {
+    if (!searching || result.pages.size === 0 || result.pages.has(activeCategory.value as never)) {
+      return;
+    }
+    const first = SETTINGS_CATEGORIES.find((category) => result.pages.has(category.id as never));
+    if (first) {
+      activeCategory.value = first.id;
+    }
+  }, [query]);
+
   const selectCategory = (index: number): void => {
+    settingsTarget.value = null;
     activeCategory.value = SETTINGS_CATEGORIES[index].id;
     itemRefs.current[index]?.focus();
   };
@@ -50,6 +68,33 @@ export function SettingsNav() {
 
   return (
     <nav class="settings-nav" aria-label="Settings categories">
+      <div class="settings-nav__search">
+        <input
+          type="search"
+          class="settings-nav__search-input"
+          placeholder="Search"
+          aria-label="Search settings"
+          value={query}
+          onInput={(event) => {
+            settingsQuery.value = event.currentTarget.value;
+          }}
+          onKeyDown={(event) => {
+            // Escape clears a query first; with nothing typed it falls through and closes Settings.
+            if (event.key === "Escape" && query !== "") {
+              event.stopPropagation();
+              event.preventDefault();
+              settingsQuery.value = "";
+            }
+          }}
+        />
+        {searching ? (
+          <p class="settings-nav__results" role="status">
+            {result.keys.size === 0
+              ? "No matching settings"
+              : `${result.keys.size} ${result.keys.size === 1 ? "match" : "matches"}`}
+          </p>
+        ) : null}
+      </div>
       <div
         class="settings-nav__list"
         role="tablist"
@@ -81,6 +126,9 @@ export function SettingsNav() {
               onClick={() => selectCategory(index)}
             >
               <span class="settings-nav__label">{category.label}</span>
+              {searching && result.pages.has(category.id as never) ? (
+                <span class="settings-nav__count">{result.pages.get(category.id as never)}</span>
+              ) : null}
             </button>
           );
         })}

@@ -1,0 +1,47 @@
+/* Settings search (settings-nav.tsx) and the row marks search and deep links set. */
+
+.settings-nav__search {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 6px 0;
+}
+
+.settings-nav__search-input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--hair);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--ui-font);
+  font-size: var(--type-body);
+}
+
+.settings-nav__search-input::placeholder {
+  color: var(--text-faint);
+}
+
+.settings-nav__results {
+  margin: 0;
+  padding: 0 2px;
+  color: var(--text-faint);
+  font-family: var(--ui-font);
+  font-size: var(--type-meta);
+}
+
+.settings-nav__item {
+  justify-content: space-between;
+}
+
+.settings-nav__count {
+  color: var(--text-muted);
+  font-family: var(--ui-font);
+  font-size: var(--type-meta);
+}
+
+.cfg-row.is-match,
+.cfg-row.is-target {
+  background: var(--tab-active-bg);
+}
