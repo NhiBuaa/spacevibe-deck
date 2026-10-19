@@ -20,6 +20,10 @@ import { runnerFor, type GitRunner } from "./changes";
 
 export const MAX_CACHED_VERDICTS = 20_000;
 export const MAX_REMEMBERED_DIRECTORIES = 256;
+/** Roots and stamped files; both maps are cleared wholesale past these. */
+export const MAX_REMEMBERED_ROOTS = 256;
+export const MAX_STAMPED_FILES = 8_192;
+const MAX_STALE_RETRIES = 3;
 
 export type IgnoreAnswer =
   | { readonly kind: "classified"; readonly ignored: ReadonlySet<string> }
@@ -47,14 +51,16 @@ function normalize(input: string): Normalized {
   if (typeof input !== "string" || input.length === 0 || input.includes("\0")) {
     return { input, effective: null };
   }
-  const parts = input.split(/[\\/]+/).filter((part) => part.length > 0 && part !== ".");
+  // A backslash separates only on Windows; elsewhere it is part of a name.
+  const separators = process.platform === "win32" ? /[\\/]+/ : /\/+/;
+  const parts = input.split(separators).filter((part) => part.length > 0 && part !== ".");
   const git = parts.indexOf(".git");
   const kept = git === -1 ? parts : parts.slice(0, git);
   if (
     kept.length === 0 ||
     kept.includes("..") ||
     path.isAbsolute(input) ||
-    /^[A-Za-z]:/.test(input)
+    (process.platform === "win32" && /^[A-Za-z]:/.test(input))
   ) {
     return { input, effective: null };
   }
@@ -95,8 +101,15 @@ export function createIgnoreClassifier(deps: IgnoreClassifierDeps = {}): IgnoreC
   let directories = new Set<string>();
   let roots = new Map<string, boolean>();
   let stamps = new Map<string, string>();
+  /** Bumped on every reset: a call that started before one must not write. */
+  let generation = 0;
+
+  /** Entries are scoped by the governing git directory: a nested repository
+   * that is not a submodule has rules of its own. */
+  const keyOf = (scope: string, absolute: string) => `${scope}\0${absolute}`;
 
   function reset(): void {
+    generation += 1;
     verdicts = new Map();
     directories = new Set();
     roots = new Map();
@@ -132,6 +145,10 @@ export function createIgnoreClassifier(deps: IgnoreClassifierDeps = {}): IgnoreC
     if (changed) {
       reset();
     }
+    if (stamps.size + fresh.size > MAX_STAMPED_FILES) {
+      reset();
+      changed = true;
+    }
     for (const [file, stamp] of fresh) {
       stamps.set(file, stamp);
     }
@@ -139,10 +156,10 @@ export function createIgnoreClassifier(deps: IgnoreClassifierDeps = {}): IgnoreC
   }
 
   /** The nearest remembered ignored directory above `absolute`, if any. */
-  function rememberedAbove(absolute: string): string | null {
+  function rememberedAbove(scope: string, absolute: string): string | null {
     let current = path.dirname(absolute);
     for (;;) {
-      if (directories.has(current)) {
+      if (directories.has(keyOf(scope, current))) {
         return current;
       }
       const parent = path.dirname(current);
@@ -153,7 +170,20 @@ export function createIgnoreClassifier(deps: IgnoreClassifierDeps = {}): IgnoreC
     }
   }
 
-  async function checkRoot(root: string, checkout: Checkout | null): Promise<string | null> {
+  async function checkRoot(
+    root: string,
+    checkout: Checkout | null,
+    started: number,
+  ): Promise<string | null> {
+    const remember = (ignored: boolean) => {
+      if (checkout === null || started !== generation) {
+        return;
+      }
+      if (roots.size >= MAX_REMEMBERED_ROOTS) {
+        roots = new Map();
+      }
+      roots.set(root, ignored);
+    };
     if (checkout !== null && checkout.top === root) {
       return null;
     }
@@ -163,27 +193,28 @@ export function createIgnoreClassifier(deps: IgnoreClassifierDeps = {}): IgnoreC
     }
     const run = await makeRunner(root)(["check-ignore", "--stdin", "-z"], ".\0");
     if (run.ok) {
-      if (checkout !== null) {
-        roots.set(root, true);
-      }
+      remember(true);
       return "ignored-root";
     }
     if (run.kind === "failed" && run.exitCode === 1) {
-      if (checkout !== null) {
-        roots.set(root, false);
-      }
+      remember(false);
       return null;
     }
     return run.kind;
   }
 
-  function remember(directory: string, batch: readonly string[], found: ReadonlySet<string>) {
+  function remember(
+    scope: string,
+    directory: string,
+    batch: readonly string[],
+    found: ReadonlySet<string>,
+  ) {
     if (verdicts.size + batch.length > MAX_CACHED_VERDICTS) {
       verdicts = new Map();
     }
     const asAncestor = new Set(batch.flatMap(ancestorsOf));
     for (const relative of batch) {
-      const absolute = path.join(directory, relative);
+      const absolute = keyOf(scope, path.join(directory, relative));
       const ignored = verdictIn(found, relative);
       verdicts.set(absolute, ignored);
       if (ignored && asAncestor.has(relative)) {
@@ -197,7 +228,7 @@ export function createIgnoreClassifier(deps: IgnoreClassifierDeps = {}): IgnoreC
 
   /** What the cache cannot answer yet, and the directories whose `.gitignore`
    * the answer depends on. */
-  function plan(directory: string, entries: readonly Normalized[]) {
+  function plan(scope: string | null, directory: string, entries: readonly Normalized[]) {
     const chain = new Set<string>([directory]);
     const unknown = new Set<string>();
     for (const { effective } of entries) {
@@ -205,16 +236,16 @@ export function createIgnoreClassifier(deps: IgnoreClassifierDeps = {}): IgnoreC
         continue;
       }
       const absolute = path.join(directory, effective);
-      const above = rememberedAbove(absolute);
+      const above = scope === null ? null : rememberedAbove(scope, absolute);
       if (above !== null) {
         chain.add(path.dirname(above));
         continue;
       }
       chain.add(path.dirname(absolute));
-      if (!verdicts.has(absolute)) {
+      if (scope === null || !verdicts.has(keyOf(scope, absolute))) {
         unknown.add(effective);
         for (const ancestor of ancestorsOf(effective)) {
-          if (!verdicts.has(path.join(directory, ancestor))) {
+          if (scope === null || !verdicts.has(keyOf(scope, path.join(directory, ancestor)))) {
             unknown.add(ancestor);
           }
         }
@@ -223,40 +254,63 @@ export function createIgnoreClassifier(deps: IgnoreClassifierDeps = {}): IgnoreC
     return { chain, unknown };
   }
 
-  async function classify(root: string, directory: string, paths: readonly string[]) {
+  /** One attempt; `stale` when a rule changed while git was running. */
+  async function attempt(
+    root: string,
+    directory: string,
+    paths: readonly string[],
+  ): Promise<IgnoreAnswer | "stale"> {
     const checkout = findCheckout(directory);
+    const scope = checkout?.gitDir ?? null;
     const entries = paths.map(normalize);
-    let planned = plan(directory, entries);
+    let planned = plan(scope, directory, entries);
     if (checkout !== null && validate(checkout, planned.chain)) {
       // The cache this plan was made against is gone; plan against the empty one.
-      planned = plan(directory, entries);
+      planned = plan(scope, directory, entries);
       validate(checkout, planned.chain);
     }
-    const rootProblem = await checkRoot(root, checkout);
+    const started = generation;
+    const rootProblem = await checkRoot(root, checkout, started);
+    if (started !== generation) {
+      return "stale";
+    }
     if (rootProblem !== null) {
       return unavailable(rootProblem);
     }
     const known = new Map<string, boolean>();
     for (const { effective } of entries) {
-      if (effective !== null && !planned.unknown.has(effective)) {
+      if (effective !== null && !planned.unknown.has(effective) && scope !== null) {
         const absolute = path.join(directory, effective);
-        known.set(effective, rememberedAbove(absolute) !== null || verdicts.get(absolute) === true);
+        known.set(
+          effective,
+          rememberedAbove(scope, absolute) !== null ||
+            verdicts.get(keyOf(scope, absolute)) === true,
+        );
       }
     }
     const batch = [...planned.unknown];
     let found: ReadonlySet<string> = new Set();
     if (batch.length > 0) {
+      // `./` keeps git from reading a name such as `:secret` as pathspec magic.
       const result = await makeRunner(directory)(
         ["check-ignore", "--stdin", "-z"],
-        `${batch.join("\0")}\0`,
+        `${batch.map((entry) => `./${entry}`).join("\0")}\0`,
       );
+      if (started !== generation) {
+        return "stale";
+      }
       if (result.ok) {
-        found = new Set(result.stdout.split("\0").filter((entry) => entry.length > 0));
+        found = new Set(
+          result.stdout
+            .split("\0")
+            .filter((entry) => entry.length > 0)
+            .map((entry) => (entry.startsWith("./") ? entry.slice(2) : entry)),
+        );
       } else if (!(result.kind === "failed" && result.exitCode === 1)) {
         return unavailable(result.kind);
       }
-      if (checkout !== null) {
-        remember(directory, batch, found);
+      if (scope !== null) {
+        remember(scope, directory, batch, found);
       }
     }
     const ignored = new Set<string>();
@@ -265,7 +319,18 @@ export function createIgnoreClassifier(deps: IgnoreClassifierDeps = {}): IgnoreC
         ignored.add(input);
       }
     }
-    return { kind: "classified", ignored } satisfies IgnoreAnswer;
+    return { kind: "classified", ignored };
+  }
+
+  async function classify(root: string, directory: string, paths: readonly string[]) {
+    for (let tries = 0; tries < MAX_STALE_RETRIES; tries += 1) {
+      const answer = await attempt(root, directory, paths);
+      if (answer !== "stale") {
+        return answer;
+      }
+    }
+    // The rules kept moving; whoever asked fails open.
+    return unavailable("changing");
   }
 
   return {

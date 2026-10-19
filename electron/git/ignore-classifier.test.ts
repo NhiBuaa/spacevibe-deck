@@ -191,6 +191,75 @@ describe("git's rules (IGN1)", () => {
   });
 });
 
+describe("how git reads a name (IGN1)", () => {
+  it("does not read a leading colon as pathspec magic", async () => {
+    write(repo, ".gitignore", "secret\n*.log\n");
+    write(repo, "secret");
+    write(repo, ":secret");
+    write(repo, ":(glob)x");
+    const answer = await classifier.classify(repo, repo, [
+      ":secret",
+      ":(glob)x",
+      "secret",
+      "debug.log",
+    ]);
+    expect(ignoredOf(answer)).toEqual(["debug.log", "secret"]);
+  });
+
+  it.skipIf(process.platform === "win32")(
+    "keeps a backslash inside a name off Windows",
+    async () => {
+      const answer = await classifier.classify(repo, repo, ["node_modules\\x", "a\\b.log"]);
+      expect(ignoredOf(answer)).toEqual(["a\\b.log"]);
+    },
+  );
+
+  it("keeps a nested repository's rules apart from the outer one's", async () => {
+    write(repo, ".gitignore", "*.log\n");
+    const nested = path.join(repo, "nested");
+    fs.mkdirSync(nested);
+    git(nested, "init", "-q", "-b", "main");
+    write(nested, "debug.log");
+    // The watch asks from the outer root; the tree asks from inside the nested one.
+    expect(ignoredOf(await classifier.classify(repo, repo, ["nested/debug.log"]))).toEqual([
+      "nested/debug.log",
+    ]);
+    expect(ignoredOf(await classifier.classify(repo, nested, ["debug.log"]))).toEqual([]);
+    expect(ignoredOf(await classifier.classify(repo, repo, ["nested/debug.log"]))).toEqual([
+      "nested/debug.log",
+    ]);
+  });
+});
+
+describe("a rule change during a call (IGN2)", () => {
+  it("never lets a late verdict into the fresh cache", async () => {
+    write(repo, ".gitignore", "build/\n");
+    fs.mkdirSync(path.join(repo, "build"));
+    let releaseA!: () => void;
+    let first = true;
+    const slow = createIgnoreClassifier({
+      runnerFor: () => async (_args, input) => {
+        spawns.push({ cwd: repo, args: _args, input });
+        if (first && input?.includes("build/a.js")) {
+          first = false;
+          // Git read the OLD .gitignore; its answer arrives after the edit.
+          await new Promise<void>((resolve) => (releaseA = resolve));
+          return { ok: true, stdout: "./build\0./build/a.js\0" };
+        }
+        return { ok: false, kind: "failed", stderr: "", exitCode: 1 };
+      },
+    });
+    const a = slow.classify(repo, repo, ["build/a.js"]);
+    await vi.waitFor(() => expect(releaseA).toBeTypeOf("function"));
+    write(repo, ".gitignore", "# nothing at all\n");
+    expect(ignoredOf(await slow.classify(repo, repo, ["readme.md"]))).toEqual([]);
+    releaseA();
+    expect(ignoredOf(await a)).toEqual([]);
+    expect(ignoredOf(await slow.classify(repo, repo, ["build/a.js"]))).toEqual([]);
+    expect(ignoredOf(await slow.classify(repo, repo, ["build/new.js"]))).toEqual([]);
+  });
+});
+
 describe("no answer (IGN1, IGN3, IGN4)", () => {
   it("is unavailable outside a repository", async () => {
     const plain = path.join(scratch, "plain");
