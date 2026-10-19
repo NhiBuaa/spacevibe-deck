@@ -5,8 +5,8 @@ description: Report which git worktrees and local branches of this repo are safe
 
 # Clean worktrees
 
-The limit is in [AGENTS.md](../../../AGENTS.md#sessions-and-checkouts): at most three worktrees
-alive. This skill reports first and removes only what the owner confirms, row by row. Run all
+[AGENTS.md](../../../AGENTS.md#sessions-and-checkouts) sets no cap on live worktrees; this skill
+clears the ones made by hand under `../spacevibe-deck-worktrees/`. It reports first and removes only what the owner confirms, row by row. Run all
 git commands from the primary checkout and read plans there by absolute path.
 
 ## Step 1: report only
