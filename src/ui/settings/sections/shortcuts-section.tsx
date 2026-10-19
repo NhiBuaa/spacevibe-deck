@@ -96,6 +96,7 @@ export function ShortcutsSection() {
               <div
                 key={row.action}
                 class={`cfg-row cfg-row--shortcut ${overridden ? "is-changed" : ""}`}
+                data-setting="keybindings"
               >
                 <div class="cfg-row__key">
                   <span class="cfg-row__label">{row.label}</span>

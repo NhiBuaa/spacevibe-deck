@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { agentOptions, BUILTIN_AGENTS } from "../lib/agent-catalog";
-import { launchPageAgents, quickAgentOptions } from "./quick-agents";
+import { launchPageAgents, quickAgentOptions, quickAgentsWithout } from "./quick-agents";
 import { validateSettings } from "./settings-schema";
 
 const detected = BUILTIN_AGENTS.map((agent) => ({ name: agent.id, path: `/bin/${agent.id}` }));
@@ -104,5 +104,14 @@ describe("launch page agents", () => {
 
   it("adds nothing before the probe has answered", () => {
     expect(launchPageAgents([], null, { probed: false, disabledAgents: [] })).toEqual([]);
+  });
+
+  it("unpins removed agents, and keeps the automatic list automatic", () => {
+    expect(quickAgentsWithout(["claude", "custom:a", "codex"], ["custom:a"])).toEqual([
+      "claude",
+      "codex",
+    ]);
+    expect(quickAgentsWithout([], ["custom:a"])).toEqual([]);
+    expect(quickAgentsWithout(null, ["custom:a"])).toBeNull();
   });
 });

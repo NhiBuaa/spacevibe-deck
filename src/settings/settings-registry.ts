@@ -1,6 +1,6 @@
 import type { Settings } from "./settings-schema";
 
-/** The rail pages a setting can live on. Mirrors `CategoryId`; a test keeps them equal. */
+/** The rail pages a setting can live on; a test keeps every one of them a rail category. */
 export const SETTINGS_PAGES = [
   "appearance",
   "browser",
@@ -23,9 +23,18 @@ export type SettingsPage = (typeof SETTINGS_PAGES)[number];
 export type SettingScope = "preference" | "layout" | "data" | "state";
 
 export interface SettingEntry {
-  /** Where the row is mounted; null when no Settings row edits the key. */
+  /**
+   * The page whose rows edit the key; null when no Settings row does. A test
+   * walks every page and fails when a row's `data-setting` and this field
+   * disagree, so a key never claims a page that does not show it.
+   */
   readonly page: SettingsPage | null;
   readonly scope: SettingScope;
+  /**
+   * The text the user reads on the row (or group title). Rows with a
+   * `settingKey` take it from here, so search, the reset prompt and the row
+   * cannot name one setting two ways.
+   */
   readonly label: string;
   /** Extra words search matches besides the label. */
   readonly keywords: readonly string[];
@@ -40,8 +49,8 @@ export const SETTINGS_REGISTRY: Readonly<Record<keyof Settings, SettingEntry>> =
   fontFamily: {
     page: "appearance",
     scope: "preference",
-    label: "Font family",
-    keywords: ["typeface", "mono"],
+    label: "Font",
+    keywords: ["typeface", "mono", "family"],
   },
   fontSize: {
     page: "appearance",
@@ -52,21 +61,26 @@ export const SETTINGS_REGISTRY: Readonly<Record<keyof Settings, SettingEntry>> =
   themeId: {
     page: "appearance",
     scope: "preference",
-    label: "Theme",
-    keywords: ["dark", "light", "palette"],
+    label: "Color mode",
+    keywords: ["theme", "dark", "light", "palette"],
   },
   colorOverrides: {
-    page: "appearance",
+    page: null,
     scope: "preference",
     label: "Color overrides",
     keywords: ["background", "cursor", "selection"],
   },
   focusExpand: { page: null, scope: "layout", label: "Expand focused pane", keywords: [] },
-  showPaneBar: { page: "appearance", scope: "preference", label: "Pane bar", keywords: ["header"] },
+  showPaneBar: {
+    page: "appearance",
+    scope: "preference",
+    label: "Show pane bar",
+    keywords: ["header"],
+  },
   showStatusBar: {
     page: "appearance",
     scope: "preference",
-    label: "Status bar",
+    label: "Show status bar",
     keywords: ["footer"],
   },
   agentNotifications: {
@@ -86,8 +100,8 @@ export const SETTINGS_REGISTRY: Readonly<Record<keyof Settings, SettingEntry>> =
   externalAppId: {
     page: "links-editor",
     scope: "preference",
-    label: "Open outside paths in",
-    keywords: ["editor", "app", "link"],
+    label: "Open with",
+    keywords: ["editor", "app", "link", "outside paths"],
   },
   scrollback: {
     page: "terminal",
@@ -121,7 +135,7 @@ export const SETTINGS_REGISTRY: Readonly<Record<keyof Settings, SettingEntry>> =
   },
   railOrder: { page: null, scope: "layout", label: "Project order", keywords: [] },
   defaultAgent: {
-    page: "agents",
+    page: null,
     scope: "preference",
     label: "Default agent",
     keywords: ["new tab"],
@@ -161,8 +175,8 @@ export const SETTINGS_REGISTRY: Readonly<Record<keyof Settings, SettingEntry>> =
   browserHomeUrl: {
     page: "browser",
     scope: "preference",
-    label: "Browser home page",
-    keywords: ["url", "localhost", "port"],
+    label: "Home address",
+    keywords: ["browser", "home page", "url", "localhost", "port"],
   },
   browserLastUrl: { page: null, scope: "state", label: "Last browser page", keywords: [] },
   dockOpen: { page: null, scope: "layout", label: "Dock open", keywords: [] },

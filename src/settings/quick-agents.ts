@@ -7,6 +7,17 @@ export function validateQuickAgentIds(raw: unknown): readonly string[] | null {
   return [...new Set(ids)];
 }
 
+/**
+ * The pinned list once these agent ids no longer exist. Null (automatic) stays
+ * null: it has no ids to drop.
+ */
+export function quickAgentsWithout(
+  selectedIds: readonly string[] | null,
+  removed: readonly string[],
+): readonly string[] | null {
+  return selectedIds?.filter((id) => !removed.includes(id)) ?? null;
+}
+
 /** Filter availability, without replacing saved picks; no saved picks means every available agent. */
 export function quickAgentOptions(
   options: readonly AgentOption[],

@@ -6,6 +6,8 @@ import { ConfigGroup, ConfigRow, NOT_AVAILABLE_ON_WINDOWS } from "../controls/co
 import { CommitInput } from "../controls/commit-input";
 import { AgentChoiceValue, CLI_DEFAULT_CHOICE } from "./agent-choice-value";
 import { settings, updateSettings } from "../../settings/settings-store";
+import { marksChange } from "../../settings/settings-changes";
+import { DEFAULT_SETTINGS, type Settings } from "../../settings/settings-schema";
 import { signalAdaptersPatch } from "../../settings/signal-adapter-choice";
 import {
   agentHooksSupported,
@@ -201,9 +203,12 @@ function AgentRow({
   signalsAvailable,
   onSignals,
   installed,
+  changed,
 }: {
   agent: BuiltinAgent;
   command: string;
+  /** This agent's on/off, signals or default command differs from the defaults. */
+  changed: boolean;
   enabled: boolean;
   onToggle: (next: boolean) => void;
   /** Null for an agent no adapter exists for; the switch is then omitted. */
@@ -226,7 +231,10 @@ function AgentRow({
 
   return (
     <div class="lp-agent-item">
-      <div class={`lp-agent ${enabled ? "" : "is-off"}`}>
+      <div
+        class={`lp-agent ${enabled ? "" : "is-off"} ${changed ? "is-changed" : ""}`}
+        data-setting={AGENT_ROW_KEYS.join(" ")}
+      >
         <AgentMark id={agent.id} label={agent.label} />
         <div class="lp-agent__text">
           <span class="lp-agent__name">{agent.label}</span>
@@ -300,6 +308,26 @@ function AgentRow({
   );
 }
 
+/** The per-agent map keys an agent row edits: on/off, signals, default command. */
+const AGENT_ROW_KEYS = ["disabledAgents", "agentSignalAdapters", "defaultLaunchProfiles"] as const;
+
+function agentEntryChanged(agentId: string, current: Settings): boolean {
+  const defaults = DEFAULT_SETTINGS;
+  const adapter = (source: Settings): boolean | undefined =>
+    source.agentSignalAdapters[agentId as keyof Settings["agentSignalAdapters"]];
+  return (
+    marksChange(
+      "disabledAgents",
+      current.disabledAgents.includes(agentId) !== defaults.disabledAgents.includes(agentId),
+    ) ||
+    marksChange("agentSignalAdapters", adapter(current) !== adapter(defaults)) ||
+    marksChange(
+      "defaultLaunchProfiles",
+      current.defaultLaunchProfiles[agentId] !== defaults.defaultLaunchProfiles[agentId],
+    )
+  );
+}
+
 function withoutKey<T>(source: Readonly<Record<string, T>>, key: string): Record<string, T> {
   return Object.fromEntries(Object.entries(source).filter(([entry]) => entry !== key));
 }
@@ -349,7 +377,11 @@ function RuntimeSettings({ agent }: { readonly agent: BuiltinAgent }) {
     <section class="lp-runtime lp-agent-group" data-runtime-agent={agent.id}>
       <ConfigGroup label="Model" />
       {capability.modelFlag !== null && (models.length > 0 || stored.model !== null) ? (
-        <ConfigRow label="Default model" changed={stored.model !== null}>
+        <ConfigRow
+          entryOf="agentRuntimeDefaults"
+          label="Default model"
+          changed={stored.model !== null}
+        >
           <AgentChoiceValue
             label={`Default model for ${agent.label}`}
             value={stored.model ?? ""}
@@ -359,7 +391,11 @@ function RuntimeSettings({ agent }: { readonly agent: BuiltinAgent }) {
         </ConfigRow>
       ) : null}
       {capability.effortFlag === null ? null : (
-        <ConfigRow label="Default effort" changed={stored.effort !== null}>
+        <ConfigRow
+          entryOf="agentRuntimeDefaults"
+          label="Default effort"
+          changed={stored.effort !== null}
+        >
           <AgentChoiceValue
             label={`Default effort for ${agent.label}`}
             value={stored.effort ?? ""}
@@ -370,6 +406,7 @@ function RuntimeSettings({ agent }: { readonly agent: BuiltinAgent }) {
       )}
       {capability.modelFlag === null ? null : (
         <ConfigRow
+          entryOf="agentModels"
           label="Additional models"
           desc="Model IDs, separated by commas."
           changed={declared.length > 0}
@@ -486,6 +523,7 @@ export function LaunchProfileEditor() {
       signalsAvailable={agentHooksSupported.value || !HOOK_ONLY_ADAPTER_AGENTS.has(agent.id)}
       onSignals={(next) => setAdapter(agent.id, next)}
       installed={installedIds.has(agent.id)}
+      changed={agentEntryChanged(agent.id, settings.value)}
     />
   );
 
@@ -524,7 +562,11 @@ export function LaunchProfileEditor() {
       )}
 
       <ConfigGroup label="Commands" />
-      <ConfigRow label="Add command" desc="Save another way to launch an existing agent identity">
+      <ConfigRow
+        entryOf="launchProfiles"
+        label="Add command"
+        desc="Save another way to launch an existing agent identity"
+      >
         <div class="lp-add__controls">
           <input
             type="text"

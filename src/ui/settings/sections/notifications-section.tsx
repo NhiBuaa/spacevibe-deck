@@ -44,7 +44,6 @@ export function NotificationsSection() {
     <>
       <ToggleRow
         settingKey="agentNotifications"
-        label="Agent notifications"
         desc="Native alert when a background agent finishes or needs you"
         checked={current.agentNotifications}
         disabled={requesting.value}

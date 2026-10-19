@@ -12,6 +12,7 @@ import {
   type CustomAgent,
 } from "../../../lib/agent-catalog";
 import { revealDockTab, settings, updateSettings } from "../../../settings/settings-store";
+import { quickAgentsWithout } from "../../../settings/quick-agents";
 import { settingsOpen } from "../../../chrome/events";
 import { forgetWorkspaceAgent } from "../../../open-board/workspaces-store";
 import { SettingsGroup } from "../settings-group";
@@ -124,7 +125,7 @@ export function AgentsSection() {
   const removeAgent = (id: string): void => {
     updateSettings({
       customAgents: customAgents.filter((agent) => agent.id !== id),
-      quickAgentIds: settings.value.quickAgentIds?.filter((agentId) => agentId !== id) ?? null,
+      quickAgentIds: quickAgentsWithout(settings.value.quickAgentIds, [id]),
     });
     // The id is now free again, and re-adding the same label would mint it a
     // second time — so any workspace still remembering it has to let go now,
@@ -337,7 +338,11 @@ export function AgentsSection() {
           </>
         ) : null}
 
-        <ConfigRow label="Add agent" desc="Declare a new CLI identity and the binary Deck can run">
+        <ConfigRow
+          entryOf="customAgents"
+          label="Add agent"
+          desc="Declare a new CLI identity and the binary Deck can run"
+        >
           <button
             type="button"
             class="cfg-btn"

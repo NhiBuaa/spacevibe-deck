@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { changedKeys, defaultsFor, isChanged, keysFor } from "./settings-changes";
+import {
+  changedKeys,
+  defaultsFor,
+  isChanged,
+  isMarkedChanged,
+  keysFor,
+  marksChange,
+} from "./settings-changes";
 import { DEFAULT_SETTINGS } from "./settings-schema";
 
 describe("settings changes", () => {
@@ -19,5 +26,22 @@ describe("settings changes", () => {
     const custom = { ...DEFAULT_SETTINGS, fontSize: 20, scrollback: 1000 };
     expect(changedKeys(custom, keysFor("preference"))).toEqual(["fontSize", "scrollback"]);
     expect(defaultsFor(["fontSize"])).toEqual({ fontSize: DEFAULT_SETTINGS.fontSize });
+  });
+
+  it("marks only what a page reset would restore", () => {
+    expect(marksChange("fontSize", true)).toBe(true);
+    expect(marksChange("fontSize", false)).toBe(false);
+    expect(marksChange("sidebarWidth", true)).toBe(false); // layout
+    expect(marksChange("customAgents", true)).toBe(false); // data
+    const custom = { ...DEFAULT_SETTINGS, fontSize: 20, sidebarWidth: 300 };
+    expect(isMarkedChanged(custom, "fontSize")).toBe(true);
+    expect(isMarkedChanged(custom, "sidebarWidth")).toBe(false);
+  });
+
+  it("never lets a reset scope reach what the app remembers on its own", () => {
+    const resettable = [...keysFor("preference"), ...keysFor("layout"), ...keysFor("data")];
+    for (const key of ["githubStarred", "browserLastUrl", "signalAdaptersRevision"] as const) {
+      expect(resettable).not.toContain(key);
+    }
   });
 });

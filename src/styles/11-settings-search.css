@@ -46,8 +46,10 @@
   background: var(--tab-active-bg);
 }
 
-/* SET-4: a row whose value differs from the default carries a dot at its key. */
-.cfg-row.is-changed .cfg-row__label::after {
+/* SET-4: a row, group title or agent whose value differs from the default carries a dot at its key. */
+.cfg-row.is-changed .cfg-row__label::after,
+.settings-group__head.is-changed h3::after,
+.lp-agent.is-changed .lp-agent__name::after {
   content: "";
   display: inline-block;
   width: 5px;

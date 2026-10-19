@@ -1,11 +1,10 @@
 import { ArrowCounterClockwise } from "@phosphor-icons/react";
-import { useSignal } from "@preact/signals";
 import type { SettingScope } from "../../../settings/settings-registry";
 import { changedKeys, keysFor } from "../../../settings/settings-changes";
 import { settings } from "../../../settings/settings-store";
 import { DeckIcon, ROW_ICON } from "../../controls/deck-icon";
 import { ConfigRow } from "../../controls/config-row";
-import { confirmReset } from "../confirm-reset";
+import { confirmReset, resetPromptOpen } from "../confirm-reset";
 
 interface ResetRowSpec {
   readonly scope: SettingScope;
@@ -44,21 +43,6 @@ const RESET_ROWS: readonly ResetRowSpec[] = [
  * separate store and always stays.
  */
 export function ResetSection() {
-  // One prompt at a time across all three rows.
-  const resetting = useSignal(false);
-
-  const run = async (spec: ResetRowSpec, keys: ReturnType<typeof changedKeys>): Promise<void> => {
-    if (resetting.value) {
-      return;
-    }
-    resetting.value = true;
-    try {
-      await confirmReset(keys, spec.label, spec.keeps);
-    } finally {
-      resetting.value = false;
-    }
-  };
-
   return (
     <>
       {RESET_ROWS.map((spec) => {
@@ -71,8 +55,8 @@ export function ResetSection() {
               title={
                 keys.length === 0 ? "Nothing to reset" : `${spec.label} — asks for confirmation`
               }
-              disabled={resetting.value || keys.length === 0}
-              onClick={() => void run(spec, keys)}
+              disabled={resetPromptOpen.value || keys.length === 0}
+              onClick={() => void confirmReset(keys, spec.label, spec.keeps)}
             >
               <DeckIcon icon={ArrowCounterClockwise} size={ROW_ICON} />
               reset

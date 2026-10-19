@@ -8,6 +8,7 @@ import {
   type TerminalColors,
 } from "./settings-schema";
 import { defaultsFor } from "./settings-changes";
+import { quickAgentsWithout } from "./quick-agents";
 import { reportPersistError } from "../chrome/events";
 import { listen } from "../host/bridge";
 import { createTauriSettingsSync, type SettingsSyncClient } from "./settings-sync";
@@ -266,7 +267,18 @@ export async function flushSettingsSave(): Promise<void> {
   }
 }
 
-/** Puts only the named keys back to their defaults; every other key keeps its value. */
+/**
+ * Puts only the named keys back to their defaults; every other key keeps its
+ * value — except a pin of a custom agent this reset deletes, which would
+ * outlive the agent and pin the next one minted under the same id.
+ */
 export function resetSettingsKeys(keys: readonly (keyof Settings)[]): void {
-  updateSettings(defaultsFor(keys));
+  const dropsPins = keys.includes("customAgents") && !keys.includes("quickAgentIds");
+  const removed = settings.value.customAgents.map((agent) => agent.id);
+  updateSettings({
+    ...defaultsFor(keys),
+    ...(dropsPins
+      ? { quickAgentIds: quickAgentsWithout(settings.value.quickAgentIds, removed) }
+      : {}),
+  });
 }

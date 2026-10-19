@@ -280,6 +280,52 @@ describe("LaunchProfileEditor", () => {
     expect(settings.value.agentRuntimeDefaults.codex).toEqual({ model: "model-b", effort: null });
   });
 
+  it("marks an agent whose availability, signals or command left the defaults, and only that one", () => {
+    install("claude", "codex");
+    mount();
+    const changedAgents = (): string[] =>
+      Array.from(host.querySelectorAll(".lp-agent.is-changed")).map(
+        (row) => row.querySelector(".lp-agent__name")?.textContent ?? "",
+      );
+    expect(changedAgents()).toEqual([]);
+
+    click(byLabel("Claude Code availability"));
+    expect(changedAgents()).toEqual(["Claude Code"]);
+    click(byLabel("Claude Code availability"));
+    expect(changedAgents()).toEqual([]);
+
+    click(byLabel("Configure Codex"));
+    click(byLabel("Codex signals"));
+    expect(changedAgents()).toEqual(["Codex"]);
+  });
+
+  it("marks the default model row of the agent that has one, not its siblings", () => {
+    install("claude", "codex");
+    mount();
+    click(byLabel("Configure Codex"));
+    click(byLabel("Configure Claude Code"));
+    const rowOf = (label: string): Element | null => byLabel(label)?.closest(".cfg-row") ?? null;
+
+    const input = byLabel("Additional models for Codex") as HTMLInputElement;
+    act(() => {
+      input.focus();
+      input.value = "model-b";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.blur();
+    });
+    click(
+      Array.from(byLabel("Default model for Codex")!.querySelectorAll('[role="radio"]')).find(
+        (radio) => radio.textContent === "model-b",
+      )!,
+    );
+
+    expect(rowOf("Default model for Codex")?.classList.contains("is-changed")).toBe(true);
+    expect(rowOf("Default model for Claude Code")?.classList.contains("is-changed")).toBe(false);
+    // Declared models are data, reset by their own row — a page reset would
+    // not clear this one, so it carries no mark.
+    expect(rowOf("Additional models for Codex")?.classList.contains("is-changed")).toBe(false);
+  });
+
   it("keeps Add command distinct from declaring an agent identity", () => {
     mount();
 

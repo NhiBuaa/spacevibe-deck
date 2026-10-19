@@ -1,7 +1,7 @@
 import { changedKeys, keysFor } from "../../settings/settings-changes";
 import { settings } from "../../settings/settings-store";
 import type { SettingsPage } from "../../settings/settings-registry";
-import { confirmReset } from "./confirm-reset";
+import { confirmReset, resetPromptOpen } from "./confirm-reset";
 
 /**
  * Under the page title: how many of this page's preferences differ from the
@@ -19,6 +19,7 @@ export function PageResetBar({ page, label }: { page: SettingsPage; label: strin
       <button
         type="button"
         class="cfg-btn"
+        disabled={resetPromptOpen.value}
         title="Reset this page — asks for confirmation"
         onClick={() =>
           void confirmReset(keys, `Reset ${label}`, "other pages, layout, agents and templates")
