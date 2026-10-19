@@ -5,6 +5,14 @@ User-facing release notes. The release workflow's `promote` job publishes the
 platform-limitations header), so each section is written for users, reviewed in
 the release PR, and frozen at the tag — never an auto-generated commit list.
 
+## Unreleased
+
+- **Settings keeps a consistent width.** Every category now uses the same centered
+  [1050px content limit](src/styles/11-settings-screen.css), including Appearance and Agents.
+
+- **Usage stays compact on wide screens.** The [details page](src/ui/usage/usage-page.tsx)
+  now centers its content in a box up to 1050px wide and fits smaller windows.
+
 ## 2.11.0
 
 - **A larger Usage view.** Details in the Usage tab, View → Usage Details, or ⌘⇧R

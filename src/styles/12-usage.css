@@ -49,6 +49,8 @@
 
 .usage-screen__card {
   flex: 1;
+  max-width: 1050px;
+  margin-inline: auto;
   display: flex;
   flex-direction: column;
   min-width: 0;

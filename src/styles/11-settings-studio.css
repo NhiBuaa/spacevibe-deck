@@ -1,7 +1,6 @@
 /* DL-11.6: B — Studio, scoped to Appearance and Agents. Existing controls,
    neutral chrome and the full-window keyboard/loading contracts stay shared. */
 .settings-screen__doc--studio {
-  width: min(1080px, calc(100% - 80px));
   box-sizing: border-box;
   font-family: var(--ui-font);
   font-size: var(--type-body);
@@ -264,10 +263,6 @@
   }
 }
 @media (max-width: 720px) {
-  .settings-screen__doc--studio {
-    width: 100%;
-    padding-inline: 18px;
-  }
   .settings-group__head {
     padding: 16px 14px 6px;
   }

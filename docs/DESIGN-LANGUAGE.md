@@ -392,9 +392,10 @@ the rail.
   `--type-title` / `--text-faint` with a 58-character measure, a hairline, then one surface
   holding every row: `--chrome-1`, 1px `--hair` edge, `--radius-surface`, no shadow (DL-1.3).
   Groups inside it are separated by a rule, not another box. The column measure is
-  `min(680px, 100% - 80px)`, centred. Row padding is 10px block, 12px once a description gives
+  [`min(1050px, 100% - 80px)`](../src/styles/11-settings-screen.css), centred and shared by every
+  category. Row padding is 10px block, 12px once a description gives
   the key two lines. Appearance and Agents use separate groups with the same surface, edge and
-  radius at `min(1080px, 100% - 80px)`; Appearance puts controls beside a read-only terminal
+  radius within that shared column; Appearance puts controls beside a read-only terminal
   specimen of the current settings, stacking below 1100px. The outer disabled fieldset, focus
   trap, Back/Escape and draggable header are shared. Anchors:
   [`settings-screen.tsx`](../src/ui/settings/settings-screen.tsx),
@@ -602,6 +603,8 @@ comes from limit readings, cost from recorded token history; neither is a subscr
 - **DL-16.8** The dock's Usage tab stays a summary and carries one quiet **Details** control that
   opens the [usage page](../src/ui/usage/usage-page.tsx). The page is a full-bleed `--bg` surface
   laid over the whole stage, the way Settings lies over the window: only the rail stays uncovered. The
+  [inner content box](../src/styles/12-usage.css) is centered and capped at 1050px, shrinking with
+  the stage on smaller windows; the background still covers the stage. The
   stage strip, an open dock and a diff column go under it and the dock is inert until it closes
   (owner, 2026-10-15: a page that takes the content area leaves no terminal chrome or side panel
   showing), and no pane is unmounted or resized. In the sidebar layout its header stands in the
