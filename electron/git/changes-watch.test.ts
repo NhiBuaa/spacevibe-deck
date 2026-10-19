@@ -4,11 +4,14 @@ import path from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { PathOutsideWorkspaceError } from "../fs/path-guard";
 import {
+  CLASSIFY_BUDGET_MS,
   createChangesWatchRegistry,
   EMIT_INTERVAL_MS,
+  MAX_WINDOW_PATHS,
   keepsRootGitPath,
   type ChangesWatchFs,
 } from "./changes-watch";
+import type { IgnoreAnswer, IgnoreClassifier } from "./ignore-classifier";
 
 /**
  * The registry over a FAKE watcher: which events count, how they throttle and
@@ -70,11 +73,11 @@ function fakeIo(): { io: ChangesWatchFs; watchers: FakeWatcher[] } {
   return { io, watchers };
 }
 
-function setup(recursive = true) {
+function setup(recursive = true, classifier?: IgnoreClassifier) {
   const { io, watchers } = fakeIo();
   const emit = vi.fn();
   const log = vi.fn();
-  const registry = createChangesWatchRegistry({ emit, io, recursive, log });
+  const registry = createChangesWatchRegistry({ emit, io, recursive, log, classifier });
   return { registry, watchers, emit, log };
 }
 
@@ -232,11 +235,197 @@ describe("throttle", () => {
   });
 });
 
+/** A classifier that calls `answer` for each window. */
+function fakeClassifier(answer: (paths: readonly string[]) => Promise<IgnoreAnswer>) {
+  const classify = vi.fn((_root: string, _directory: string, paths: readonly string[]) =>
+    answer(paths),
+  );
+  return { classifier: { classify } satisfies IgnoreClassifier, classify };
+}
+
+const ignoring = (...ignored: string[]) =>
+  fakeClassifier(async () => ({ kind: "classified", ignored: new Set(ignored) }));
+
+const tick = (ms: number) => vi.advanceTimersByTimeAsync(ms);
+
+describe("with a classifier", () => {
+  it("emits nothing for a window of ignored paths, with one classification", async () => {
+    vi.useFakeTimers();
+    const names = Array.from({ length: 5_000 }, (_, i) => `node_modules/p${i}/index.js`);
+    const { classifier, classify } = ignoring(...names);
+    const { registry, watchers, emit } = setup(true, classifier);
+    registry.replace(1, plain);
+    for (const name of names) {
+      watchers[0].fire(name);
+    }
+    await tick(EMIT_INTERVAL_MS + 1);
+    expect(classify).toHaveBeenCalledTimes(1);
+    expect(classify.mock.calls[0][2]).toHaveLength(5_000);
+    expect(classify.mock.calls[0][0]).toBe(plain);
+    expect(emit).not.toHaveBeenCalled();
+  });
+
+  it("emits once when one path among thousands is not ignored", async () => {
+    vi.useFakeTimers();
+    const names = Array.from({ length: 5_000 }, (_, i) => `node_modules/p${i}.js`);
+    const { classifier } = ignoring(...names);
+    const { registry, watchers, emit } = setup(true, classifier);
+    registry.replace(1, plain);
+    for (const name of names) {
+      watchers[0].fire(name);
+    }
+    watchers[0].fire("src/app.ts");
+    await tick(EMIT_INTERVAL_MS + 1);
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit).toHaveBeenCalledWith(1, plain);
+  });
+
+  it("emits for the always-emit paths without a classifier call", async () => {
+    vi.useFakeTimers();
+    const { classifier, classify } = ignoring();
+    const { registry, watchers, emit } = setup(true, classifier);
+    registry.replace(1, worktree);
+    for (const fire of [
+      () => watchers[0].fire(null),
+      () => watchers[0].fire(".git/index"),
+      () => watchers[0].fire(".git/info/exclude"),
+      () => watchers[0].fire(".gitignore"),
+      () => watchers[1].fire("HEAD"),
+    ]) {
+      emit.mockClear();
+      fire();
+      await tick(EMIT_INTERVAL_MS + 1);
+      expect(emit).toHaveBeenCalledTimes(1);
+    }
+    expect(classify).not.toHaveBeenCalled();
+  });
+
+  it("still drops .git noise that never counted", async () => {
+    vi.useFakeTimers();
+    const { classifier, classify } = ignoring();
+    const { registry, watchers, emit } = setup(true, classifier);
+    registry.replace(1, plain);
+    watchers[0].fire(".git/objects/ab/cdef");
+    watchers[0].fire(".git/index.lock");
+    await tick(EMIT_INTERVAL_MS + 1);
+    expect(emit).not.toHaveBeenCalled();
+    expect(classify).not.toHaveBeenCalled();
+  });
+
+  it("judges a nested .gitignore by the directory it governs", async () => {
+    vi.useFakeTimers();
+    const { classifier, classify } = ignoring("node_modules/dep");
+    const { registry, watchers, emit } = setup(true, classifier);
+    registry.replace(1, plain);
+    watchers[0].fire("node_modules/dep/.gitignore");
+    await tick(EMIT_INTERVAL_MS + 1);
+    expect(classify.mock.calls[0][2]).toEqual(["node_modules/dep"]);
+    expect(emit).not.toHaveBeenCalled();
+    watchers[0].fire("src/.gitignore");
+    await tick(EMIT_INTERVAL_MS + 1);
+    expect(emit).toHaveBeenCalledTimes(1);
+  });
+
+  it("hands a path inside a nested .git on to the classifier", async () => {
+    vi.useFakeTimers();
+    const { classifier, classify } = ignoring("node_modules/dep/.git/HEAD");
+    const { registry, watchers, emit } = setup(true, classifier);
+    registry.replace(1, plain);
+    watchers[0].fire("node_modules/dep/.git/HEAD");
+    await tick(EMIT_INTERVAL_MS + 1);
+    expect(classify.mock.calls[0][2]).toEqual(["node_modules/dep/.git/HEAD"]);
+    expect(emit).not.toHaveBeenCalled();
+  });
+
+  it("fails open when the classifier is unavailable or throws", async () => {
+    vi.useFakeTimers();
+    for (const answer of [
+      async (): Promise<IgnoreAnswer> => ({ kind: "unavailable", reason: "failed" }),
+      async (): Promise<IgnoreAnswer> => {
+        throw new Error("boom");
+      },
+    ]) {
+      const { classifier } = fakeClassifier(answer);
+      const { registry, watchers, emit } = setup(true, classifier);
+      registry.replace(1, plain);
+      watchers[0].fire("dist/a.js");
+      await tick(EMIT_INTERVAL_MS + 1);
+      expect(emit).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it("emits by 600 ms when the classifier never answers", async () => {
+    vi.useFakeTimers();
+    const { classifier } = fakeClassifier(() => new Promise(() => {}));
+    const { registry, watchers, emit } = setup(true, classifier);
+    registry.replace(1, plain);
+    watchers[0].fire("dist/a.js");
+    await tick(EMIT_INTERVAL_MS + CLASSIFY_BUDGET_MS - 1);
+    expect(emit).not.toHaveBeenCalled();
+    await tick(2);
+    expect(emit).toHaveBeenCalledTimes(1);
+  });
+
+  it("emits a window of over 10,000 paths at once, and still classifies it", async () => {
+    vi.useFakeTimers();
+    const { classifier, classify } = ignoring();
+    const { registry, watchers, emit } = setup(true, classifier);
+    registry.replace(1, plain);
+    for (let i = 0; i <= MAX_WINDOW_PATHS; i += 1) {
+      watchers[0].fire(`node_modules/f${i}`);
+    }
+    await tick(EMIT_INTERVAL_MS + 1);
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(classify.mock.calls[0][2]).toHaveLength(MAX_WINDOW_PATHS);
+  });
+
+  it("emits at once while a classification for the sender is still running", async () => {
+    vi.useFakeTimers();
+    const { classifier, classify } = fakeClassifier(() => new Promise(() => {}));
+    const { registry, watchers, emit } = setup(true, classifier);
+    registry.replace(1, plain);
+    watchers[0].fire("dist/a.js");
+    await tick(EMIT_INTERVAL_MS + 1);
+    watchers[0].fire("dist/b.js");
+    await tick(EMIT_INTERVAL_MS + 1);
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(classify).toHaveBeenCalledTimes(1);
+  });
+
+  it("drops a late answer for a released sender", async () => {
+    vi.useFakeTimers();
+    let answer!: (value: IgnoreAnswer) => void;
+    const { classifier } = fakeClassifier(() => new Promise((resolve) => (answer = resolve)));
+    const { registry, watchers, emit } = setup(true, classifier);
+    registry.replace(1, plain);
+    watchers[0].fire("dist/a.js");
+    await tick(EMIT_INTERVAL_MS + 1);
+    registry.release(1);
+    answer({ kind: "unavailable", reason: "failed" });
+    await tick(CLASSIFY_BUDGET_MS + 1);
+    expect(emit).not.toHaveBeenCalled();
+  });
+
+  it("starts a fresh window after an all-ignored one", async () => {
+    vi.useFakeTimers();
+    const { classifier } = ignoring("dist/a.js");
+    const { registry, watchers, emit } = setup(true, classifier);
+    registry.replace(1, plain);
+    watchers[0].fire("dist/a.js");
+    await tick(EMIT_INTERVAL_MS + 1);
+    watchers[0].fire("src/b.ts");
+    await tick(EMIT_INTERVAL_MS + 1);
+    expect(emit).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("helpers", () => {
   it("keepsRootGitPath", () => {
     expect(keepsRootGitPath([])).toBe(false);
     expect(keepsRootGitPath(["index"])).toBe(true);
     expect(keepsRootGitPath(["refs", "tags", "v1"])).toBe(true);
     expect(keepsRootGitPath(["objects", "pack"])).toBe(false);
+    expect(keepsRootGitPath(["info", "exclude"])).toBe(true);
+    expect(keepsRootGitPath(["info", "refs"])).toBe(false);
   });
 });

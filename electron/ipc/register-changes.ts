@@ -8,6 +8,7 @@ import { CHANNELS, EVENTS } from "./channels";
 import { readChanges } from "../git/changes";
 import { createChangesWatchRegistry, type ChangesWatchRegistry } from "../git/changes-watch";
 import { readHeadFile } from "../git/head-file";
+import { sharedIgnoreClassifier } from "../git/ignore-classifier";
 
 export interface ChangesRegistration {
   readonly watches: ChangesWatchRegistry;
@@ -15,6 +16,7 @@ export interface ChangesRegistration {
 
 export function registerChanges(): ChangesRegistration {
   const watches = createChangesWatchRegistry({
+    classifier: sharedIgnoreClassifier(),
     emit: (sender, root) => {
       const target = webContents.fromId(sender);
       if (target !== undefined && !target.isDestroyed()) {
