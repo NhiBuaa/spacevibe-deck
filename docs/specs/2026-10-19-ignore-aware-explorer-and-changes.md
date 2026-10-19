@@ -153,7 +153,13 @@ AGENTS.md's repo rules R1–R8.
   The cache stays valid only while the stamps (size, mtime, ctime and inode, or absence) of
   these files are unchanged: every `.gitignore` from the checkout's top down to the directory of
   each classified path, the common git directory's `info/exclude`, and the governing git
-  directory's `index`. A changed stamp clears everything before the call answers. **The index is
+  directory's `index`. A changed stamp clears everything before the call answers, and a call that was already
+  waiting on git when that happened discards its answer and asks again, so a late verdict never
+  enters the fresh cache. The stamp and root maps are bounded too (named caps, cleared
+  wholesale), and entries are keyed by the governing git directory, so a nested repository that
+  is not a submodule never shares a verdict with its outer one. Paths go to git with a `./`
+  prefix, so a name such as `:secret` is never read as pathspec magic, and a backslash separates
+  only on Windows. **The index is
   stamped because git's answer depends on what is tracked:** after `git add -f` inside a
   remembered ignored directory, that file is no longer ignored. This extends the owner's rule
   that the cache resets on a `.gitignore` or `info/exclude` change. Acceptance: a repeated call
@@ -278,8 +284,11 @@ AGENTS.md's repo rules R1–R8.
   edit to it shows after the cache next clears (another stamped change, a cap, or a restart).
   Accepted.
 - **`.git/info/exclude`**: stamped, in the common git directory for a linked worktree, and an
-  always-emit path for the watch. The tree does not watch `.git`, so an edit shows in the tree
-  on the next re-list or Refresh.
+  always-emit path for the watch **when the root holds its `.git` directory**. The tree does not
+  watch `.git`, so an edit shows in the tree on the next re-list or Refresh. For a linked
+  worktree the file lies outside the root and the git-directory watch listens to `index` and
+  `HEAD` only, so the watch does not emit for it; the stamp catches the edit on the next call
+  and the list reads on the next event, focus or Refresh. Accepted: no new watcher.
 - **Index changes** (`git add -f`, `git rm --cached`): stamped. The watch already emits for the
   index; the tree updates on the next re-list or Refresh, because it does not watch the index.
 - **Submodules.** In the tree, a listing inside a submodule is classified by the submodule's
@@ -291,7 +300,8 @@ AGENTS.md's repo rules R1–R8.
   outer `git status` shows.
 - **A linked worktree whose git directory is outside the root.** Classification runs from the
   root. The stamps read `index` from `<repo>/.git/worktrees/<name>/` and `info/exclude` from the
-  common directory. The git-dir watch's events always emit, as today.
+  common directory. The git-dir watch's events always emit, as today; an edit to the common
+  directory's `info/exclude` is not among them (see above).
 - **Case-insensitive filesystems.** Git's `core.ignorecase` governs matching (measured). Answers
   map back by the exact name sent. Two spellings of one path cost two cache entries, never a
   wrong answer.
