@@ -25,6 +25,8 @@ import {
   EyeSlash,
   FilePlus,
   FolderPlus,
+  FunnelSimple,
+  FunnelSimpleX,
 } from "@phosphor-icons/react";
 import { CHROME_ICON, DeckIcon, type DeckIconComponent } from "../../ui/controls/deck-icon";
 import {
@@ -38,6 +40,8 @@ export interface TreeRootActionsProps {
   readonly canCreate: boolean;
   /** Whether dot-entries are listed. Carried by `aria-pressed` and the glyph. */
   readonly showHidden: boolean;
+  /** Whether entries git ignores are listed. Carried by `aria-pressed` and the glyph. */
+  readonly showIgnored: boolean;
   /**
    * The root row's roving tab stop, mirrored (design §4.3). Tab enters the
    * tree once, lands on the root row and walks into these controls; it never
@@ -47,6 +51,7 @@ export interface TreeRootActionsProps {
   onNewFile(): void;
   onNewFolder(): void;
   onToggleHidden(): void;
+  onToggleIgnored(): void;
   onRefresh(): void;
   onCollapseAll(): void;
 }
@@ -131,6 +136,14 @@ export function TreeRootActions(props: TreeRootActionsProps) {
         tabIndex={props.tabIndex}
         pressed={props.showHidden}
         onPress={props.onToggleHidden}
+      />
+      <ClusterButton
+        id="file-tree-show-ignored"
+        label="Show ignored files"
+        icon={props.showIgnored ? FunnelSimple : FunnelSimpleX}
+        tabIndex={props.tabIndex}
+        pressed={props.showIgnored}
+        onPress={props.onToggleIgnored}
       />
       <ClusterButton
         id="file-tree-refresh"

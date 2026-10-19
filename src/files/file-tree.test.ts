@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   canExpand,
-  EXCLUDED_NAMES,
+  ALWAYS_HIDDEN,
+  FALLBACK_IGNORED,
   flattenTree,
   isHidden,
   isVisible,
@@ -10,6 +11,7 @@ import {
   toggleExpanded,
   visibleEntries,
   type DirEntry,
+  type IgnoreFilter,
 } from "./file-tree";
 
 function entry(path: string, options: { directory?: boolean; outOfRoot?: boolean } = {}): DirEntry {
@@ -45,30 +47,68 @@ describe("sortEntries", () => {
   });
 });
 
-describe("the exclusion list", () => {
-  it("comes from one named constant", () => {
-    expect([...EXCLUDED_NAMES].sort()).toEqual([".git", "dist", "node_modules", "target"]);
+describe("the exclusion constants", () => {
+  it("are two named sets", () => {
+    expect([...ALWAYS_HIDDEN]).toEqual([".git"]);
+    expect([...FALLBACK_IGNORED].sort()).toEqual(["dist", "node_modules", "target"]);
   });
 
-  it("hides the excluded names and dot-entries by default", () => {
-    for (const name of EXCLUDED_NAMES) {
+  it("hide the fallback names and dot-entries by default (IGN11)", () => {
+    for (const name of [...ALWAYS_HIDDEN, ...FALLBACK_IGNORED]) {
       expect(isVisible(entry(`/r/${name}`, { directory: true }), false)).toBe(false);
     }
     expect(isVisible(entry("/r/.env"), false)).toBe(false);
     expect(isVisible(entry("/r/src.ts"), false)).toBe(true);
   });
 
-  it("reveals dot-entries under showHidden but never the excluded names", () => {
+  it("reveal dot-entries under showHidden but never .git (IGN9)", () => {
     expect(isVisible(entry("/r/.env"), true)).toBe(true);
-    // `.git` is both a dot-entry and excluded: showing it would be huge and
-    // meaningless to read in an editor.
     expect(isVisible(entry("/r/.git", { directory: true }), true)).toBe(false);
-    expect(isVisible(entry("/r/node_modules", { directory: true }), true)).toBe(false);
+    expect(isVisible(entry("/r/.git", { directory: true }), true, SHOWING)).toBe(false);
   });
 
   it("recognises dot-entries", () => {
     expect(isHidden(".env")).toBe(true);
     expect(isHidden("env")).toBe(false);
+  });
+});
+
+const SHOWING: IgnoreFilter = { ignored: undefined, showIgnored: true };
+
+describe("git's verdict (IGN10)", () => {
+  const verdict = (...names: string[]): IgnoreFilter => ({
+    ignored: new Set(names),
+    showIgnored: false,
+  });
+
+  it("replaces the fallback list: a tracked dist is shown, an odd ignored name is not", () => {
+    expect(isVisible(entry("/r/dist", { directory: true }), false, verdict())).toBe(true);
+    expect(isVisible(entry("/r/coverage", { directory: true }), false, verdict("coverage"))).toBe(
+      false,
+    );
+  });
+
+  it("shows ignored entries once the toggle is on", () => {
+    const shown = { ...verdict("coverage"), showIgnored: true };
+    expect(isVisible(entry("/r/coverage", { directory: true }), false, shown)).toBe(true);
+  });
+
+  it("applies the fallback to a listing without a verdict, and shows it with the toggle", () => {
+    const node = entry("/r/node_modules", { directory: true });
+    expect(isVisible(node, false)).toBe(false);
+    expect(isVisible(node, false, SHOWING)).toBe(true);
+  });
+
+  it("combines with showHidden independently in all four combinations (IGN12)", () => {
+    const secret = entry("/r/.env.local");
+    const ignored = (showIgnored: boolean): IgnoreFilter => ({
+      ignored: new Set([".env.local"]),
+      showIgnored,
+    });
+    expect(isVisible(secret, false, ignored(false))).toBe(false);
+    expect(isVisible(secret, true, ignored(false))).toBe(false);
+    expect(isVisible(secret, false, ignored(true))).toBe(false);
+    expect(isVisible(secret, true, ignored(true))).toBe(true);
   });
 });
 
@@ -208,6 +248,58 @@ describe("flattenTree", () => {
     // The third entry is the CHILD row named `r`, not a second root row: the
     // `walked` set is what stops the loop.
     expect(rows.map((r) => r.name)).toEqual(["r", "a", "r"]);
+  });
+});
+
+describe("flattenTree with an ignore view", () => {
+  const listings = new Map<string, readonly DirEntry[]>([
+    [
+      "/r",
+      [
+        entry("/r/src", { directory: true }),
+        entry("/r/coverage", { directory: true }),
+        entry("/r/dist", { directory: true }),
+        entry("/r/.git", { directory: true }),
+      ],
+    ],
+    ["/r/src", [entry("/r/src/a.ts"), entry("/r/src/gen.ts")]],
+  ]);
+  const verdicts = new Map([
+    ["/r", new Set(["coverage"])],
+    ["/r/src", new Set(["gen.ts"])],
+  ]);
+
+  it("hides what git ignores and shows a tracked dist", () => {
+    const rows = flattenTree("/r", listings, new Set(["/r/src"]), false, true, {
+      verdicts,
+      showIgnored: false,
+    });
+    expect(rows.map((r) => r.name)).toEqual(["r", "dist", "src", "a.ts"]);
+    expect(rows.every((r) => !r.ignored)).toBe(true);
+  });
+
+  it("marks ignored rows when the toggle is on, still hiding .git", () => {
+    const rows = flattenTree("/r", listings, new Set(["/r/src"]), false, true, {
+      verdicts,
+      showIgnored: true,
+    });
+    expect(rows.map((r) => [r.name, r.ignored])).toEqual([
+      ["r", false],
+      ["coverage", true],
+      ["dist", false],
+      ["src", false],
+      ["a.ts", false],
+      ["gen.ts", true],
+    ]);
+  });
+
+  it("uses the fallback list for a directory with no verdict", () => {
+    const rows = flattenTree("/r", listings, new Set(), false, true, {
+      verdicts: new Map(),
+      showIgnored: true,
+    });
+    expect(rows.map((r) => [r.name, r.ignored])).toContainEqual(["dist", true]);
+    expect(rows.map((r) => r.name)).not.toContain(".git");
   });
 });
 

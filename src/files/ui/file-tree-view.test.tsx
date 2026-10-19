@@ -695,3 +695,62 @@ describe("the Show hidden files toggle (DL-19.9)", () => {
     expect(host.querySelector('[aria-label="New file"]')).toBeNull();
   });
 });
+
+describe("the Show ignored files toggle (IGN13, IGN14)", () => {
+  const SEEDED: DirEntry[] = [
+    { name: "coverage", path: `${WS}/coverage`, directory: true, outOfRoot: false },
+    { name: "src", path: `${WS}/src`, directory: true, outOfRoot: false },
+    { name: ".env", path: `${WS}/.env`, directory: false, outOfRoot: false },
+  ];
+  const toggle = (): HTMLButtonElement =>
+    host.querySelector<HTMLButtonElement>('[aria-label="Show ignored files"]')!;
+  const names = (): (string | null | undefined)[] =>
+    rows().map((row) => row.querySelector(".file-tree__name")?.textContent);
+
+  async function mountWithVerdict(controller = fakeController()): Promise<void> {
+    await mountTree(controller, { listing: null });
+    act(() => setListing(WS, WS, SEEDED, new Set(["coverage", ".env"])));
+    await frame();
+  }
+
+  it("hides ignored entries, then shows them dimmed with a description", async () => {
+    await mountWithVerdict();
+    expect(names()).toEqual(["r", "src"]);
+
+    act(() => toggle().click());
+    await frame();
+    expect(surfaceFor(WS).showIgnored).toBe(true);
+    expect(toggle().getAttribute("aria-pressed")).toBe("true");
+    // .env is ignored AND hidden: it needs Show hidden files too (IGN12).
+    expect(names()).toEqual(["r", "coverage", "src"]);
+    const dimmed = rows().filter((row) => row.classList.contains("is-ignored"));
+    expect(dimmed.map((row) => row.getAttribute("aria-description"))).toEqual(["Ignored"]);
+    expect(rows()[2].getAttribute("aria-description")).toBeNull();
+  });
+
+  it("restates the watch scope through refreshTree on every flip", async () => {
+    const controller = fakeController();
+    await mountWithVerdict(controller);
+
+    act(() => toggle().click());
+    act(() => toggle().click());
+    expect(controller.refreshTree).toHaveBeenCalledTimes(2);
+    expect(controller.refreshTree).toHaveBeenCalledWith(WS);
+  });
+
+  it("does not toggle the root on Enter, and an ignored row keeps its handlers", async () => {
+    const controller = fakeController();
+    await mountWithVerdict(controller);
+    act(() => {
+      toggle().focus();
+      toggle().dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      toggle().click();
+    });
+    await frame();
+    expect(controller.toggleRoot).not.toHaveBeenCalled();
+    expect(surfaceFor(WS).showIgnored).toBe(true);
+
+    act(() => rows()[1].click());
+    expect(controller.toggleDirectory).toHaveBeenCalledWith(WS, `${WS}/coverage`);
+  });
+});

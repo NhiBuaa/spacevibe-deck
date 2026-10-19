@@ -9,6 +9,7 @@ const row = (path: string): TreeRow => ({
   depth: 1,
   expanded: false,
   outOfRoot: false,
+  ignored: false,
 });
 
 describe("resolveFocusIndex", () => {

@@ -374,6 +374,24 @@ describe("documents the tree cannot show (H5)", () => {
     expect(surfaceFor(WS).expanded.has(`${REAL}/node_modules`)).toBe(false);
   });
 
+  it("reveals an ignored document when Show ignored files turns on (IGN18)", async () => {
+    const h = harness();
+    mount(h.controller);
+    await vi.waitFor(() => expect(names()).toContain("README.md"));
+    open(`${REAL}/node_modules/x.js`);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 60));
+    });
+    // The reveal changes no filter on its own.
+    expect(marked()).toEqual([]);
+    expect(surfaceFor(WS).showIgnored).toBe(false);
+
+    act(() => host.querySelector<HTMLButtonElement>('[aria-label="Show ignored files"]')!.click());
+
+    await vi.waitFor(() => expect(marked()).toEqual(["x.js"]));
+    expect(surfaceFor(WS).expanded.has(`${REAL}/node_modules`)).toBe(true);
+  });
+
   it("marks nothing for a document outside the root, and opens nothing for it", async () => {
     const h = harness();
     mount(h.controller);

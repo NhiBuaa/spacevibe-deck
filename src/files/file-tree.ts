@@ -24,19 +24,16 @@ export interface DirEntry {
   readonly outOfRoot: boolean;
 }
 
+/** Never shown, under any toggle: `.git` is huge and meaningless in an editor. */
+export const ALWAYS_HIDDEN: ReadonlySet<string> = new Set([".git"]);
+
 /**
- * Directories hidden by default, from ONE named constant (plan T4).
- *
- * Deliberately a fixed list and not `.gitignore`: parsing that properly needs a
- * matcher dependency, which is a fork, and parsing it badly is worse than this
- * list (spec §3.1). Named as a known gap in the plan's §4, not an oversight.
+ * What counts as ignored in a listing git gave no verdict for (not a
+ * repository, git missing, a timeout, a host without the channel). Where git
+ * does answer, its verdict replaces this list entirely, so a tracked `dist/`
+ * is shown.
  */
-export const EXCLUDED_NAMES: ReadonlySet<string> = new Set([
-  ".git",
-  "node_modules",
-  "dist",
-  "target",
-]);
+export const FALLBACK_IGNORED: ReadonlySet<string> = new Set(["node_modules", "dist", "target"]);
 
 /** Dot-entries, revealed by the "show hidden" toggle and nothing else. */
 export function isHidden(name: string): boolean {
@@ -44,17 +41,42 @@ export function isHidden(name: string): boolean {
 }
 
 /**
- * Whether an entry survives the default filter.
- *
- * `EXCLUDED_NAMES` wins over `showHidden`: revealing dot-entries is about
- * `.env` and `.github`, never about walking into `.git`, which is both huge and
- * meaningless to read in an editor.
+ * Git's verdicts, per directory path: the entry names it ignores. A directory
+ * with no verdict is one git gave no answer for, and uses `FALLBACK_IGNORED`.
  */
-export function isVisible(entry: DirEntry, showHidden: boolean): boolean {
-  if (EXCLUDED_NAMES.has(entry.name)) {
+export type IgnoreVerdicts = ReadonlyMap<string, ReadonlySet<string>>;
+
+/** How one directory's entries are filtered by the ignore toggle. */
+export interface IgnoreFilter {
+  /** Git's verdict for the directory, or undefined for the fallback list. */
+  readonly ignored: ReadonlySet<string> | undefined;
+  readonly showIgnored: boolean;
+}
+
+/** No verdict and the toggle off: the fixed-list behaviour. */
+export const FALLBACK_FILTER: IgnoreFilter = { ignored: undefined, showIgnored: false };
+
+/** Whether `name` is ignored under `verdict`, or under the fallback without one. */
+export function isIgnoredName(name: string, verdict: ReadonlySet<string> | undefined): boolean {
+  return verdict === undefined ? FALLBACK_IGNORED.has(name) : verdict.has(name);
+}
+
+/**
+ * Whether an entry survives the filters. Each applies on its own (IGN12): an
+ * ignored `.env.local` needs both toggles. `ALWAYS_HIDDEN` wins over both.
+ */
+export function isVisible(
+  entry: DirEntry,
+  showHidden: boolean,
+  ignore: IgnoreFilter = FALLBACK_FILTER,
+): boolean {
+  if (ALWAYS_HIDDEN.has(entry.name)) {
     return false;
   }
-  return showHidden || !isHidden(entry.name);
+  if (!showHidden && isHidden(entry.name)) {
+    return false;
+  }
+  return ignore.showIgnored || !isIgnoredName(entry.name, ignore.ignored);
 }
 
 /**
@@ -86,8 +108,12 @@ export function sortEntries(entries: readonly DirEntry[]): DirEntry[] {
 }
 
 /** Sorted, filtered listing of one directory. */
-export function visibleEntries(entries: readonly DirEntry[], showHidden: boolean): DirEntry[] {
-  return sortEntries(entries.filter((entry) => isVisible(entry, showHidden)));
+export function visibleEntries(
+  entries: readonly DirEntry[],
+  showHidden: boolean,
+  ignore: IgnoreFilter = FALLBACK_FILTER,
+): DirEntry[] {
+  return sortEntries(entries.filter((entry) => isVisible(entry, showHidden, ignore)));
 }
 
 /** A directory the user may walk into. A symlink out of the root is a leaf. */
@@ -103,6 +129,8 @@ export interface TreeRow {
   readonly depth: number;
   readonly expanded: boolean;
   readonly outOfRoot: boolean;
+  /** Ignored by git (or the fallback list) and shown because the toggle is on. */
+  readonly ignored: boolean;
 }
 
 /** Listings the panel has loaded, keyed by directory path. */
@@ -116,6 +144,12 @@ export type Listings = ReadonlyMap<string, readonly DirEntry[]>;
 function rootName(root: string): string {
   const cut = Math.max(root.lastIndexOf("/"), root.lastIndexOf("\\"));
   return cut === -1 || cut === root.length - 1 ? root : root.slice(cut + 1);
+}
+
+/** What the ignore toggle needs to filter every listing. */
+export interface IgnoreView {
+  readonly verdicts: IgnoreVerdicts;
+  readonly showIgnored: boolean;
 }
 
 /**
@@ -136,6 +170,8 @@ export function flattenTree(
   // set is a fully collapsed tree whose root is still open, and there is no
   // spelling of that set which says "the root is shut".
   rootExpanded: boolean,
+  // Without it every listing uses the fallback list and the toggle is off.
+  ignoreView?: IgnoreView,
 ): TreeRow[] {
   const rows: TreeRow[] = [];
   // A directory is walked at most once. A symlink cycle wholly inside the root
@@ -147,7 +183,12 @@ export function flattenTree(
       return;
     }
     walked.add(directory);
-    for (const entry of visibleEntries(listings.get(directory) ?? [], showHidden)) {
+    const verdict = ignoreView?.verdicts.get(directory);
+    const filter: IgnoreFilter = {
+      ignored: verdict,
+      showIgnored: ignoreView?.showIgnored ?? false,
+    };
+    for (const entry of visibleEntries(listings.get(directory) ?? [], showHidden, filter)) {
       const open = canExpand(entry) && expanded.has(entry.path);
       rows.push({
         path: entry.path,
@@ -156,6 +197,7 @@ export function flattenTree(
         depth,
         expanded: open,
         outOfRoot: entry.outOfRoot,
+        ignored: isIgnoredName(entry.name, verdict),
       });
       if (open) {
         walk(entry.path, depth + 1);
@@ -173,6 +215,7 @@ export function flattenTree(
     depth: 0,
     expanded: rootExpanded,
     outOfRoot: false,
+    ignored: false,
   });
   if (rootExpanded) {
     walk(root, 1);

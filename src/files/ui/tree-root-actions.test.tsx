@@ -7,9 +7,11 @@ import { TreeRootActions } from "./tree-root-actions";
 let host: HTMLDivElement;
 const handlers = () => ({
   showHidden: false,
+  showIgnored: false,
   onNewFile: vi.fn(),
   onNewFolder: vi.fn(),
   onToggleHidden: vi.fn(),
+  onToggleIgnored: vi.fn(),
   onRefresh: vi.fn(),
   onCollapseAll: vi.fn(),
 });
@@ -24,12 +26,13 @@ afterEach(() => {
 });
 
 describe("TreeRootActions", () => {
-  it("draws five controls in spec order when the host can create", () => {
+  it("draws six controls in spec order when the host can create", () => {
     act(() => render(<TreeRootActions canCreate tabIndex={0} {...handlers()} />, host));
     expect([...host.querySelectorAll("button")].map((b) => b.getAttribute("aria-label"))).toEqual([
       "New file",
       "New folder",
       "Show hidden files",
+      "Show ignored files",
       "Refresh",
       "Collapse all",
     ]);
@@ -42,6 +45,7 @@ describe("TreeRootActions", () => {
     act(() => render(<TreeRootActions canCreate={false} tabIndex={0} {...handlers()} />, host));
     expect([...host.querySelectorAll("button")].map((b) => b.getAttribute("aria-label"))).toEqual([
       "Show hidden files",
+      "Show ignored files",
       "Refresh",
       "Collapse all",
     ]);
@@ -110,7 +114,10 @@ describe("TreeRootActions", () => {
       const pressed = [...host.querySelectorAll("button")].filter((b) =>
         b.hasAttribute("aria-pressed"),
       );
-      expect(pressed.map((b) => b.getAttribute("aria-label"))).toEqual(["Show hidden files"]);
+      expect(pressed.map((b) => b.getAttribute("aria-label"))).toEqual([
+        "Show hidden files",
+        "Show ignored files",
+      ]);
     });
 
     it("presses once and does not reach the row behind it", () => {
@@ -131,6 +138,55 @@ describe("TreeRootActions", () => {
       });
       const tip = document.querySelector(".action-tip");
       expect(tip?.textContent).toContain("Show hidden files");
+      expect(tip?.querySelector(".action-tip__kbd")).toBeNull();
+    });
+  });
+  describe("Show ignored files (IGN13)", () => {
+    const toggle = (): HTMLButtonElement =>
+      host.querySelector<HTMLButtonElement>('[aria-label="Show ignored files"]')!;
+    const glyph = (): string[] => [...toggle().querySelector("svg")!.classList];
+
+    it("is a toggle whose state and glyph follow the prop", () => {
+      const props = handlers();
+      act(() => render(<TreeRootActions canCreate tabIndex={0} {...props} />, host));
+      expect(toggle().getAttribute("aria-pressed")).toBe("false");
+      expect(glyph()).toContain("deck-icon--funnel-simple-x");
+
+      act(() => render(<TreeRootActions canCreate tabIndex={0} {...props} showIgnored />, host));
+      expect(toggle().getAttribute("aria-pressed")).toBe("true");
+      expect(glyph()).not.toContain("deck-icon--funnel-simple-x");
+      expect(glyph()).toContain("deck-icon--funnel-simple");
+    });
+
+    it("mirrors the roving tab stop", () => {
+      act(() => render(<TreeRootActions canCreate tabIndex={-1} {...handlers()} />, host));
+      expect(toggle().tabIndex).toBe(-1);
+      act(() => render(<TreeRootActions canCreate tabIndex={0} {...handlers()} />, host));
+      expect(toggle().tabIndex).toBe(0);
+    });
+
+    it("presses once without reaching the row, and Enter and Space activate it", () => {
+      const rowClick = vi.fn();
+      host.addEventListener("click", rowClick);
+      const props = handlers();
+      act(() => render(<TreeRootActions canCreate tabIndex={0} {...props} />, host));
+      act(() => toggle().click());
+      expect(props.onToggleIgnored).toHaveBeenCalledTimes(1);
+      expect(rowClick).not.toHaveBeenCalled();
+      // A native button turns Enter and Space into a click; the click handler
+      // is the only one, so a keydown must not be needed to reach it.
+      expect(toggle().tagName).toBe("BUTTON");
+      expect(toggle().getAttribute("type")).toBe("button");
+    });
+
+    it("is named by a tooltip that equals its name", () => {
+      act(() => render(<TreeRootActions canCreate tabIndex={0} {...handlers()} />, host));
+      expect(toggle().getAttribute("title")).toBeNull();
+      act(() => {
+        toggle().dispatchEvent(new PointerEvent("pointerenter", { bubbles: true }));
+      });
+      const tip = document.querySelector(".action-tip");
+      expect(tip?.textContent?.trim()).toBe("Show ignored files");
       expect(tip?.querySelector(".action-tip__kbd")).toBeNull();
     });
   });

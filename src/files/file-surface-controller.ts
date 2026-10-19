@@ -26,7 +26,6 @@ import {
   activeStripIndex,
   activeWorkspace,
   closeFileSurface,
-  clearExplorerStatus,
   closeWorkspaceSurface,
   collapseAllDirectories,
   documentFor,
@@ -38,10 +37,10 @@ import {
   requestReveal,
   requestTreeFocus,
   setExplorerStatus,
+  setIgnored,
   setListing,
   setListingError,
   setRootExpanded,
-  setShowHidden,
   surfaceFor,
   stripFileTabs,
   toggleDirectory,
@@ -53,7 +52,8 @@ import {
 import { isMarkdownPath } from "./markdown-policy";
 import { createPushingDirtyRegistry } from "./dirty-registry";
 import { defaultFileClient, type EntryKind, type FileClient } from "./file-client";
-import { isHidden } from "./file-tree";
+import { showCreatedEntry } from "./created-entry-filters";
+import { listingVerdict } from "./listing-ignore";
 import { createTreeRefresh } from "./tree-refresh";
 
 /**
@@ -231,7 +231,18 @@ export function createFileSurfaceController(deps: FileSurfaceDeps = {}): FileSur
       if (disposed || listingGenerations.get(key) !== forGeneration) {
         return;
       }
-      setListing(workspacePath, directory, entries);
+      // IGN15: the listing and git's verdict land in one write. A verdict
+      // past the budget is applied later, while this listing is still current.
+      const verdict = await listingVerdict(client, workspacePath, directory, entries, (late) => {
+        if (!disposed && listingGenerations.get(key) === forGeneration) {
+          setIgnored(workspacePath, directory, late);
+          refreshWatch();
+        }
+      });
+      if (disposed || listingGenerations.get(key) !== forGeneration) {
+        return;
+      }
+      setListing(workspacePath, directory, entries, verdict);
       refreshWatch();
     } catch (error: unknown) {
       if (disposed || listingGenerations.get(key) !== forGeneration) {
@@ -505,16 +516,6 @@ export function createFileSurfaceController(deps: FileSurfaceDeps = {}): FileSur
       if (disposed) {
         return true;
       }
-      // Design §5.3.4: a hidden name under a hidden filter would create
-      // something invisible. Turning the filter on is the honest answer, and
-      // it is said out loud. The root row's Show hidden files control turns
-      // it back off.
-      if (isHidden(name) && !surfaceFor(workspacePath).showHidden) {
-        setShowHidden(workspacePath, true);
-        setExplorerStatus(workspacePath, `Showing hidden files so ${name} is visible.`, false);
-      } else {
-        clearExplorerStatus();
-      }
       if (parent === workspacePath) {
         if (!surfaceFor(workspacePath).rootExpanded) {
           setRootExpanded(workspacePath, true);
@@ -529,6 +530,7 @@ export function createFileSurfaceController(deps: FileSurfaceDeps = {}): FileSur
       if (disposed) {
         return true;
       }
+      showCreatedEntry(workspacePath, parent, name);
       requestTreeFocus(created);
       refreshWatch();
       if (kind === "file") {

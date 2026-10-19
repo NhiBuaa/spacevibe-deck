@@ -8,7 +8,7 @@
  * `loadListing` and the disposed flag are injected because both live in the
  * controller's closure — this module owns no filesystem access of its own.
  */
-import { parentDirectory } from "../lib/path-name";
+import { baseName, parentDirectory } from "../lib/path-name";
 import { fileSurfaces, visibleDirectories } from "./file-surface-store";
 
 /**
@@ -23,6 +23,18 @@ import { fileSurfaces, visibleDirectories } from "./file-surface-store";
  * live.
  */
 const TREE_REFRESH_COALESCE_MS = 100;
+
+/** A rule file: an edit to it re-evaluates every listing at or under its folder. */
+const IGNORE_RULES_FILE = ".gitignore";
+
+/** `directory` is `parent` or lies below it, by whole path segments. */
+function atOrUnder(directory: string, parent: string): boolean {
+  return (
+    directory === parent ||
+    directory.startsWith(`${parent}/`) ||
+    directory.startsWith(`${parent}\\`)
+  );
+}
 
 export interface TreeRefreshDeps {
   /** Re-`listDir` one directory and apply the result to the store. */
@@ -90,6 +102,12 @@ export function createTreeRefresh(deps: TreeRefreshDeps): TreeRefresh {
       const parent = parentDirectory(changedPath);
       for (const workspacePath of fileSurfaces.value.keys()) {
         const visible = visibleDirectories(workspacePath);
+        // IGN16: git's verdicts below a changed .gitignore are stale.
+        if (baseName(changedPath) === IGNORE_RULES_FILE) {
+          for (const directory of visible.filter((d) => atOrUnder(d, parent))) {
+            scheduleTreeRefresh(workspacePath, directory);
+          }
+        }
         if (visible.includes(parent)) {
           scheduleTreeRefresh(workspacePath, parent);
         }

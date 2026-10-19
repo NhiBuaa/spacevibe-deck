@@ -44,11 +44,16 @@ export function useRevealActiveDocument(options: RevealActiveDocumentOptions): s
   const request = useRef<string | null>(null);
   const armedFor = useRef<string | null>(null);
   const hiddenBefore = useRef(surface.showHidden);
+  const ignoredBefore = useRef(surface.showIgnored);
 
   useEffect(() => {
     const key = `${workspacePath}\0${marked ?? ""}`;
-    const turnedOn = surface.showHidden && !hiddenBefore.current;
+    // Either filter turning on can bring the document's row into the model.
+    const turnedOn =
+      (surface.showHidden && !hiddenBefore.current) ||
+      (surface.showIgnored && !ignoredBefore.current);
     hiddenBefore.current = surface.showHidden;
+    ignoredBefore.current = surface.showIgnored;
     if (armedFor.current !== key || turnedOn) {
       // A newer document replaces one still in flight.
       armedFor.current = key;
@@ -65,6 +70,7 @@ export function useRevealActiveDocument(options: RevealActiveDocumentOptions): s
       expanded: surface.expanded,
       rootExpanded: surface.rootExpanded,
       showHidden: surface.showHidden,
+      ignore: { verdicts: surface.verdicts, showIgnored: surface.showIgnored },
       listingErrors,
     });
     if (step.kind === "wait") {
@@ -107,6 +113,8 @@ export function useRevealActiveDocument(options: RevealActiveDocumentOptions): s
     workspacePath,
     marked,
     surface.showHidden,
+    surface.showIgnored,
+    surface.verdicts,
     surface.listings,
     surface.expanded,
     surface.rootExpanded,

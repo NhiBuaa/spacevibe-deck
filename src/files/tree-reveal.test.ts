@@ -232,6 +232,41 @@ describe("nextRevealStep", () => {
       }
     });
 
+    it("follows git's verdict and the Show ignored files toggle (IGN18)", () => {
+      const target = `${REAL}/coverage/lcov.info`;
+      const withCoverage = listings({
+        [ROOT]: [dir(`${REAL}/coverage`)],
+        [`${REAL}/coverage`]: [file(target)],
+      });
+      const verdicts = new Map([[ROOT, new Set(["coverage"])]]);
+
+      expect(
+        nextRevealStep(
+          state({ target, listings: withCoverage, ignore: { verdicts, showIgnored: false } }),
+        ),
+      ).toEqual({ kind: "none" });
+      // A tracked dist is revealed, because git's verdict replaced the list.
+      const dist = `${REAL}/dist/a.js`;
+      const withDist = listings({
+        [ROOT]: [dir(`${REAL}/dist`)],
+        [`${REAL}/dist`]: [file(dist)],
+      });
+      expect(
+        nextRevealStep(
+          state({
+            target: dist,
+            listings: withDist,
+            ignore: { verdicts: new Map([[ROOT, new Set()]]), showIgnored: false },
+          }),
+        ),
+      ).toEqual({ kind: "expand", directory: `${REAL}/dist` });
+      expect(
+        nextRevealStep(
+          state({ target, listings: withCoverage, ignore: { verdicts, showIgnored: true } }),
+        ),
+      ).toEqual({ kind: "expand", directory: `${REAL}/coverage` });
+    });
+
     it("answers `none` for a document outside the root", () => {
       expect(nextRevealStep(state({ target: "/etc/hosts", listings: deepListings() }))).toEqual({
         kind: "none",

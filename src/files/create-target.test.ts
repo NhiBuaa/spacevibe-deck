@@ -9,6 +9,7 @@ const dir = (path: string, depth: number): TreeRow => ({
   depth,
   expanded: true,
   outOfRoot: false,
+  ignored: false,
 });
 const file = (path: string, depth: number): TreeRow => ({ ...dir(path, depth), directory: false });
 

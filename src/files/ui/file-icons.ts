@@ -7,8 +7,8 @@
  * with two different pictures. Still the one library DL-14.1 names, so this
  * is a vocabulary inside it rather than a second library.
  *
- * `EXCLUDED_NAMES` already lives in `file-tree.ts` as the tree's one named
- * exclusion-list constant (spec §3.1); this module owns icon selection only
+ * `ALWAYS_HIDDEN` and `FALLBACK_IGNORED` live in `file-tree.ts` as the tree's
+ * named exclusion constants (spec §3.1); this module owns icon selection only
  * and never re-lists which entries are hidden.
  */
 import {

@@ -17,7 +17,7 @@
  * A cached listing of a closed folder is trusted as it is: expanding that
  * folder by hand shows the same list.
  */
-import { canExpand, isVisible, type Listings } from "./file-tree";
+import { canExpand, isVisible, type IgnoreView, type Listings } from "./file-tree";
 
 export type RevealStep =
   /** Every ancestor is open; the row is in the model. */
@@ -41,6 +41,9 @@ export interface RevealState {
   readonly expanded: ReadonlySet<string>;
   readonly rootExpanded: boolean;
   readonly showHidden: boolean;
+  /** Git's verdicts and the Show ignored files toggle; absent means the
+   * fallback list with the toggle off. */
+  readonly ignore?: IgnoreView;
   /** Directories whose last read failed, keyed by path. */
   readonly listingErrors: ReadonlyMap<string, unknown>;
 }
@@ -55,7 +58,7 @@ function onPath(entryPath: string, target: string): boolean {
 }
 
 export function nextRevealStep(state: RevealState): RevealStep {
-  const { target, root, listings, expanded, showHidden, listingErrors } = state;
+  const { target, root, listings, expanded, showHidden, ignore, listingErrors } = state;
   // The first closed ancestor, top-down. Remembered rather than returned at
   // once so a document the tree cannot show answers `none` before anything
   // has been opened for it.
@@ -75,8 +78,12 @@ export function nextRevealStep(state: RevealState): RevealStep {
       // opening its closed ancestor is what loads the listing.
       return directory === root ? { kind: "wait" } : (closed ?? { kind: "wait" });
     }
+    const filter = {
+      ignored: ignore?.verdicts.get(directory),
+      showIgnored: ignore?.showIgnored ?? false,
+    };
     const entry = listing.find(
-      (candidate) => isVisible(candidate, showHidden) && onPath(candidate.path, target),
+      (candidate) => isVisible(candidate, showHidden, filter) && onPath(candidate.path, target),
     );
     if (entry === undefined) {
       return { kind: "none" };

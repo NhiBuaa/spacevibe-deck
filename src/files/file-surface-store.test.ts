@@ -25,7 +25,9 @@ import {
   resetFileSurfaces,
   setExplorerStatus,
   setActiveWorkspace,
+  setIgnored,
   setListing,
+  setShowIgnored,
   setRootExpanded,
   setListingError,
   setShowHidden,
@@ -108,6 +110,39 @@ describe("keying by workspacePath", () => {
     expect(fileTabsFor("/b").map((t) => t.path)).toEqual(["/b/two.ts"]);
     expect(surfaceFor("/a").showHidden).toBe(true);
     expect(surfaceFor("/b").showHidden).toBe(false);
+  });
+});
+
+describe("Show ignored files and git's verdicts", () => {
+  it("defaults off per workspace and flips independently of Show hidden files", () => {
+    setShowIgnored("/a", true);
+    expect(surfaceFor("/a").showIgnored).toBe(true);
+    expect(surfaceFor("/a").showHidden).toBe(false);
+    expect(surfaceFor("/b").showIgnored).toBe(false);
+  });
+
+  it("writes a listing and its verdict together; undefined keeps, null drops", () => {
+    setListing("/r", "/r", [file("/r/a.ts")], new Set(["a.ts"]));
+    expect([...(surfaceFor("/r").verdicts.get("/r") ?? [])]).toEqual(["a.ts"]);
+
+    setListing("/r", "/r", [file("/r/a.ts")]);
+    expect(surfaceFor("/r").verdicts.has("/r")).toBe(true);
+
+    setListing("/r", "/r", [file("/r/a.ts")], null);
+    expect(surfaceFor("/r").verdicts.has("/r")).toBe(false);
+  });
+
+  it("applies a late verdict and rows follow it", () => {
+    setListing("/r", "/r", [file("/r/a.ts"), file("/r/b.ts")]);
+    setIgnored("/r", "/r", new Set(["b.ts"]));
+    expect(treeRows("/r").map((row) => row.name)).toEqual(["r", "a.ts"]);
+
+    setShowIgnored("/r", true);
+    expect(treeRows("/r").map((row) => [row.name, row.ignored])).toEqual([
+      ["r", false],
+      ["a.ts", false],
+      ["b.ts", true],
+    ]);
   });
 });
 

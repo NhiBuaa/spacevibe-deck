@@ -20,6 +20,7 @@ import { batch, signal } from "@preact/signals";
 import type { ChangeAction } from "./external-change";
 import {
   type DirEntry,
+  type IgnoreVerdicts,
   type Listings,
   flattenTree,
   openDirectories,
@@ -51,9 +52,16 @@ export interface FileSurfaceState {
    */
   readonly rootExpanded: boolean;
   readonly showHidden: boolean;
+  /** Whether entries git ignores are listed, dimmed. Independent of `showHidden`. */
+  readonly showIgnored: boolean;
   /** Restored when the user comes back to this workspace's tree. */
   readonly scrollTop: number;
   readonly listings: Listings;
+  /**
+   * Git's verdict per listed directory (the entry names it ignores). A
+   * directory with no entry uses the fixed fallback list.
+   */
+  readonly verdicts: IgnoreVerdicts;
   readonly tabs: readonly FileTabEntry[];
   /** Which file tab this workspace shows when its file surface is active. */
   readonly activePath: string | null;
@@ -63,8 +71,10 @@ export const EMPTY_SURFACE: FileSurfaceState = Object.freeze({
   expanded: new Set<string>(),
   rootExpanded: true,
   showHidden: false,
+  showIgnored: false,
   scrollTop: 0,
   listings: new Map<string, readonly DirEntry[]>(),
+  verdicts: new Map<string, ReadonlySet<string>>(),
   tabs: [],
   activePath: null,
 });
@@ -328,6 +338,10 @@ export function setShowHidden(workspacePath: string, showHidden: boolean): void 
   writeSurface(workspacePath, { showHidden });
 }
 
+export function setShowIgnored(workspacePath: string, showIgnored: boolean): void {
+  writeSurface(workspacePath, { showIgnored });
+}
+
 export function setRootExpanded(workspacePath: string, rootExpanded: boolean): void {
   writeSurface(workspacePath, { rootExpanded });
 }
@@ -348,17 +362,52 @@ export function setScrollTop(workspacePath: string, scrollTop: number): void {
   writeSurface(workspacePath, { scrollTop });
 }
 
+/** A directory's verdict map with `verdict` applied: a set records git's
+ * answer, null drops it (the fallback list), undefined keeps what was there. */
+function withVerdict(
+  verdicts: IgnoreVerdicts,
+  directory: string,
+  verdict: ReadonlySet<string> | null | undefined,
+): IgnoreVerdicts {
+  if (verdict === undefined) {
+    return verdicts;
+  }
+  const next = new Map(verdicts);
+  if (verdict === null) {
+    next.delete(directory);
+  } else {
+    next.set(directory, verdict);
+  }
+  return next;
+}
+
+/** Store one listing and, in the same write, git's verdict for it. */
 export function setListing(
   workspacePath: string,
   directory: string,
   entries: readonly DirEntry[],
+  verdict?: ReadonlySet<string> | null,
 ): void {
-  const listings = new Map(surfaceFor(workspacePath).listings);
+  const surface = surfaceFor(workspacePath);
+  const listings = new Map(surface.listings);
   listings.set(directory, entries);
   batch(() => {
-    writeSurface(workspacePath, { listings });
+    writeSurface(workspacePath, {
+      listings,
+      verdicts: withVerdict(surface.verdicts, directory, verdict),
+    });
     clearListingError(workspacePath, directory);
   });
+}
+
+/** Apply a verdict that landed after its listing was shown. */
+export function setIgnored(
+  workspacePath: string,
+  directory: string,
+  verdict: ReadonlySet<string> | null,
+): void {
+  const surface = surfaceFor(workspacePath);
+  writeSurface(workspacePath, { verdicts: withVerdict(surface.verdicts, directory, verdict) });
 }
 
 /** Expand or collapse one directory. Collapsing keeps its listing cached —
@@ -382,6 +431,7 @@ export function treeRows(workspacePath: string | null): TreeRow[] {
     surface.expanded,
     surface.showHidden,
     surface.rootExpanded,
+    { verdicts: surface.verdicts, showIgnored: surface.showIgnored },
   );
 }
 

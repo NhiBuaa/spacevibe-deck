@@ -275,6 +275,12 @@
   transition: background var(--duration) var(--ease);
 }
 
+/* DL-19.9: an ignored entry shown by Show ignored files rests at the hint tone.
+   Before the hover and active rules, so those raise it like any other row. */
+.file-tree__row.is-ignored {
+  color: var(--text-faint);
+}
+
 /* DL-21.2: hover is the quieter wash — the same signifier used everywhere
    else, per DL-19's own citation of that rule. */
 .file-tree__row:hover {

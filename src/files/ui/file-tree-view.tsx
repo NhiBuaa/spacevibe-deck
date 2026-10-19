@@ -22,6 +22,7 @@ import {
   listingErrorsFor,
   pendingTreeFocus,
   setShowHidden,
+  setShowIgnored,
   surfaceFor,
   treeRows,
 } from "../file-surface-store";
@@ -211,6 +212,12 @@ export function FileTreeView(props: FileTreeViewProps) {
     controller.refreshTree(workspacePath);
   }
 
+  // Same reasoning as `toggleHidden`: the ignore filter shapes the watch scope.
+  function toggleIgnored(): void {
+    setShowIgnored(workspacePath, !surfaceFor(workspacePath).showIgnored);
+    controller.refreshTree(workspacePath);
+  }
+
   function handleRowClick(row: TreeRow, target: HTMLDivElement): void {
     setFocusedPath(row.path);
     target.focus();
@@ -336,7 +343,9 @@ export function FileTreeView(props: FileTreeViewProps) {
             aria-selected={row.directory ? undefined : isMarked}
             tabIndex={index === focusedIndex ? 0 : -1}
             // DL-19: data rows are 22px, one fixed indent token per depth.
-            class={`file-tree__row${isRoot ? " is-root" : ""}${isMarked ? " is-active" : ""}`}
+            class={`file-tree__row${isRoot ? " is-root" : ""}${isMarked ? " is-active" : ""}${row.ignored ? " is-ignored" : ""}`}
+            // Colour alone cannot say a row is ignored (WCAG 1.4.1).
+            aria-description={row.ignored ? "Ignored" : undefined}
             style={{
               top: `${index * ROW_HEIGHT}px`,
               paddingLeft: `${8 + row.depth * 14}px`,
@@ -364,12 +373,14 @@ export function FileTreeView(props: FileTreeViewProps) {
               <TreeRootActions
                 canCreate={canCreate}
                 showHidden={surface.showHidden}
+                showIgnored={surface.showIgnored}
                 // Design §4.3: keyboard reach follows the roving tabindex
                 // rather than fighting it.
                 tabIndex={index === focusedIndex ? 0 : -1}
                 onNewFile={() => requestCreate("file")}
                 onNewFolder={() => requestCreate("directory")}
                 onToggleHidden={toggleHidden}
+                onToggleIgnored={toggleIgnored}
                 onRefresh={() => controller.refreshTree(workspacePath)}
                 onCollapseAll={() => controller.collapseAll(workspacePath)}
               />
