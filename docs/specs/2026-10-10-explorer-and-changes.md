@@ -124,9 +124,10 @@ read-only towards git and never types into a pane on the user's behalf.
   open tabs and their unsaved edits attached to the renamed file, and leaves ⌘Q still asking
   about them. Both stay inside the workspace root. Acceptance: renaming an open dirty file
   keeps its edits, and quitting still asks about it.
-- **EXP6**: Entries git ignores are hidden or dimmed ([open decision 5](#open-decisions)), using
-  git's own answer rather than a matcher library. The fixed hidden list stays for folders git
-  does not know.
+- **EXP6**: Superseded 2026-10-19 by
+  [Ignore-aware Explorer and Changes watch](2026-10-19-ignore-aware-explorer-and-changes.md)
+  (IGN9–IGN20): entries git ignores are hidden, with their own Show ignored files toggle, using
+  git's own answer rather than a matcher library.
 - **EXP7**: Dragging a row onto a terminal pane inserts its path, quoted when needed, without
   pressing Enter. The drop must not reach the Open board's workspace drop.
 
@@ -152,7 +153,7 @@ merges first; lane A rebases on it. The file-surface controller has 32 lines lef
 | 4. Row context menu                  | EXP3         | Electron                      | —    | Not started |
 | 5. Quick open                        | EXP4         | Electron                      | —    | Not started |
 | 6. Move to Trash and Rename          | EXP5         | Electron                      | —    | Not started |
-| 7. Git-ignore-aware tree             | EXP6         | Electron; fixed list on Tauri | —    | Not started |
+| 7. Git-ignore-aware tree             | EXP6         | Electron; fixed list on Tauri | [ignore-aware Explorer spec](2026-10-19-ignore-aware-explorer-and-changes.md) | Built on `feat/ignore-aware-explorer`, awaiting eye review and merge |
 | 8. Drag a row into a terminal        | EXP7         | Electron                      | —    | Not started |
 
 Changes comes first because it is what the owner asked for. The Explorer slices follow the
@@ -188,8 +189,10 @@ colours (3) and the second docked column (4).
    picked (plan D11 (a)) the column directly left of the whole dock, so with a document open
    the order is grid, diff, document, list. Turned down: the diff in the dock's document slot,
    which leaves 216–432px of a 360–720px dock. DIFF1, DIFF2 and decision 4 stand as written.
-5. **Ignored entries (EXP6): hide or dim.** Recommended: hide them, and let EXP1's control
-   reveal them as well. Seven of the top-level folders in the owner's 2026-10-09 screenshot
+5. **Ignored entries (EXP6): hide or dim.** Decided 2026-10-19 by the owner, and moved to the
+   [new spec](2026-10-19-ignore-aware-explorer-and-changes.md): hidden by default, a separate
+   Show ignored files toggle, dimmed when shown. Turned down: this recommendation, letting
+   EXP1's control reveal them as well. Seven of the top-level folders in the owner's 2026-10-09 screenshot
    (`dist-electron`, `dist-electron-app`, `dist-gate-m`, …) are ignored build output.
 6. **Move to Trash confirmation (EXP5).** Recommended: no dialog, because the Trash is
    recoverable; the status line names what was moved.

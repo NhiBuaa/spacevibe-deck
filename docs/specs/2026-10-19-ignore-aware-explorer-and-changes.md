@@ -1,7 +1,7 @@
 # Ignore-aware Explorer and Changes watch
 
 Date: 2026-10-19
-Status: Approved 2026-10-19; open questions answered as recommended.
+Status: Built on `feat/ignore-aware-explorer` 2026-10-19, pending the owner's eye review of the E2E screenshots and merge. Open questions answered as recommended.
 Owner checkout: `/Users/kyantran/Documents/Development/spacevibe-workspace/spacevibe-deck`
 Baseline: `main` at `247dfc0e` (2026-10-19). Plans under `docs/plans/` are gitignored and exist
 only in the primary checkout.
