@@ -232,6 +232,21 @@ describe("Electron IPC contract", () => {
     }
   });
 
+  it("ignored_paths carries the flat { root, directory, names } payload on both sides", () => {
+    // The ignore-aware tree's verdict read, pinned like `create_entry` above so
+    // the generic scanner provably reaches it.
+    const sites = callSites.filter((site) => site.channel === "ignored_paths");
+    expect(sites.length).toBeGreaterThan(0);
+    for (const site of sites) {
+      expect(site.keys).toEqual(["root", "directory", "names"]);
+    }
+    const ignoredHandlers = handlers.filter((handler) => handler.channel === "ignored_paths");
+    expect(ignoredHandlers.length).toBeGreaterThan(0);
+    for (const handler of ignoredHandlers) {
+      expect(handler.required).toEqual(["root", "directory", "names"]);
+    }
+  });
+
   it("git_changes carries the flat { root } payload on both sides", () => {
     // The Changes list's snapshot read, pinned like `create_entry` above so the
     // generic scanner provably reaches it.

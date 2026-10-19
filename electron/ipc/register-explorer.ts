@@ -13,6 +13,7 @@ import { CHANNELS } from "./channels";
 import { listDir, readFile, statFiles } from "../fs/read";
 import { writeTextFile } from "../fs/write";
 import { createEntry } from "../fs/create-entry";
+import { ignoredNames } from "../fs/ignored-names";
 import type { WatchRegistry } from "../fs/watch";
 import type { MainDirtyRegistry } from "../dirty-registry";
 
@@ -36,6 +37,9 @@ export function registerExplorer(deps: RegisterExplorerDeps): void {
   });
   ipcMain.handle(CHANNELS.createEntry, (_event, { root, parent, name, kind }) =>
     createEntry({ root, parent, name, kind }),
+  );
+  ipcMain.handle(CHANNELS.ignoredPaths, (_event, { root, directory, names }) =>
+    ignoredNames(root, directory, names),
   );
   ipcMain.handle(CHANNELS.setDirtyFiles, (event, { paths }) => {
     deps.dirtyFiles.replace(deps.labelOf(event), Array.isArray(paths) ? paths : []);

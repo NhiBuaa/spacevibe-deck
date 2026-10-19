@@ -54,6 +54,12 @@ export interface FileChangedPayload {
   readonly size: number | null;
 }
 
+/** The reply of `ignored_paths`: git's verdict on one directory's entry names,
+ * or the reason it gave none (the tree then uses its fixed list). */
+export type IgnoredNamesResult =
+  | { readonly kind: "classified"; readonly ignored: readonly string[] }
+  | { readonly kind: "unavailable"; readonly reason: string };
+
 export interface FileClient {
   listDir(root: string, directory: string): Promise<DirEntry[]>;
   readFile(root: string, path: string): Promise<ReadFileResponse>;
@@ -71,6 +77,13 @@ export interface FileClient {
     name: string,
     kind: EntryKind,
   ): Promise<CreateEntryResult>;
+  /** Which of `directory`'s entry `names` git ignores. Absent on a host without
+   * the channel (the browser preview), where the tree keeps its fixed list. */
+  ignoredNames?(
+    root: string,
+    directory: string,
+    names: readonly string[],
+  ): Promise<IgnoredNamesResult>;
   listenFileChanged(handler: (event: FileChangedPayload) => void): Promise<UnlistenFn>;
 }
 
@@ -95,6 +108,9 @@ export const defaultFileClient: FileClient = {
   },
   createEntry(root, parent, name, kind) {
     return hostCreateEntry(root, parent, name, kind);
+  },
+  ignoredNames(root, directory, names) {
+    return invoke<IgnoredNamesResult>("ignored_paths", { root, directory, names });
   },
   listenFileChanged(handler) {
     return listen<FileChangedPayload>("fs:changed", (event) => handler(event.payload));

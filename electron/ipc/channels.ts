@@ -132,6 +132,13 @@ export const CHANNELS = {
   // `{ root, parent, name, kind }` per R6; main builds the destination from
   // `parent + name` and never accepts a composed path from the renderer.
   createEntry: "create_entry",
+  // Which of one directory's entries git ignores (spec 2026-10-19-ignore-aware-
+  // explorer, IGN19). Electron-only like `createEntry` — there is no Tauri
+  // counterpart and a host without it keeps the tree's fixed list. Flat
+  // `{ root, directory, names }` per R6, `names` single segments relative to
+  // `directory`; the reply is `classified` or `unavailable`, never a rejection
+  // for a git failure.
+  ignoredPaths: "ignored_paths",
   // Browser panel. No Tauri counterpart exists — the panel is Electron-only,
   // so unlike every channel above these names are new rather than ported.
   browserOpen: "browser_open",
