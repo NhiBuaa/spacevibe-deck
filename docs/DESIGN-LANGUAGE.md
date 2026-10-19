@@ -827,9 +827,13 @@ covering it; the file explorer is the resident instance.
   24px box would overflow the 22px data row, whose height every virtual-list index is computed
   from ([`TreeRootActions`](../src/files/ui/tree-root-actions.tsx)). The explorer's tree-root
   cluster is New file and New folder (omitted when the host cannot create), Show hidden
-  files, Refresh and Collapse all: 89px at DL-19.4's floor, and the root's name truncates
-  first. Show hidden files is a toggle: `aria-pressed` carries its state and its glyph shows
-  it (`EyeSlash` hidden, `Eye` shown), with no wash; its tooltip is the name alone. The
+  files, Show ignored files, Refresh and Collapse all: 107px at DL-19.4's floor, and the
+  root's name truncates first. Show hidden files and Show ignored files are toggles:
+  `aria-pressed` carries the state and the glyph shows it (`EyeSlash` hidden, `Eye` shown;
+  `FunnelSimpleX` ignored entries hidden, `FunnelSimple` shown), with no wash; each tooltip is
+  the name alone. An entry the repository ignores, shown by the second toggle, rests at
+  `--text-faint` (DL-3.4's hint), is raised by hover and the mark like any row, and carries an
+  "Ignored" description so colour is not the only cue. The
   Explorer has two views and shows its switch above that row: a `role="tablist"` of two
   chips, Files and Changes, in a 28px row with DL-21.1's wash on the active chip at
   `--radius-tab`, walked with ←/→ ([`ExplorerSwitch`](../src/files/ui/explorer-switch.tsx)).
@@ -849,8 +853,8 @@ covering it; the file explorer is the resident instance.
   `--text-primary`, and it is `aria-selected`; DL-21.3's ring composes with it. When the
   document changes, the tree opens the folders above it and scrolls only as far as the row
   needs, never moving keyboard focus or the roving tab stop and never opening the dock. A
-  document outside the root, under an excluded name, or a dot-path while hidden files are off
-  marks nothing and changes no filter. The mark remains while the terminal has keyboard focus.
+  document outside the root, under an ignored path while Show ignored files is off, or a
+  dot-path while hidden files are off marks nothing and changes no filter. The mark remains while the terminal has keyboard focus.
 - **DL-19.11** The diff column is the Changes list's transient second docked column. It
   stands directly left of the Explorer and follows DL-19.1 and DL-19.2: the grid's right inset
   is the dock plus the column, with one `--hair` seam on its inner edge. Its header is
