@@ -7,6 +7,15 @@ the release PR, and frozen at the tag — never an auto-generated commit list.
 
 ## Unreleased
 
+- **Search Settings.** A field at the top of the [rail](src/ui/settings/settings-nav.tsx) finds a
+  setting by name, shows how many matches each page holds and jumps to the first page with one.
+  Esc clears the search before it closes Settings.
+- **See what you changed.** A dot marks every setting that differs from its default, and a page
+  with changes shows how many and a **reset page** action.
+- **Restore defaults is split in three.** [Reset](src/ui/settings/sections/reset-section.tsx)
+  now has separate rows for preferences, layout, and agents with prompt templates. Each asks
+  first, lists what it changes and what it keeps, and is disabled when nothing differs.
+
 - **Settings keeps a consistent width.** Every category now uses the same centered
   [1050px content limit](src/styles/11-settings-screen.css), including Appearance and Agents.
 
