@@ -66,14 +66,25 @@ separate from `settings.json`. A stored off choice from a development build beco
 on launch. If `telemetry.json` cannot be read, Deck counts for that run in memory and leaves
 the file untouched; the day's counts are lost when you quit.
 
+## Search and changed marks
+
+The field at the top of the Settings list finds a setting by the name printed on its row. Each
+page shows how many matches it holds, and matching rows are highlighted. **Esc** clears the
+search before it closes Settings.
+
+A dot after a setting's name means it differs from its default. The dot marks exactly what a
+page's **reset page** action would restore: preferences. Declared agents, launch configurations
+and layout have their own rows under [Reset](#reset), so they carry no dot.
+
 ## Reset
 
 The [Reset page](../../src/ui/settings/sections/reset-section.tsx) has three rows: preferences,
 layout, and custom agents with launch configurations and prompt templates. Each asks first and
 lists the settings it will change and what it keeps. A row is disabled while nothing in its
 group differs from the defaults. Pages that hold preferences also show how many differ and a
-**reset page** action that touches only that page. Your custom logo, workspaces and agents’
-own session logs stay.
+**reset page** action that touches only that page. Resetting agents and templates also
+unpins the deleted agents from quick launch. Your custom logo, workspaces and agents’ own
+session logs stay.
 
 ## Where Deck keeps its data
 
@@ -87,7 +98,7 @@ own session logs stay.
 | `update-attempt.json` | The last update install attempt, so a failed relaunch is reported    |
 | `telemetry.json`      | Analytics state and pending daily counters                           |
 | `usage-cache.json`    | Parsed token-usage results and the project folders they ran in       |
-| `themes/`             | Imported theme files                                                 |
+| `themes/`             | Theme files from earlier releases; Settings has no import control    |
 
 On macOS the folder is `~/Library/Application Support/SpaceVibe Deck`; on Windows it is
 `%APPDATA%\SpaceVibe Deck`.

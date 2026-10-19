@@ -15,6 +15,7 @@ the release PR, and frozen at the tag — never an auto-generated commit list.
 - **Restore defaults is split in three.** [Reset](src/ui/settings/sections/reset-section.tsx)
   now has separate rows for preferences, layout, and agents with prompt templates. Each asks
   first, lists what it changes and what it keeps, and is disabled when nothing differs.
+  Resetting agents and templates also unpins the deleted agents from quick launch.
 
 - **Settings keeps a consistent width.** Every category now uses the same centered
   [1050px content limit](src/styles/11-settings-screen.css), including Appearance and Agents.

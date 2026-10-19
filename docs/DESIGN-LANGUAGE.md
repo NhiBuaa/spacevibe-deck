@@ -384,6 +384,7 @@ the rail.
 - **DL-11.3** Retired.
 - **DL-11.4** Rail items are text only, with no icons, in sentence-case `--ui-font` (DL-4.1,
   DL-4.4). The rail item is the category name, so a section does not repeat it as a sub-heading.
+  Above the items sits one search field (DL-11.8); it is the only control in the rail.
 - **DL-11.5** A destructive action is an ordinary rail category, last in the registry, with the
   same title, sentence and grouped surface as the rest (DL-11.6). Its row keeps `--red` (DL-3.2),
   which DL-3.7's achromatic Settings surface does not override. No destructive action, no category.
@@ -403,6 +404,14 @@ the rail.
 - **DL-11.7** Below 720px the rail narrows to 132px and its label truncates, with `title`
   carrying the whole name; the document swaps its centring gutters for 18px of edge padding
   (Deck's minimum is 480px).
+- **DL-11.8** A setting that differs from its default carries a 5px `--text-muted` dot after its
+  label, so the mark stays achromatic (DL-3.7). The same dot sits on a Studio group title that is
+  one setting (colour mode) and on an agent's name; it marks exactly what the page's **reset
+  page** action would restore, so layout and data keys never carry it. The rail's search field
+  matches the label text the rows print (the registry is their one source), washes matching
+  rows with the selection wash (DL-21.1), and `Esc` clears it before it closes Settings. Anchors:
+  [`11-settings-search.css`](../src/styles/11-settings-search.css),
+  [`settings-changes.ts`](../src/settings/settings-changes.ts).
 
 ## 12. Editable lists
 
