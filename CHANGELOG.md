@@ -7,6 +7,12 @@ the release PR, and frozen at the tag — never an auto-generated commit list.
 
 ## Unreleased
 
+- **Explorer hides what git ignores.** The tree now follows the repository's ignore rules
+  instead of a fixed list of four names. A **Show ignored files** toggle on the root row, off
+  by default and remembered per workspace, shows those entries dimmed. `.git` stays hidden.
+- **Changes stops polling for ignored output.** An `npm install` or a build that writes only
+  ignored files no longer makes Deck run `git status` about once a second.
+
 - **Search Settings.** A field at the top of the [rail](src/ui/settings/settings-nav.tsx) finds a
   setting by name, shows how many matches each page holds and jumps to the first page with one.
   Esc clears the search before it closes Settings.
