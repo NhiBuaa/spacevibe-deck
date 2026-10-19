@@ -175,9 +175,6 @@ at and left; changing one is a decision, not a cleanup.
   channel, not something `create_entry` introduced. Binding roots to the owning window would
   change every explorer channel's authorization at once. The exposure is bounded: `wx` and a
   non-recursive `mkdir` cannot overwrite.
-- **Hidden files can be shown but not hidden again.** `setShowHidden` has no UI control; the
-  create flow turns it on as a side effect of creating a dotted name and says so on the
-  status line. There is no way back short of reopening the workspace.
 - **The explorer does not restore a per-workspace scroll position.**
   `FileSurfaceState.scrollTop` and `setScrollTop` exist and are never read or written —
   `FileTreeView` keeps its own local state, so scroll leaks between workspaces whenever the

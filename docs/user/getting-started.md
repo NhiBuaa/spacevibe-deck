@@ -108,8 +108,10 @@ files carry a dot. With the document focused, **⌘S** (Windows: **Ctrl+S**) sav
 **⌘W** closes it. Markdown opens rendered; **⌘⇧V** flips it to source.
 See the [file panel](../../src/files/ui/file-panel.tsx).
 
-The eye button on the folder's row shows or hides dot-files such as `.env` and `.github`;
-`.git` and `node_modules` stay hidden. The row of the document beside the list is highlighted,
+The eye button on the folder's row shows or hides dot-files such as `.env` and `.github`. The
+tree also hides what the repository's `.gitignore` rules ignore, such as `node_modules` or build
+output, and the funnel button next to the eye shows those entries dimmed. Outside a git
+repository `node_modules`, `dist` and `target` count as ignored. `.git` is always hidden. The row of the document beside the list is highlighted,
 and switching documents opens the folders above it and scrolls it into view.
 
 In a git checkout, switch the explorer from **Files** to **Changes** to see what has changed since the last commit: each file with its status and added and removed lines. Click one to open it.
