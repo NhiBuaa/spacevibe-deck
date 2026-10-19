@@ -5,7 +5,7 @@ User-facing release notes. The release workflow's `promote` job publishes the
 platform-limitations header), so each section is written for users, reviewed in
 the release PR, and frozen at the tag — never an auto-generated commit list.
 
-## Unreleased
+## 2.12.0
 
 - **Explorer hides what git ignores.** The tree now follows the repository's ignore rules
   instead of a fixed list of four names. A **Show ignored files** toggle on the root row, off
