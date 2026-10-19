@@ -1,0 +1,3 @@
+# Gitignored files copied into each new `claude --worktree` / EnterWorktree checkout.
+# .env.local holds the Vercel CLI token; the Electron app needs no env file to run.
+.env.local

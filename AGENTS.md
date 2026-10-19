@@ -66,6 +66,10 @@ same change as the code once the owner has reviewed the result by eye. Gallery s
 prototypes and design proposals are not bound by patterns at all: propose the strongest
 design and list the patterns it would replace, rather than shrinking the idea to fit.
 
+A plan may list its expected forks up front. Once the owner approves the plan, a fork it
+names is authorized the same way as an Operating contract: take the listed option without
+asking again. A fork the plan does not name still stops the run.
+
 Record a resolved fork on the issue that owns the work, with the alternative you turned down
 and why — a fork nobody can reconstruct is a decision that will be re-litigated.
 
@@ -121,7 +125,7 @@ stop where the table says.
 | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
 | [`test-deck-app`](.claude/skills/test-deck-app/SKILL.md)                   | a new feature or UI-flow change is about to be reported done (the E2E gate above)                        | the flow report                                   |
 | [`landing-sync`](.claude/skills/landing-sync/SKILL.md)                     | before `npm run release:cut`                                                                             | the drift report; landing edits wait for the owner |
-| [`clean-worktrees`](.claude/skills/clean-worktrees/SKILL.md)               | once per session, when you are about to add a worktree and more than three exist besides the primary (scratch worktrees under `/tmp` do not count) | the report; it never blocks your `git worktree add`, and each removal needs the owner's yes |
+| [`clean-worktrees`](.claude/skills/clean-worktrees/SKILL.md)               | once per session, when worktrees made by hand under `../spacevibe-deck-worktrees/` still exist and you are about to add one (scratch worktrees under `/tmp` do not count) | the report; it never blocks your `git worktree add`, and each removal needs the owner's yes |
 | [`respond-to-pr-comments`](.claude/skills/respond-to-pr-comments/SKILL.md) | the owner asks to handle a PR's comments, or a PR this session opened gets review comments              | drafted replies; posting needs the owner's yes    |
 
 None of these is wired into the [unattended routine](#unattended-routine) yet:
@@ -134,15 +138,22 @@ Several agent sessions run against this repo at once. The owner's standing rule 
 - **One writer per checkout.** At most one session edits this primary checkout at a time. A
   short fix that finishes in one pass works here, on `main`.
 - **A parallel coding session works in its own worktree** — this is standing authorization to
-  branch: `git worktree add ../../spacevibe-deck-worktrees/<slug> -b <type>/<slug> main`, then
-  `npm install` inside it. If `git status` shows fresh changes you did not make, stop and ask
-  whether to move to a worktree instead of editing around them.
+  branch. The owner starts one with `claude --worktree <slug>`; an agent already in a session
+  calls `EnterWorktree`. Both create `.claude/worktrees/<slug>/` on branch `worktree-<slug>`
+  from the remote default branch, and copy the gitignored files listed in
+  [`.worktreeinclude`](.worktreeinclude). Run `npm install` inside the new worktree: it is a
+  fresh checkout with no `node_modules`.
+- **Foreign changes mean a worktree, without asking.** If `git status` shows fresh changes you
+  did not make, call `EnterWorktree` and continue there; do not edit around them and do not
+  stop to ask.
 - **One `electron:dev` at a time.** Dev runs share the owner's real userData and the Vite port
   across checkouts.
 - **Merge the same day.** Rebase on `main`, fast-forward `main` to the branch, then
   `git worktree remove` and delete the branch. Write the `CHANGELOG.md` entry on `main` at merge
-  time, not on the branch. Keep at most three worktrees alive
-  ([`clean-worktrees`](.claude/skills/clean-worktrees/SKILL.md) reports what can go); work that
+  time, not on the branch. There is no cap on live worktrees: Claude Code removes a clean
+  unnamed one when the session exits and asks about a named or dirty one. Worktrees made by hand
+  under `../spacevibe-deck-worktrees/` stay until
+  [`clean-worktrees`](.claude/skills/clean-worktrees/SKILL.md) has cleared them; work that
   stays open overnight records why in its plan.
 
 ## Unattended routine
