@@ -25,6 +25,7 @@
 import nodeFs from "node:fs";
 import path from "node:path";
 import { PathOutsideWorkspaceError, resolveRoot } from "../fs/path-guard";
+import { findGitDir } from "./git-dir";
 
 export const EMIT_INTERVAL_MS = 100;
 
@@ -86,33 +87,6 @@ export function keepsRootGitPath(inside: readonly string[]): boolean {
     return first === "index" || first === "HEAD" || first === "packed-refs";
   }
   return first === "refs" && !inside[inside.length - 1].endsWith(".lock");
-}
-
-/** The git directory that governs `root`: its own `.git`, or the nearest
- * ancestor's, following a linked worktree's `gitdir:` pointer. */
-export function findGitDir(root: string): string | null {
-  let directory = root;
-  for (;;) {
-    const candidate = path.join(directory, ".git");
-    try {
-      const info = nodeFs.statSync(candidate);
-      if (info.isDirectory()) {
-        return candidate;
-      }
-      const pointer = /^gitdir:\s*(.+)\s*$/m.exec(nodeFs.readFileSync(candidate, "utf8"));
-      if (pointer !== null) {
-        return path.resolve(directory, pointer[1]);
-      }
-      return null;
-    } catch {
-      // No `.git` here; keep walking up.
-    }
-    const parent = path.dirname(directory);
-    if (parent === directory) {
-      return null;
-    }
-    directory = parent;
-  }
 }
 
 function isInside(parent: string, child: string): boolean {

@@ -69,7 +69,13 @@ export type ChangesReply = ChangesSnapshot | ChangesFailure;
 
 export type GitRun<Out = string> =
   | { readonly ok: true; readonly stdout: Out }
-  | { readonly ok: false; readonly kind: ChangesFailureKind; readonly stderr: string };
+  | {
+      readonly ok: false;
+      readonly kind: ChangesFailureKind;
+      readonly stderr: string;
+      /** The process exit status, when git ran and exited non-zero. */
+      readonly exitCode?: number;
+    };
 
 /** Injectable so tests reach the timeout, overflow and missing-git paths. */
 export type GitRunner<Out = string> = (
@@ -139,6 +145,7 @@ export function runnerFor(root: string, mode?: "buffer"): GitRunner<string | Buf
           }
           const stderr = rawStderr.toString();
           const code = (error as NodeJS.ErrnoException).code;
+          const exitCode = typeof code === "number" ? code : undefined;
           if (code === "ENOENT") {
             resolve({ ok: false, kind: "git-missing", stderr: "" });
           } else if (code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") {
@@ -146,9 +153,9 @@ export function runnerFor(root: string, mode?: "buffer"): GitRunner<string | Buf
           } else if (error.killed === true) {
             resolve({ ok: false, kind: "timeout", stderr: "" });
           } else if (/not a git repository/i.test(stderr)) {
-            resolve({ ok: false, kind: "not-repository", stderr });
+            resolve({ ok: false, kind: "not-repository", stderr, exitCode });
           } else {
-            resolve({ ok: false, kind: "failed", stderr });
+            resolve({ ok: false, kind: "failed", stderr, exitCode });
           }
         },
       );

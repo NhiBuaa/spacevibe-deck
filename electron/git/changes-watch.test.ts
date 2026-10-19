@@ -6,7 +6,6 @@ import { PathOutsideWorkspaceError } from "../fs/path-guard";
 import {
   createChangesWatchRegistry,
   EMIT_INTERVAL_MS,
-  findGitDir,
   keepsRootGitPath,
   type ChangesWatchFs,
 } from "./changes-watch";
@@ -239,12 +238,5 @@ describe("helpers", () => {
     expect(keepsRootGitPath(["index"])).toBe(true);
     expect(keepsRootGitPath(["refs", "tags", "v1"])).toBe(true);
     expect(keepsRootGitPath(["objects", "pack"])).toBe(false);
-  });
-
-  it("findGitDir walks up from a subdirectory and follows a gitdir pointer", () => {
-    const sub = path.join(plain, "pkg", "deep");
-    fs.mkdirSync(sub, { recursive: true });
-    expect(findGitDir(sub)).toBe(path.join(plain, ".git"));
-    expect(findGitDir(worktree)).toBe(gitDirOutside);
   });
 });
