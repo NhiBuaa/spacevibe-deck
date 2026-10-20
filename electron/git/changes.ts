@@ -9,8 +9,9 @@
  * Read-only by construction (CHG5). Every spawn carries `--no-optional-locks`:
  * a plain `git status` rewrites `.git/index`, which wakes the very watcher that
  * asked for the read and loops. The only verbs here and in `head-file.ts` are
- * `rev-parse`, `status`, `diff`, `hash-object` without `-w`, and `cat-file` (`-s`,
- * `blob`) for the diff column's `HEAD` side.
+ * `config` (read only), `ls-files`, `check-attr`, `rev-parse`, `status`, `diff`,
+ * `hash-object` without `-w`, and `cat-file` (`-s`, `blob`) for the diff
+ * column's `HEAD` side.
  */
 import { execFile } from "node:child_process";
 import { open, stat } from "node:fs/promises";
@@ -130,7 +131,7 @@ export function runnerFor(root: string, mode?: "buffer"): GitRunner<string | Buf
     new Promise((resolve) => {
       const child = execFile(
         "git",
-        ["--no-optional-locks", "-C", root, ...args],
+        ["--no-optional-locks", "-c", "core.fsmonitor=false", "-C", root, ...args],
         {
           encoding,
           timeout: GIT_TIMEOUT_MS,
@@ -367,12 +368,60 @@ async function read(root: string, deps: ReadChangesDeps): Promise<ChangesReply> 
   // Three lines; the prefix is empty at the top level, so keep the blank one.
   const prefix = (probe.stdout.split("\n")[2] ?? "").trim();
 
+  // Status/diff can run clean/process filters even with --no-ext-diff and
+  // --no-textconv. Refuse rather than show misleading raw-byte changes (LFS,
+  // for example). Read includes and keep the final value of each setting.
+  // This preflight is not a sandbox against concurrent config/attribute mutation.
+  const filters = await run([
+    "config",
+    "--includes",
+    "--null",
+    "--get-regexp",
+    "^filter\\..*\\.(clean|process)$",
+  ]);
+  if (!filters.ok && filters.exitCode !== 1) {
+    return failure(filters);
+  }
+  if (filters.ok) {
+    const effective = new Map<string, string>();
+    for (const entry of filters.stdout.split("\0")) {
+      const separator = entry.indexOf("\n");
+      if (separator >= 0) {
+        effective.set(entry.slice(0, separator), entry.slice(separator + 1));
+      }
+    }
+    const executable = new Set(
+      [...effective]
+        .filter(([, value]) => value.trim().length > 0)
+        .map(([key]) => key.slice(7, key.lastIndexOf("."))),
+    );
+    if (executable.size > 0) {
+      // Status refreshes the entire index, including paths above a workspace
+      // subfolder. Relative names from ls-files also work with check-attr.
+      const tracked = await run(["ls-files", "-z", "--cached", "--", ":/"]);
+      if (!tracked.ok) return failure(tracked);
+      const attributes = await run(["check-attr", "-z", "--stdin", "filter"], tracked.stdout);
+      if (!attributes.ok) return failure(attributes);
+      const values = attributes.stdout.split("\0");
+      for (let index = 2; index < values.length; index += 3) {
+        if (executable.has(values[index])) {
+          return {
+            kind: "failed",
+            message:
+              "Changes cannot be read safely because tracked files use executable Git filters.",
+          };
+        }
+      }
+    }
+  }
+
   const status = await run([
     "status",
     "--porcelain=v2",
     "-z",
     "--branch",
     "--untracked-files=all",
+    "--ignore-submodules=dirty",
     "--",
     ".",
   ]);
@@ -396,6 +445,7 @@ async function read(root: string, deps: ReadChangesDeps): Promise<ChangesReply> 
     "--no-ext-diff",
     "--no-textconv",
     "--no-color",
+    "--ignore-submodules=dirty",
     base,
     "--",
     ".",

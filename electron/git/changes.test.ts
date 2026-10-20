@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   countLines,
   MAX_ENTRIES,
@@ -57,12 +57,15 @@ let scratch: string;
 let repo: string;
 
 beforeEach(() => {
+  vi.stubEnv("GIT_CONFIG_GLOBAL", "/dev/null");
+  vi.stubEnv("GIT_CONFIG_SYSTEM", "/dev/null");
   scratch = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "deck-changes-")));
   repo = path.join(scratch, "repo");
   fs.mkdirSync(repo);
 });
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   fs.rmSync(scratch, { recursive: true, force: true });
 });
 
@@ -75,6 +78,115 @@ async function snapshot(root = repo): Promise<ChangesSnapshot> {
 }
 
 describe("readChanges on a repository", () => {
+  it("never executes the checkout's fsmonitor callback", async () => {
+    initRepo(repo);
+    write(repo, "tracked.txt", "before\n");
+    commitAll(repo);
+    const marker = path.join(scratch, "fsmonitor-ran");
+    git(repo, "config", "core.fsmonitor", `printf ran > '${marker}'`);
+    write(repo, "tracked.txt", "after\n");
+
+    const reply = await readChanges(repo);
+    expect(fs.existsSync(marker)).toBe(false);
+    expect(reply.kind).toBe("changes");
+  });
+
+  it.each(["clean", "process"])(
+    "refuses executable %s filters before status reads files",
+    async (filter) => {
+      initRepo(repo);
+      write(repo, "tracked.txt", "before\n");
+      commitAll(repo);
+      write(repo, ".gitattributes", "*.txt filter=untrusted\n");
+      const marker = path.join(scratch, "filter-ran");
+      git(repo, "config", `filter.untrusted.${filter}`, `printf ran > '${marker}'; cat`);
+      write(repo, "tracked.txt", "after\n");
+
+      const reply = await readChanges(repo);
+      expect(fs.existsSync(marker)).toBe(false);
+      expect(reply).toMatchObject({ kind: "failed", message: expect.stringMatching(/filter/i) });
+    },
+  );
+
+  it("allows configured filters that no tracked file uses", async () => {
+    initRepo(repo);
+    write(repo, "tracked.txt", "before\n");
+    commitAll(repo);
+    git(repo, "config", "filter.unused.clean", "false");
+    write(repo, "tracked.txt", "after\n");
+    expect((await snapshot()).entries[0]).toMatchObject({
+      path: "tracked.txt",
+      added: 1,
+      removed: 1,
+    });
+  });
+
+  it("checks included filter config and attributes outside a workspace subfolder", async () => {
+    initRepo(repo);
+    write(repo, "tracked.txt", "before\n");
+    write(repo, "pkg/inner.txt", "inner\n");
+    commitAll(repo);
+    write(repo, ".gitattributes", "/tracked.txt filter=included\n");
+    const marker = path.join(scratch, "included-filter-ran");
+    const config = path.join(scratch, "filters.config");
+    fs.writeFileSync(config, `[filter "included"]\nclean = "printf ran > '${marker}'; cat"\n`);
+    git(repo, "config", "include.path", config);
+    write(repo, "tracked.txt", "after\n");
+    expect(await readChanges(path.join(repo, "pkg"))).toMatchObject({
+      kind: "failed",
+      message: expect.stringMatching(/filter/i),
+    });
+    expect(fs.existsSync(marker)).toBe(false);
+  });
+
+  it("uses the final effective value when an inherited filter is disabled", async () => {
+    initRepo(repo);
+    write(repo, "tracked.txt", "before\n");
+    write(repo, ".gitattributes", "*.txt filter=disabled\n");
+    commitAll(repo);
+    const config = path.join(scratch, "global.config");
+    fs.writeFileSync(config, '[filter "disabled"]\nclean = false\n');
+    vi.stubEnv("GIT_CONFIG_GLOBAL", config);
+    git(repo, "config", "filter.disabled.clean", "");
+    write(repo, "tracked.txt", "after\n");
+    expect((await snapshot()).entries[0]).toMatchObject({
+      path: "tracked.txt",
+      added: 1,
+      removed: 1,
+    });
+  });
+
+  it("does not traverse a submodule's dirty working tree or run its clean filter", async () => {
+    initRepo(repo);
+    const child = path.join(repo, "child");
+    fs.mkdirSync(child);
+    initRepo(child);
+    write(child, "tracked.txt", "before\n");
+    write(child, ".gitattributes", "*.txt filter=untrusted\n");
+    commitAll(child);
+    git(
+      repo,
+      "update-index",
+      "--add",
+      "--cacheinfo",
+      `160000,${git(child, "rev-parse", "HEAD").trim()},child`,
+    );
+    write(repo, ".gitmodules", '[submodule "child"]\npath = child\nurl = ./child\n');
+    git(repo, "add", ".gitmodules");
+    git(repo, "commit", "-q", "-m", "gitlink");
+    const marker = path.join(scratch, "submodule-filter-ran");
+    write(child, ".gitattributes", "*.txt filter=untrusted\n");
+    git(child, "config", "filter.untrusted.clean", `printf ran > '${marker}'; cat`);
+    write(child, "tracked.txt", "after!\n");
+    // Equal length forces status to compare content through the clean filter.
+    git(repo, "status", "--porcelain=v2", "--ignore-submodules=none");
+    expect(fs.existsSync(marker)).toBe(true);
+    fs.unlinkSync(marker);
+
+    expect((await readChanges(repo)).kind).toBe("changes");
+    expect(fs.existsSync(marker)).toBe(false);
+  });
+
   it("reports every CHG1 status with the counts git prints", async () => {
     initRepo(repo);
     write(repo, "mod.txt", "a\nb\nc\n");
@@ -305,7 +417,7 @@ describe("readChanges failures", () => {
       };
     };
     await readChanges(repo, { run });
-    expect(new Set(verbs)).toEqual(new Set(["rev-parse", "status", "diff"]));
+    expect(new Set(verbs)).toEqual(new Set(["rev-parse", "config", "status", "diff"]));
   });
 });
 
