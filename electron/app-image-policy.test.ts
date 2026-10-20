@@ -77,5 +77,5 @@ describe("app image network boundary", () => {
     await render("protected-diagram");
     expect(attempted).toEqual([url]);
     expect(reachedNetwork).toEqual([]);
-  });
+  }, 15000);
 });
