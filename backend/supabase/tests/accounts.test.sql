@@ -1,6 +1,6 @@
 -- pgTAP checks for the accounts migration. Run with `supabase test db` on the local stack.
 begin;
-select plan(13);
+select plan(16);
 
 -- Two users; the trigger creates their profiles.
 insert into auth.users (id, instance_id, aud, role, email)
@@ -22,13 +22,19 @@ select throws_ok($$update public.profiles set plan = 'pro' where id = 'aaaaaaaa-
 select throws_ok($$insert into public.profiles (id, plan) values (gen_random_uuid(), 'pro')$$, '42501', null, 'a user cannot insert a profile');
 select throws_ok($$delete from public.profiles$$, '42501', null, 'a user cannot delete a profile');
 select throws_ok($$select 1 from public.feedback_reports$$, '42501', null, 'a user cannot read feedback_reports');
-select throws_ok($$select public.handle_new_user()$$, '42501', null, 'a user cannot execute the profile trigger function');
-select throws_ok($$select public.guard_feedback_intake()$$, '42501', null, 'a user cannot execute the feedback intake trigger function');
 
 -- No sign-in at all.
 set local role anon;
 select throws_ok($$select 1 from public.profiles$$, '42501', null, 'anon cannot read profiles');
 select throws_ok($$select 1 from public.feedback_reports$$, '42501', null, 'anon cannot read feedback_reports');
+
+-- Privilege catalog checks, which do not depend on how a call fails.
+reset role;
+select ok(not has_function_privilege('authenticated', 'public.handle_new_user()', 'execute'), 'authenticated cannot execute handle_new_user');
+select ok(not has_function_privilege('anon', 'public.handle_new_user()', 'execute'), 'anon cannot execute handle_new_user');
+select ok(not has_function_privilege('authenticated', 'public.guard_feedback_intake()', 'execute'), 'authenticated cannot execute guard_feedback_intake');
+select ok(not has_function_privilege('authenticated', 'public.touch_feedback_report()', 'execute'), 'authenticated cannot execute touch_feedback_report');
+select ok(not has_table_privilege('authenticated', 'public.profiles', 'update'), 'authenticated has no update privilege on profiles');
 
 select * from finish();
 rollback;

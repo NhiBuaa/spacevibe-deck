@@ -138,12 +138,15 @@ export function createAccountService(deps: AccountServiceDeps): AccountService {
   /** The launch half that does touch the network, after the stored account shows. */
   async function refreshStored(owner: SupabaseClient): Promise<void> {
     try {
-      const { data } = await owner.auth.getSession();
-      if (owner !== client) {
+      const { data, error } = await owner.auth.getSession();
+      if (owner !== client || error !== null) {
+        // An error is a refresh that failed: when the server rejected it the
+        // SIGNED_OUT event has handled it, and when the network did, the session
+        // is kept and the user stays signed in (A10). Retried by the ticker.
         return;
       }
       if (data.session === null) {
-        // Nothing usable survived initialisation (a rejected refresh).
+        // No error and no session: nothing usable is stored any more.
         if (state.status === "signed-in") {
           dropClient();
           signedOut(REASONS.expired);
@@ -188,7 +191,7 @@ export function createAccountService(deps: AccountServiceDeps): AccountService {
     current.listener?.cancel();
     dropClient();
     if (wipe) {
-      await store.clear();
+      await store.discard();
     }
     signedOut(reason);
   }
@@ -218,7 +221,7 @@ export function createAccountService(deps: AccountServiceDeps): AccountService {
       if (flow !== current) {
         // Cancelled while the exchange ran: the session it created must not stay.
         outcome.respond(false);
-        await store.clear();
+        await store.discard();
         return;
       }
       if (error !== null || data.session === null || user === null) {
@@ -228,7 +231,7 @@ export function createAccountService(deps: AccountServiceDeps): AccountService {
       outcome.respond(true);
       const plan = await readPlan(owner, data.session.user.id);
       if (flow !== current) {
-        await store.clear();
+        await store.discard();
         return;
       }
       flow = null;

@@ -45,8 +45,13 @@ export interface SessionStore extends StorageAdapter {
   load(): Promise<FileState>;
   /** A snapshot of the persisted entries (never the code verifier). */
   entries(): ReadonlyMap<string, string>;
-  /** Forgets every entry and deletes only `account.json` (A11). */
+  /** Sign-out: forgets every entry and deletes `account.json`, whatever it held (A11). */
   clear(): Promise<void>;
+  /**
+   * Abandons a flow: forgets every entry, and deletes the file only if this
+   * store wrote it, so an unreadable file survives a sign-in that failed (A9).
+   */
+  discard(): Promise<void>;
 }
 
 /** supabase-js keeps the PKCE verifier beside the session; it must not persist. */
@@ -63,6 +68,7 @@ export function createSessionStore(deps: {
   const persisted = new Map<string, string>();
   const volatile = new Map<string, string>();
   let fileState: FileState = "none";
+  let wroteFile = false;
   let loading: Promise<FileState> | null = null;
   // Writes are chained so a slow encrypt can never land after a newer one.
   let writing: Promise<void> = Promise.resolve();
@@ -136,8 +142,22 @@ export function createSessionStore(deps: {
           .toString("base64");
         await deps.io.write(JSON.stringify({ v: ENVELOPE_VERSION, data }));
         fileState = "ok";
+        wroteFile = true;
       } catch (error) {
         log("the session file could not be saved", error);
+      }
+    });
+    return writing;
+  }
+
+  function remove(): Promise<void> {
+    writing = writing.then(async () => {
+      try {
+        await deps.io.remove();
+        fileState = "none";
+        wroteFile = false;
+      } catch (error) {
+        log("the session file could not be removed", error);
       }
     });
     return writing;
@@ -170,16 +190,15 @@ export function createSessionStore(deps: {
       await load();
       persisted.clear();
       volatile.clear();
-      // Sign out deletes the file whatever state it was in (A9, A11).
-      writing = writing.then(async () => {
-        try {
-          await deps.io.remove();
-          fileState = "none";
-        } catch (error) {
-          log("the session file could not be removed", error);
-        }
-      });
-      await writing;
+      await remove();
+    },
+    async discard() {
+      await load();
+      persisted.clear();
+      volatile.clear();
+      if (wroteFile) {
+        await remove();
+      }
     },
   };
 }

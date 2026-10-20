@@ -354,6 +354,18 @@ describe("storage", () => {
     expect(JSON.parse(file.contents as string)).toHaveProperty("v", 1);
   });
 
+  it("keeps an unreadable file when a sign-in fails or is cancelled (A9)", async () => {
+    const failed = setup({ file: "garbage", browser: approve, stub: { exchange: "rejected" } });
+    await failed.service.signIn();
+    await vi.waitFor(() => expect(lastState(failed.states).status).toBe("signed-out"));
+    expect(failed.file.contents).toBe("garbage");
+
+    const cancelled = setup({ file: "garbage" });
+    await cancelled.service.signIn();
+    await cancelled.service.cancelSignIn();
+    expect(cancelled.file.contents).toBe("garbage");
+  });
+
   it("deletes a file it cannot read on sign out (A9, A11)", async () => {
     const { service, file } = setup({ file: "garbage" });
     await service.signOut();
@@ -388,15 +400,28 @@ describe("a stored session", () => {
     await vi.waitFor(() => expect(lastState(states).status).toBe("signed-out"));
   });
 
-  it("stays signed in when the refresh fails on the network (A10)", async () => {
+  it("stays signed in when the refresh keeps failing on the network (A10)", async () => {
     const stored = await storedFile(Math.floor(Date.now() / 1000) - 60);
-    const { service, stub } = setup({ file: stored, stub: { refresh: "offline" } });
-    await service.start();
-    await vi.waitFor(() =>
-      expect(stub.calls.some((call) => call.includes("/auth/v1/token"))).toBe(true),
-    );
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(await service.state()).toMatchObject({ status: "signed-in", email: "ada@example.com" });
+    vi.useFakeTimers({
+      toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"],
+    });
+    try {
+      const { service, stub, states } = setup({ file: stored, stub: { refresh: "offline" } });
+      await service.start();
+      // supabase-js retries with backoff for its 30 s tick window, then gives up
+      // with a retryable error and keeps the session.
+      await vi.advanceTimersByTimeAsync(35_000);
+      expect(stub.calls.filter((call) => call.includes("/auth/v1/token")).length).toBeGreaterThan(
+        1,
+      );
+      expect(await service.state()).toMatchObject({
+        status: "signed-in",
+        email: "ada@example.com",
+      });
+      expect(states.some((state) => state.status === "signed-out")).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("signs out locally first, even offline, and touches only account.json (A11)", async () => {
