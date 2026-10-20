@@ -58,7 +58,13 @@ interface FakeStore {
 function createFakeStore(): FakeStore {
   const data = new Map<string, unknown>();
   const store: StoreSeam = {
-    get: vi.fn(async (key: string) => data.get(key)) as StoreSeam["get"],
+    get: vi.fn(async (key: string) =>
+      key === "windowLabels"
+        ? [...data.keys()]
+            .filter((entry) => entry.startsWith("window:"))
+            .map((entry) => entry.slice(7))
+        : data.get(key),
+    ) as StoreSeam["get"],
     set: vi.fn(async (key: string, value: unknown) => {
       data.set(key, value);
     }),

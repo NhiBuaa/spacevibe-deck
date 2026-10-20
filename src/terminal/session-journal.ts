@@ -36,10 +36,9 @@ export const SESSION_STORE_FILE = "session.json";
 
 const ARCHIVE_KEY = "archive";
 /**
- * Registry of every `window:<label>` key ever written, so `readWindowRecords`
- * can enumerate them through nothing but `get`/`set` — `Store` (the renderer
- * facade) has no "list keys" primitive, unlike the main-process `JsonStore`
- * it wraps.
+ * Main derives this virtual index from the existing `window:<label>` keys.
+ * Keeping the read key preserves the facade without a shared array that
+ * concurrent renderers could overwrite with stale labels.
  */
 const LABELS_KEY = "windowLabels";
 const MARKER_KEY = "restoreAttempt";
@@ -94,25 +93,6 @@ async function registeredLabels(store: StoreSeam): Promise<readonly string[]> {
     : [];
 }
 
-async function registerLabel(store: StoreSeam, label: string): Promise<void> {
-  const current = await registeredLabels(store);
-  if (current.includes(label)) {
-    return;
-  }
-  await store.set(LABELS_KEY, [...current, label]);
-}
-
-async function unregisterLabel(store: StoreSeam, label: string): Promise<void> {
-  const current = await registeredLabels(store);
-  if (!current.includes(label)) {
-    return;
-  }
-  await store.set(
-    LABELS_KEY,
-    current.filter((entry) => entry !== label),
-  );
-}
-
 /** Read all persisted window records (restore) and the archive. */
 export async function readWindowRecords(): Promise<ReadonlyMap<string, WindowRecord>> {
   const store = await openStore();
@@ -131,7 +111,6 @@ export async function readWindowRecords(): Promise<ReadonlyMap<string, WindowRec
 export async function clearWindowRecord(label: string): Promise<void> {
   const store = await openStore();
   await store.delete(windowKey(label));
-  await unregisterLabel(store, label);
   await store.save();
 }
 
@@ -245,7 +224,6 @@ async function writeNow(deps: SessionJournalDeps): Promise<void> {
   try {
     const store = await openStore();
     await store.set(windowKey(deps.windowLabel), record);
-    await registerLabel(store, deps.windowLabel);
     if (deps.isMain) {
       let next = sessionArchive.value;
       for (const [workspacePath, tabs] of groupTabsByWorkspace(record.tabs)) {

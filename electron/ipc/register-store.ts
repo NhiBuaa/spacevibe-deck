@@ -32,6 +32,9 @@ const STORE_FILES = new Set([
   // Session journal: live window records + per-workspace archive (restore).
   "session.json",
 ]);
+const SESSION_STORE = "session.json";
+const SESSION_LABELS_KEY = "windowLabels";
+const WINDOW_RECORD_PREFIX = "window:";
 
 function assertStoreFile(file: unknown): string {
   if (typeof file !== "string" || !STORE_FILES.has(file)) {
@@ -83,9 +86,19 @@ export function registerStore(deps: RegisterStoreDeps): void {
     openStores.set(file, store);
     return store.loadState;
   });
-  ipcMain.handle("store_get", (_event, { file, key }) =>
-    openStores.get(assertStoreFile(file))?.get(key),
-  );
+  ipcMain.handle("store_get", (_event, { file, key }) => {
+    const store = openStores.get(assertStoreFile(file));
+    if (file === SESSION_STORE && key === SESSION_LABELS_KEY && store !== undefined) {
+      // Derive the index from the records in this one main-process snapshot.
+      // Renderer read/modify/write of a shared array lost concurrent windows;
+      // ignoring that legacy array also recovers records it already omitted.
+      return Object.keys(store.entries())
+        .filter((entry) => entry.startsWith(WINDOW_RECORD_PREFIX))
+        .map((entry) => entry.slice(WINDOW_RECORD_PREFIX.length))
+        .filter((label) => label !== "");
+    }
+    return store?.get(key);
+  });
   ipcMain.handle("store_set", (_event, { file, key, value }) => {
     openStores.get(assertStoreFile(file))?.set(key, value);
   });
