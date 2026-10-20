@@ -104,9 +104,16 @@ export interface CloneService {
   cancel(owner: CloneOwner, jobId: string): Promise<CloneResult>;
   /** Every snapshot change, tagged with the owner it belongs to. */
   onChanged(listener: (owner: CloneOwner, job: CloneJob) => void): () => void;
-  /** The owning window is gone: cancel its job and drop its retained snapshot. */
+  /**
+   * The owning window is gone: cancel its job and drop its retained snapshot.
+   * The kill signal to the git process group goes out BEFORE the first `await`.
+   */
   releaseOwner(owner: CloneOwner): Promise<void>;
-  /** App quit: cancel every job and wait for the child processes to stop. */
+  /**
+   * App quit: cancel every job. Also called from `process.on("exit")`, where
+   * async work never runs — so every kill signal must be sent synchronously,
+   * before the first `await`; the returned promise only waits for children to stop.
+   */
   dispose(): Promise<void>;
 }
 

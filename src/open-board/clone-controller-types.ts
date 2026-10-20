@@ -24,7 +24,7 @@ export interface CloneControllerState {
   readonly starting: boolean;
   /** `clone_start` / `clone_cancel` rejected before any job existed. */
   readonly rejection: CloneError | null;
-  /** The last successfully cloned parent folder, for the form's next default. */
+  /** `deps.initialParent` until a clone succeeds, then that clone's parent. */
   readonly lastParent: string | null;
 }
 
@@ -51,6 +51,10 @@ export interface CloneControllerDeps {
   readonly client: CloneClient;
   /** Resolves only after the workspace is durably saved (and rejects otherwise). */
   addWorkspace(path: string): Promise<void>;
+  /** The parent folder the form starts with; integration reads it from persisted state. */
+  readonly initialParent?: string | null;
+  /** Called with the parent folder of every clone that succeeded; integration persists it. */
+  readonly rememberParent?: (parent: string) => void;
   /** Id source for `requestId`; defaults to `crypto.randomUUID`. */
   readonly newRequestId?: () => string;
 }
