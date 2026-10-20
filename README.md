@@ -2,14 +2,19 @@
   <img src=".github/assets/icon.svg" width="112" alt="SpaceVibe Deck icon" />
 </p>
 
-<h1 align="center">SpaceVibe Deck</h1>
+<h1 align="center">SpaceDeck Local</h1>
 
 <p align="center">
-  <a href="https://github.com/mxrsv/spacevibe-deck/releases/latest"><img src="https://img.shields.io/github/v/release/mxrsv/spacevibe-deck" alt="Latest release"></a>
+  <em>A privacy-first desktop terminal for AI coding agents</em>
+</p>
+
+<p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-5e7df0.svg" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/macOS-Apple%20Silicon-252a30" alt="macOS: Apple Silicon">
   <img src="https://img.shields.io/badge/Windows-x64-252a30" alt="Windows: x64">
 </p>
+
+> **Privacy-first fork:** This build isolates application state and cuts all automated telemetry, Sentry crash uploads, upstream accounts, and background updater traffic. The embedded browser is restricted strictly to local loopback addresses (`127.0.0.1` / `::1`). Agents running inside terminal panes retain their own direct connectivity as configured by the user.
 
 <h2 align="center">Know which agent needs you next.</h2>
 

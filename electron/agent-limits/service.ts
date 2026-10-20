@@ -7,7 +7,6 @@ import {
   type AgentLimitsSnapshot,
 } from "../../src/lib/agent-limits";
 import { installClaudeLimitCollector, readClaudeLimits } from "./claude-reader";
-import { readCodexLimits } from "./codex-reader";
 
 interface LimitsServiceOptions {
   /** The per-user app data root (`app.getPath("appData")`), not one install's userData. */
@@ -37,10 +36,14 @@ export function createAgentLimitsService(options: LimitsServiceOptions) {
   let claudeFlight: Promise<AgentLimitReading> | null = null;
 
   async function codexSnapshot(): Promise<AgentLimitReading> {
+    if (!options.readCodex) {
+      return absentLimits("codex");
+    }
     if (codexFlight) return codexFlight;
     if (now() - lastCodexAttempt < LIMIT_REFRESH_MS) return codex;
     lastCodexAttempt = now();
-    codexFlight = (options.readCodex ?? readCodexLimits)(controller.signal)
+    codexFlight = options
+      .readCodex(controller.signal)
       .catch(() => {
         console.warn(
           "Deck: Codex limit read failed",
@@ -69,6 +72,9 @@ export function createAgentLimitsService(options: LimitsServiceOptions) {
   }
 
   async function claudeSnapshot(): Promise<AgentLimitReading> {
+    if (!options.readClaude && !options.connectClaude) {
+      return absentLimits("claude");
+    }
     if (claudeFlight) return claudeFlight;
     claudeFlight = (async () => {
       try {

@@ -1,10 +1,5 @@
-import { ArrowSquareOut } from "@phosphor-icons/react";
 import { useEffect } from "preact/hooks";
-import { openUrl } from "../../../host/shell-host";
-import { reportPersistError } from "../../../chrome/events";
-import { CHROME_ICON, DeckIcon } from "../../controls/deck-icon";
-import { ensureTelemetryStateLoaded, telemetryConsent } from "../../../telemetry/consent-store";
-import { USAGE_PRIVACY_URL } from "../../../telemetry/usage-notice";
+import { ensureTelemetryStateLoaded } from "../../../telemetry/consent-store";
 
 /**
  * The Privacy category (spec §7): the whole disclosure in plain words, over
@@ -33,63 +28,23 @@ export function PrivacySection() {
     void ensureTelemetryStateLoaded();
   }, []);
 
-  const consent = telemetryConsent.value;
-
   return (
     <>
       <p class="settings-screen__note">
-        Deck sends first-party usage stats. They are always on and cannot be turned off in this
-        build. Usage stats never include code, file paths or prompts.
-      </p>
-      {consent === "unreadable" ? (
-        // Dormant while `USAGE_ANALYTICS_MANDATORY` holds: since 2026-09-10
-        // main folds an unreadable file to `enabled`, so this consent value
-        // never arrives and this alert never renders. It is kept, not deleted,
-        // for the same reason `USAGE_CONSENT_ASKED`'s dialog is — flipping the
-        // constant back must restore the whole fail-closed surface in one
-        // move, and this sentence is the only place that tells a user their
-        // file is broken and how to recover it.
-        <p class="settings-screen__note" role="alert">
-          The analytics state file (telemetry.json in Deck's data folder) could not be read, so
-          sharing stays off. Repair or remove that file, then restart Deck — reopening Settings is
-          not enough, because the file is read once at launch.
-        </p>
-      ) : null}
-      <p class="settings-screen__note">
-        Deck sends one small daily snapshot: a fresh random id for that day, the date, Deck's
-        version, platform and architecture, launch counts per built-in agent (custom agents count as
-        one bucket), how often the browser, explorer and usage surfaces were opened, the day's
-        highest tab and pane counts, whether sessions were restored at launch, how many of Deck's
-        own update checks and downloads ran or failed, and how many update installs it started. The
-        daily id is random every day and is never derived from your machine, so days cannot be
-        linked.
+        SpaceDeck Local is a privacy-first build. Telemetry, usage statistics, and Sentry crash
+        reporting are permanently disabled and disconnected. No analytics, telemetry snapshots, or
+        error reports are ever transmitted to the publisher or third parties.
       </p>
       <p class="settings-screen__note">
-        Usage analytics never includes code, file paths, repository or branch names, prompts,
-        terminal output, hostname, username, locale or timezone. Raw analytics records expire after
-        35 days. The data is stored on Deck's own Cloudflare Worker; Cloudflare processes ordinary
-        connection metadata at its edge as the infrastructure provider.
+        The application interface and embedded browser operate in local-only mode, restricted
+        strictly to loopback addresses. Outbound internet requests from the embedded browser are
+        blocked.
       </p>
       <p class="settings-screen__note">
-        Packaged Electron builds also send crash and error reports to Sentry automatically, with no
-        opt-out. Reports can include error messages, stack traces, Deck source lines, and app and
-        runtime details. Deck replaces the home-directory portion of paths with ~; other path text
-        in an error or stack trace may remain. Breadcrumbs, local variables, native crash dumps,
-        console and request events are excluded. Tauri, browser preview and unpackaged builds do not
-        send these reports.
+        Terminal agents run as independent processes and connect only to the AI model providers you
+        configure. Deck does not collect, track, or inspect your credentials, prompts, file paths,
+        or session contents.
       </p>
-      <button
-        type="button"
-        class="usage-link"
-        onClick={() => {
-          void openUrl(USAGE_PRIVACY_URL).catch(() => {
-            reportPersistError(`Could not open ${USAGE_PRIVACY_URL}`);
-          });
-        }}
-      >
-        <span>Read the full privacy notice</span>
-        <DeckIcon icon={ArrowSquareOut} size={CHROME_ICON} />
-      </button>
     </>
   );
 }

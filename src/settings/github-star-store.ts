@@ -1,8 +1,8 @@
 import { computed, type ReadonlySignal } from "@preact/signals";
-import { readGithubStarState, starGithubRepository } from "../host/github-host";
+import { starGithubRepository } from "../host/github-host";
 import { openUrl } from "../host/shell-host";
 import { reportPersistError } from "../chrome/events";
-import { settings, settingsLoadState, updateSettings } from "./settings-store";
+import { updateSettings } from "./settings-store";
 
 /**
  * Deck's own repository. The star itself is made through `gh`; this URL is
@@ -16,35 +16,11 @@ export const GITHUB_REPO_URL = "https://github.com/mxrsv/spacevibe-deck";
  * mounts (the open board and the Settings header) so they can never disagree
  * about whether the ask is still live.
  */
-export const githubStarAskOpen: ReadonlySignal<boolean> = computed(
-  () => !settings.value.githubStarred,
-);
+export const githubStarAskOpen: ReadonlySignal<boolean> = computed(() => false);
 
-/** Once per window: a board reopened ten times must not re-run `gh` ten times. */
-let checkStarted = false;
-
-/**
- * Reconcile the remembered answer with the account's actual state.
- *
- * Runs at most once per window and writes NOTHING unless the two disagree —
- * an `unavailable` reply (no `gh`, signed out, offline, or the Tauri host,
- * which implements neither channel) leaves the remembered answer exactly as
- * it was. This is what makes an unstar reappear as an ask, and it is also why
- * the flag alone is never trusted to mean "starred".
- */
 export async function ensureGithubStarChecked(): Promise<void> {
-  if (checkStarted || settingsLoadState.value.status !== "ready") {
-    return;
-  }
-  checkStarted = true;
-  const state = await readGithubStarState();
-  if (state === "unavailable") {
-    return;
-  }
-  const starred = state === "starred";
-  if (starred !== settings.value.githubStarred) {
-    updateSettings({ githubStarred: starred });
-  }
+  // In this privacy-first fork, GitHub star checks are permanently disabled.
+  return;
 }
 
 export type GithubStarOutcome = "starred" | "opened";

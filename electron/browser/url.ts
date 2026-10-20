@@ -13,25 +13,26 @@
  * safety — a pasted `javascript:` URL would run in the panel's page context.
  */
 
+import { isVerifiedLoopbackUrl } from "../network-policy";
+
 /** Schemes the panel will load. Everything else is rejected outright. */
 const ALLOWED = new Set(["http:", "https:"]);
 
 /**
- * `localhost`, `127.x`, `::1`, `*.localhost` and `*.local` — the hosts a dev
- * server actually listens on. They get `http:` when the user typed no scheme,
- * because none of them serves TLS by default and defaulting to `https:` puts a
- * certificate error in front of the common case.
+ * `localhost`, `127.x.x.x` and `::1` — strictly verified loopback addresses.
+ * 0.0.0.0, LAN addresses, and fake hostnames are rejected.
  */
 function isLocalHost(host: string): boolean {
   const bare = host.replace(/^\[|\]$/g, "").toLowerCase();
-  return (
+  if (
     bare === "localhost" ||
     bare === "::1" ||
-    bare === "0.0.0.0" ||
     bare.endsWith(".localhost") ||
-    bare.endsWith(".local") ||
-    /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(bare)
-  );
+    bare.endsWith(".local")
+  ) {
+    return true;
+  }
+  return /^127(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/.test(bare);
 }
 
 /** Split `host:port` (or a bracketed IPv6 literal) off the front of an input. */
@@ -102,19 +103,13 @@ function schemeless(input: string): string | null {
 }
 
 /**
- * Whether a URL the page itself navigated to may stay in the panel.
+ * Whether a URL is permitted to load in the embedded browser panel.
  *
- * `will-navigate` is the browser's own navigations, not the address bar's, so
- * the check is narrower on purpose: it only keeps the panel on schemes the
- * injector can work with. A blocked navigation is handed to the OS browser
- * instead of being dropped, which is what the host does with it.
+ * In this privacy-first fork, the embedded browser is strictly local-only:
+ * only verified loopback addresses (localhost, 127.0.0.1, ::1) are loadable.
  */
 export function isLoadableUrl(url: string): boolean {
-  try {
-    return ALLOWED.has(new URL(url).protocol);
-  } catch {
-    return false;
-  }
+  return isVerifiedLoopbackUrl(url);
 }
 
 /** Host and port, for the panel's compact title. `""` when unparseable. */

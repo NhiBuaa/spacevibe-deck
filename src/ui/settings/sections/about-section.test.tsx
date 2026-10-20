@@ -204,15 +204,10 @@ describe("AboutSection", () => {
     expect(openUrl.mock.calls[0]?.[0]).toContain("changelog");
   });
 
-  it("opens the feedback page with the running version", async () => {
+  it("does not render upstream feedback button in privacy-first fork", () => {
     activeUpdateController.value = controller();
     act(() => render(<AboutSection />, host));
-
-    await act(async () => {
-      pills(host)[2].click();
-    });
-
-    expect(openUrl).toHaveBeenCalledTimes(1);
-    expect(openUrl.mock.calls[0]?.[0]).toBe("https://deck.spacevibe.dev/feedback?v=0.11.0");
+    expect(host.textContent).not.toContain("Feedback");
+    expect(pills(host).length).toBe(2);
   });
 });

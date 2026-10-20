@@ -19,8 +19,8 @@
 # `~/Library/Application Support/SpaceVibe Deck` while Tauri's is
 # `~/Library/Application Support/dev.spacevibe.deck`, so no settings or
 # workspaces carry over, and no updater bridges the two.
-appId: dev.spacevibe.deck
-productName: SpaceVibe Deck
+appId: io.github.nhibuaa.spacedeck.local
+productName: SpaceDeck Local
 directories:
   output: dist-electron-release
 # Electron Builder writes this into the packaged app's package.json — `main`
@@ -29,7 +29,7 @@ directories:
 # CFBundleName, and it is what names the userData directory.
 extraMetadata:
   main: dist-electron/electron/main.cjs
-  productName: SpaceVibe Deck
+  productName: SpaceDeck Local
 files:
   - dist/**
   - dist-electron/electron/**/*.cjs

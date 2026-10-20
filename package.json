@@ -35,8 +35,6 @@
     "shoot": "npm run build && npm run electron:build && electron dist-electron/electron/shoot.cjs"
   },
   "dependencies": {
-    "@sentry/electron": "^7.18.0",
-    "@supabase/supabase-js": "^2.118.0",
     "electron-updater": "^6.8.10",
     "node-pty": "^1.1.0"
   },

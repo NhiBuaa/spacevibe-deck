@@ -46,9 +46,13 @@ describe("normalizeBrowserUrl", () => {
 });
 
 describe("isLoadableUrl", () => {
-  it("accepts http and https only", () => {
+  it("accepts verified loopback http and https only", () => {
     expect(isLoadableUrl("http://localhost:3000/")).toBe(true);
-    expect(isLoadableUrl("https://example.com/")).toBe(true);
+    expect(isLoadableUrl("http://127.0.0.1:8080/app")).toBe(true);
+    expect(isLoadableUrl("https://[::1]:8443/")).toBe(true);
+    expect(isLoadableUrl("https://example.com/")).toBe(false);
+    expect(isLoadableUrl("http://0.0.0.0:3000/")).toBe(false);
+    expect(isLoadableUrl("http://192.168.1.1:3000/")).toBe(false);
     expect(isLoadableUrl("file:///tmp/x")).toBe(false);
     expect(isLoadableUrl("not a url")).toBe(false);
   });

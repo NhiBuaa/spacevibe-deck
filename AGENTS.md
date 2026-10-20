@@ -15,14 +15,19 @@ documentation index is [docs/README.md](docs/README.md).
 
 ## Current direction
 
-- **Auto-update is a core requirement.** A release is not complete if distribution falls back
-  to manual download. Release artifacts include the updater payloads and manifests described
-  in [operations/release.md](docs/operations/release.md).
+- **Fork policy: Privacy-first desktop.** This fork (`SpaceDeck Local`) disconnects
+  all publisher telemetry, Sentry crash reporting, account/Supabase integrations, and
+  automatic upstream updater feeds. Distribution uses manual downloads of reviewed fork artifacts.
+- **Local-only network boundary for UI and embedded browser.** The main renderer loads
+  only packaged assets (or Vite local origin in development); the embedded browser allows
+  only verified loopback (`127.0.0.1` / `::1`) addresses, blocking outbound internet requests,
+  redirects, sub-resources, beacons, and WebSockets.
+- **Agent and user-initiated connections.** Terminal agents run as independent processes and
+  retain their own network access to AI providers according to user configuration. User-initiated
+  actions (Git clone, opening external links via default OS browser) remain explicit. Deck
+  itself never initiates outbound network connections to upstream or third-party services.
 - **Windows ships unsigned by decision.** See the
   [platform limits](docs/operations/release.md#platform-limits).
-- **Analytics is mandatory** — always on, no opt-out, and the disclosure stays. The contract is
-  [internals/telemetry.md](docs/internals/telemetry.md); the receiving service is
-  [backend/](backend/README.md).
 - **The Electron cutover is a clean install**, with no settings or workspace migration.
 - **The navigation rail refresh runs as a queue.** Its
   [spec](docs/specs/2026-10-06-navigation-rail-refresh.md) lists the slices in order; the first

@@ -18,9 +18,10 @@
  * Deck's renderer process rather than in one of its own.
  */
 import path from "node:path";
-import { shell, WebContentsView, type BrowserWindow, type Rectangle } from "electron";
+import { WebContentsView, type BrowserWindow, type Rectangle } from "electron";
 import { isLoadableUrl } from "./url";
 import { buildInjection, GRAB_EVENT, inspectCall, parseGrabPayload } from "./inject";
+import { installBrowserSessionPolicy } from "../network-policy";
 
 /** Every window's browser panel shares one persistent session. */
 const PARTITION = "persist:deck-browser";
@@ -133,6 +134,12 @@ export class BrowserPanels {
       return;
     }
     panel.error = null;
+    if (!isLoadableUrl(url)) {
+      panel.error = `Blocked: Only local loopback connections (localhost / 127.0.0.1) are permitted. (${url})`;
+      panel.pending = null;
+      this.publish(label);
+      return;
+    }
     panel.pending = url;
     panel.view.webContents.loadURL(url).catch((err: unknown) => {
       // `loadURL` rejects on the same failures `did-fail-load` reports, so the
@@ -304,6 +311,10 @@ export class BrowserPanels {
     window?.contentView.addChildView(view);
     view.setBounds(panel.bounds);
 
+    if (view.webContents.session?.webRequest) {
+      installBrowserSessionPolicy(view.webContents.session.webRequest);
+    }
+
     this.wire(label, panel);
     return panel;
   }
@@ -376,14 +387,14 @@ export class BrowserPanels {
     contents.on("will-navigate", (event, url) => {
       if (!isLoadableUrl(url)) {
         event.preventDefault();
-        this.external(url);
+        panel.error = `Blocked: Only local loopback connections (localhost / 127.0.0.1) are permitted. (${url})`;
+        panel.pending = null;
+        this.publish(label);
       }
     });
 
-    // A target=_blank or window.open goes to the OS browser: a second Electron
-    // window would have neither Deck's chrome nor this panel's injection.
-    contents.setWindowOpenHandler(({ url }) => {
-      this.external(url);
+    // Web content is strictly local; popups cannot open external browsers or bypass policy.
+    contents.setWindowOpenHandler(() => {
       return { action: "deny" };
     });
 
@@ -408,18 +419,6 @@ export class BrowserPanels {
       const grab: BrowserGrab = payload;
       this.deps.emit(label, this.deps.events.grab, grab);
     });
-  }
-
-  private external(url: string): void {
-    if (!isLoadableUrl(url)) {
-      return;
-    }
-    const open =
-      this.deps.openExternal ??
-      ((target: string) => {
-        void shell.openExternal(target);
-      });
-    open(url);
   }
 
   private stateOf(panel: Panel): BrowserState {

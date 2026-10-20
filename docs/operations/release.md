@@ -2,6 +2,11 @@
 
 > For maintainers. Using Deck? See [docs/user/](../user/).
 
+> [!NOTE]
+> **Fork note:** This fork (`SpaceDeck Local`) has disconnected automatic upstream updates.
+> Releases in this fork are distributed as manual standalone downloads. The updater feed
+> instructions below describe the upstream release pipeline.
+
 One pushed tag ships SpaceVibe Deck for macOS and Windows, both self-updating, through
 [`electron-release.yml`](../../.github/workflows/electron-release.yml). This page is its
 runbook.

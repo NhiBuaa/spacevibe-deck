@@ -1,9 +1,3 @@
-// First, before any other module loads: an import-time throw in one of them
-// is exactly the crash this exists to report, and the renderer's protocol
-// must be registered before `ready`.
-import { initCrashReporting } from "./crash-reporting/init";
-initCrashReporting();
-
 // Logging must never be the crash. A dev run whose terminal is gone (or a
 // build started from one) gets EIO/EPIPE on every console write, and an
 // unhandled stream error turns that into the "JavaScript error occurred in the
@@ -80,6 +74,14 @@ import { bootstrapLaunch, type AgentShellPaths } from "./agent-shell/shell-boots
 import { createCodexCapabilities } from "./agent-shell/codex-capabilities";
 import { hooksSupported } from "./agent-hooks/hooks-supported";
 import { installAppImagePolicy } from "./app-image-policy";
+import { installBrowserSessionPolicy } from "./network-policy";
+
+// Isolate app name and userData from upstream SpaceVibe Deck installations.
+const testUserData = process.env.DECK_TEST_USERDATA;
+app.name = "SpaceDeck Local";
+if (testUserData) {
+  app.setPath("userData", path.resolve(testUserData));
+}
 
 // __dirname is `dist-electron/electron`, so the Vite output is two levels up.
 const RENDERER_DIR = path.join(__dirname, "..", "..", "dist");
@@ -715,7 +717,7 @@ registerShell();
 // sharing one `userData`: `settings.json` and `workspaces.json` become
 // last-writer-wins between them, and the session journal — which mirrors every
 // window's live tabs — is written by both.
-app.setAppUserModelId("dev.spacevibe.deck.electron");
+app.setAppUserModelId("io.github.nhibuaa.spacedeck.local");
 if (!app.requestSingleInstanceLock()) {
   // A second launch hands its argv to the first instance and leaves. Quitting
   // before `whenReady` means no window, no PTY and no store was ever opened
@@ -740,6 +742,7 @@ app.whenReady().then(async () => {
     session.defaultSession.webRequest,
     app.isPackaged ? undefined : DEV_SERVER_URL,
   );
+  installBrowserSessionPolicy(session.fromPartition("persist:deck-browser").webRequest);
   // Before any pane spawns: a restored `claude --resume` must find the
   // `claude.exe` that Claude Code's native Windows installer leaves off PATH.
   if (process.platform === "win32") {

@@ -7,6 +7,11 @@ the release PR, and frozen at the tag — never an auto-generated commit list.
 
 ## Unreleased
 
+- **Privacy-first desktop fork (SpaceDeck Local).** Disconnects publisher telemetry,
+  Sentry crash reporting, account/Supabase integrations, and automated background update
+  checks. Enforces strict loopback-only network policy (`127.0.0.1` / `::1`) on the embedded
+  browser, blocking outbound internet requests, redirects, sub-resources, and WebSockets.
+  Isolates application identity and user data from upstream SpaceVibe Deck installations.
 - **Safer terminal paste and Markdown.** [Pasted text](src/lib/terminal-paste.ts) cannot
   terminate its protected paste frame with embedded control characters. The
   [app image policy](electron/app-image-policy.ts) blocks external HTTP(S) images,

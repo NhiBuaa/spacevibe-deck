@@ -14,13 +14,8 @@
  * answer `unsupported`, which is an honest answer rather than a false one.
  */
 import { app, ipcMain, type IpcMainInvokeEvent } from "electron";
-import { autoUpdater } from "electron-updater";
 import { CHANNELS } from "./channels";
-import {
-  createUpdateLifecycle,
-  InstallHandoverError,
-  type AutoUpdaterLike,
-} from "../updater/updater";
+import { createUpdateLifecycle, InstallHandoverError } from "../updater/updater";
 import { createUpdaterErrorLog, parseUpdaterError } from "../updater/error-log";
 import { UpdateFlight } from "../updater/update-flight";
 import type { UpdateCounterKey } from "../telemetry/model";
@@ -81,22 +76,10 @@ export function registerUpdater(deps: UpdaterDependencies): UpdaterHandle {
   const log = createUpdaterErrorLog(app.getPath("userData"), () => lifecycle.operation());
   const lifecycle = createUpdateLifecycle({
     loadUpdater: () => {
-      // GitHub provider, no token: `mxrsv/spacevibe-deck` is public. Named
-      // here rather than left to the packaged `app-update.yml` because the
-      // production packaging config does not exist yet, and the lifecycle is
-      // worth pointing at a real feed without it. `electron-updater` reads
-      // `latest-mac.yml` / `latest.yml`; Tauri's `latest.json` is a separate
-      // manifest with separate trust material and is never touched here.
-      autoUpdater.logger = log.logger;
-      autoUpdater.setFeedURL({
-        provider: "github",
-        owner: "mxrsv",
-        repo: "spacevibe-deck",
-      });
-      return autoUpdater as unknown as AutoUpdaterLike;
+      // Upstream feed is disconnected in this privacy-first fork.
+      throw new Error("Automatic updates are disabled in this fork");
     },
-    // A dev run has no bundle to replace and no signature to verify.
-    supported: app.isPackaged,
+    supported: false,
     currentVersion: app.getVersion(),
     prepareForInstall: () => deps.prepareForInstall(),
     countOutcome: (outcome) => deps.countOutcome(outcome),
