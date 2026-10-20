@@ -550,7 +550,7 @@ const telemetry = registerTelemetry({ stores, windows, emitTo });
 // ------------------------------------------------------------- Account
 // Optional Google account (spec 2026-10-20-accounts). Signed out by default,
 // and signed out sends nothing.
-registerAccount();
+registerAccount({ userData: app.getPath("userData"), windows, emitTo });
 
 // ------------------------------------------------------------------ Quit
 ipcMain.handle(CHANNELS.confirmQuit, (_event, { requestId }) => {
