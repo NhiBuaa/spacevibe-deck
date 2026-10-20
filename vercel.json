@@ -46,6 +46,14 @@
       "destination": "/landing-prototype/docs/index.html"
     },
     {
+      "source": "/vi/docs",
+      "destination": "/landing-prototype/vi/docs/index.html"
+    },
+    {
+      "source": "/vi/docs/",
+      "destination": "/landing-prototype/vi/docs/index.html"
+    },
+    {
       "source": "/feedback",
       "destination": "/landing-prototype/feedback/index.html"
     },
@@ -130,6 +138,16 @@
     {
       "source": "/landing-prototype/docs/",
       "destination": "/docs",
+      "permanent": true
+    },
+    {
+      "source": "/landing-prototype/vi/docs",
+      "destination": "/vi/docs",
+      "permanent": true
+    },
+    {
+      "source": "/landing-prototype/vi/docs/",
+      "destination": "/vi/docs",
       "permanent": true
     },
     {

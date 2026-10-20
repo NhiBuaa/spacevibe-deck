@@ -40,8 +40,39 @@ html body::after {
   border-bottom: 1px solid var(--log-line);
 }
 
+/* Brand · language · Changelog · back: one more column than the changelog's. */
+.docs-page .docs-topbar {
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+}
+
 .docs-topbar .docs-topbar__changelog {
   justify-self: end;
+}
+
+/* The changelog's EN/VI pill, as links: each language is its own page. */
+.docs-lang a {
+  position: relative;
+  z-index: 1;
+  min-width: 2.1rem;
+  padding: 0.34rem 0.55rem;
+  border-radius: 999px;
+  color: var(--docs-ink-quiet);
+  font: 650 0.6rem/1 var(--font-display);
+  text-align: center;
+  transition: color 220ms var(--log-ease);
+}
+
+.docs-lang a:hover {
+  color: var(--log-ink);
+}
+
+.docs-lang a[aria-current="page"] {
+  color: var(--log-surface-0);
+}
+
+.docs-page .docs-lang a:focus-visible {
+  outline-offset: 4px;
+  border-radius: 999px;
 }
 
 .docs-intro {
@@ -294,6 +325,18 @@ html body::after {
   font-size: 0.92rem;
 }
 
+/* On a translated page, a guide still showing in English says why. */
+.docs-article .docs-untranslated {
+  margin: -0.25rem 0 1.5rem;
+  padding: 0.75rem 0.95rem;
+  border: 1px solid var(--log-line);
+  border-radius: 6px;
+  color: var(--log-ink-soft);
+  background: var(--log-surface-1);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
 .docs-page a:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
@@ -354,6 +397,10 @@ html body::after {
 }
 
 @media (max-width: 47.5rem) {
+  .docs-page .docs-topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
   .docs-topbar .docs-topbar__changelog {
     display: none;
   }
@@ -368,6 +415,7 @@ html body::after {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .docs-lang a,
   .docs-nav a,
   .docs-article a {
     transition: none;

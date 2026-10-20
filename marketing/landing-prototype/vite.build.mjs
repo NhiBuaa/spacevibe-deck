@@ -81,6 +81,10 @@ function copyRuntimeAssets() {
 //     URL fails the build rather than shipping a 404 into the markup.
 const PRERENDER_ROOT = '<main id="specimen-root">';
 const DOCS_ROOT = '<main id="docs-root" class="docs-page">';
+const DOCS_PAGES = {
+  en: "landing-prototype/docs/index.html",
+  vi: "landing-prototype/vi/docs/index.html",
+};
 
 /**
  * `agent-claude-BXqk1t.svg` -> `agent-claude.svg`.
@@ -169,16 +173,28 @@ function prerenderShell() {
             server.ssrLoadModule("/landing-prototype/src/docs-view.js"),
           ]);
 
-        pages.push(
-          {
-            file: "landing-prototype/index.html",
-            root: PRERENDER_ROOT,
-            markup: renderHero(messages.en).markup + renderTour(messages.en).markup,
-          },
-          // The docs page is the guides themselves; rendering them here is
-          // also what fails the build on a guide link that points nowhere.
-          { file: "landing-prototype/docs/index.html", root: DOCS_ROOT, markup: renderDocsPage() },
-        );
+        pages.push({
+          file: "landing-prototype/index.html",
+          root: PRERENDER_ROOT,
+          markup: renderHero(messages.en).markup + renderTour(messages.en).markup,
+        });
+
+        // The docs pages are the guides themselves; rendering them here is
+        // also what fails the build on a guide link that points nowhere. A
+        // translation behind its English guide does NOT fail it — that page
+        // shows the guide in English — so it is only reported.
+        for (const [locale, file] of Object.entries(DOCS_PAGES)) {
+          const { markup, untranslated } = renderDocsPage(locale);
+
+          for (const { slug, status } of untranslated) {
+            console.warn(
+              `Landing build: the ${locale} docs show "${slug}" in English (translation ${status}; ` +
+                "see npm run docs:translations).",
+            );
+          }
+
+          pages.push({ file, root: DOCS_ROOT, markup });
+        }
       } finally {
         await server.close();
       }
@@ -222,6 +238,7 @@ export default defineConfig({
         changelog: resolve(import.meta.dirname, "changelog/index.html"),
         feedback: resolve(import.meta.dirname, "feedback/index.html"),
         docs: resolve(import.meta.dirname, "docs/index.html"),
+        docsVi: resolve(import.meta.dirname, "vi/docs/index.html"),
       },
     },
   },

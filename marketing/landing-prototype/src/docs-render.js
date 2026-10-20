@@ -11,6 +11,11 @@
  * `settings.md#privacy` links are rewritten onto those ids. A link that points
  * at no heading THROWS: the build's prerender runs this, so a broken link
  * fails the deploy instead of shipping a dead anchor.
+ *
+ * A translation records the stamp of the English guide it was made from. When
+ * the English changes, the stamp no longer matches and that locale's page shows
+ * the English guide until the translation catches up: a reader is never handed
+ * a translation that describes an app that has moved on.
  */
 import { Marked } from "marked";
 
@@ -33,6 +38,36 @@ export function githubSlug(text) {
     .toLowerCase()
     .replace(/[^\p{L}\p{M}\p{N}\s_-]/gu, "")
     .replace(/\s/g, "-");
+}
+
+/**
+ * The stamp a translation records of the English guide it was made from.
+ * FNV-1a over the text, so the renderer (in the browser too) and
+ * `docs-translations.mjs` compute it the same way, synchronously. Line endings
+ * are normalised so a Windows checkout stamps the same guide the same way.
+ */
+export function sourceStamp(markdown) {
+  const text = markdown.replace(/\r\n/g, "\n");
+  let hash = 0x811c9dc5;
+
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/;
+
+/** A translation's `translated-from` stamp and its markdown body. */
+export function splitTranslation(markdown) {
+  const match = markdown.match(FRONTMATTER);
+
+  return {
+    stamp: match?.[1].match(/^translated-from:\s*(\S+)\s*$/m)?.[1] ?? null,
+    body: match ? markdown.slice(match[0].length) : markdown,
+  };
 }
 
 /** Heading text with its inline markdown marks dropped, for ids and the nav. */
@@ -137,14 +172,68 @@ function wrapTables(html) {
     .replaceAll("</table>", "</table></div>");
 }
 
+function renderGuide(guide, anchors) {
+  return wrapTables(
+    new Marked({ gfm: true, renderer: rendererFor(guide, anchors) }).parser(guide.tokens),
+  );
+}
+
+function navSections(headings) {
+  return headings
+    .filter((heading) => heading.depth === 2)
+    .map((heading) => ({ id: heading.id, text: heading.text }));
+}
+
+/**
+ * The guide in `locale`, or `null` when its translation is missing or stale.
+ *
+ * A current translation takes its heading ids from the English guide, by
+ * position, so every link and every shared address lands in the same place in
+ * both languages. That only holds while the headings line up, so a translation
+ * stamped current whose heading levels differ from the English THROWS.
+ */
+function translateGuide(guide, locale, translations, lexer) {
+  const path = Object.keys(translations).find((key) => key.endsWith(`/${locale}/${guide.slug}.md`));
+
+  if (path === undefined) {
+    return { status: "missing" };
+  }
+
+  const { stamp, body } = splitTranslation(translations[path]);
+
+  if (stamp !== sourceStamp(guide.source)) {
+    return { status: "stale" };
+  }
+
+  const tokens = lexer.lexer(body);
+  const headings = collectHeadings(lexer, tokens, guide.slug);
+  const levels = (list) => list.map((heading) => heading.depth).join(",");
+
+  if (levels(headings) !== levels(guide.headings)) {
+    throw new Error(
+      `Docs: ${locale}/${guide.slug}.md is stamped current, but its headings do not line up ` +
+        `with docs/user/${guide.slug}.md (levels ${levels(headings)} vs ${levels(guide.headings)}).`,
+    );
+  }
+
+  return {
+    status: "current",
+    tokens,
+    headings: headings.map((heading, index) => ({ ...heading, id: guide.headings[index].id })),
+  };
+}
+
 /**
  * Render the guides.
  *
- * `sources` maps a file path to its markdown, the shape `import.meta.glob`
- * hands back. Returns the guides in reading order, each with its title, its
- * `##` sections for the navigation, and its HTML.
+ * `sources` maps a file path to its English markdown, the shape
+ * `import.meta.glob` hands back; `translations` the same for
+ * `<locale>/<slug>.md`. Returns the guides in reading order, each with its
+ * title, its `##` sections for the navigation, its HTML, the language that
+ * HTML is in, and — off English — whether its translation is `current`,
+ * `stale` or `missing`.
  */
-export function renderUserDocs(sources) {
+export function renderUserDocs(sources, { locale = "en", translations = {} } = {}) {
   // An empty glob is what Vercel sees when `.vercelignore` drops the guides:
   // fail the deploy rather than publish a docs page with nothing in it.
   if (Object.keys(sources).length === 0) {
@@ -163,7 +252,7 @@ export function renderUserDocs(sources) {
       throw new Error(`Docs: docs/user/${slug}.md has no "# " title.`);
     }
 
-    return { slug, title, tokens, headings };
+    return { slug, title, source, tokens, headings };
   });
 
   guides.sort((a, b) =>
@@ -172,14 +261,29 @@ export function renderUserDocs(sources) {
 
   const anchors = new Set(guides.flatMap((guide) => guide.headings.map((heading) => heading.id)));
 
-  return guides.map((guide) => ({
-    slug: guide.slug,
-    title: guide.title,
-    sections: guide.headings
-      .filter((heading) => heading.depth === 2)
-      .map((heading) => ({ id: heading.id, text: heading.text })),
-    html: wrapTables(
-      new Marked({ gfm: true, renderer: rendererFor(guide, anchors) }).parser(guide.tokens),
-    ),
-  }));
+  return guides.map((guide) => {
+    const translated = locale === "en" ? null : translateGuide(guide, locale, translations, lexer);
+
+    if (translated?.status === "current") {
+      const shown = { ...guide, tokens: translated.tokens, headings: translated.headings };
+
+      return {
+        slug: guide.slug,
+        title: translated.headings[0].text,
+        sections: navSections(translated.headings),
+        html: renderGuide(shown, anchors),
+        lang: locale,
+        translation: "current",
+      };
+    }
+
+    return {
+      slug: guide.slug,
+      title: guide.title,
+      sections: navSections(guide.headings),
+      html: renderGuide(guide, anchors),
+      lang: "en",
+      translation: translated?.status ?? null,
+    };
+  });
 }

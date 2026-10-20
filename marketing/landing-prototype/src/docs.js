@@ -79,11 +79,22 @@ function trackCurrentSection() {
   markCurrent();
 }
 
+// Every locale shares the English heading ids, so switching language keeps the
+// reader on the section they were reading.
+root.addEventListener("click", (event) => {
+  const link = event.target.closest("a[data-docs-locale]");
+
+  if (link && location.hash) {
+    link.hash = location.hash;
+  }
+});
+
 // The build prerenders the guides into the HTML, so production never loads
 // the markdown or its parser; only dev, where nothing prerenders, renders here.
+// Each locale's page is its own HTML file, which names its language.
 if (root.textContent.trim() === "") {
   void import("./docs-view.js").then(({ renderDocsPage }) => {
-    root.innerHTML = renderDocsPage();
+    root.innerHTML = renderDocsPage(document.documentElement.lang).markup;
 
     if (location.hash) {
       document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();

@@ -16,6 +16,7 @@
     "refresh:pricing": "node scripts/refresh-usage-pricing.mjs",
     "prototype:landing": "vite marketing --host 127.0.0.1 --port 5173 --strictPort --open /landing-prototype/",
     "build:landing": "vite build --config marketing/landing-prototype/vite.build.mjs",
+    "docs:translations": "node marketing/landing-prototype/docs-translations.mjs",
     "capture:og": "node scripts/capture-og-cover.mjs",
     "video:preview": "vite marketing --host 127.0.0.1 --port 5174 --strictPort --open /video/",
     "video:render": "node marketing/video/render/render.mjs",

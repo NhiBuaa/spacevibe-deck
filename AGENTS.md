@@ -7,7 +7,8 @@ Deck is a terminal for running many agent CLIs side by side. The host is Electro
 `electron/`; the renderer is Preact + xterm.js and reaches it through the facades in
 `src/host/`. The Tauri host Electron replaced was removed on 2026-10-12, so a comment that
 still cites a `src-tauri/` file names where code was ported from, not a live twin. Everything
-in this repo — UI strings, comments, docs, and commits — is **English only**.
+in this repo — UI strings, comments, docs, and commits — is **English only**, except the
+landing's translated copy (R1).
 
 Read [docs/internals/overview.md](docs/internals/overview.md) before your first change. The
 documentation index is [docs/README.md](docs/README.md).
@@ -183,7 +184,10 @@ checkouts"; everything else in this file still applies.
 
 ## Repo rules
 
-- **R1. English only** for strings, comments, docs and commit messages.
+- **R1. English only** for strings, comments, docs and commit messages. The one exception is
+  the landing's localized copy: the non-English strings in
+  [`copy.js`](marketing/landing-prototype/src/copy.js) and the guide translations under
+  `marketing/landing-prototype/docs/translations/`.
 - **R2. Design language has two tiers.** Tests enforce the DL invariants. The DL patterns
   describe shipped surfaces, and a redesign may replace them. Cite a rule in a comment only
   when the code would look wrong without the reason. A cited number must stay declared.
@@ -256,6 +260,13 @@ index is [docs/README.md](docs/README.md).
   lives, a flow, a shortcut — updates its guide in the same commit; a purely visual tweak
   (colour, spacing, motion) needs no entry. A guide link that names no real heading fails the
   landing build.
+- Each guide also has translations under `marketing/landing-prototype/docs/translations/<locale>/`
+  (published at `/<locale>/docs`), written in that language's natural voice with the app's UI
+  labels, chords and paths left exactly as the app shows them. A translation records the
+  English it was made from; once the English changes, that locale's page shows the English
+  guide until the translation catches up. Update the translation in the same commit when you
+  can, then mark it current with `npm run docs:translations -- --stamp <locale>/<guide>`;
+  `npm run docs:translations` lists what is behind.
 - `docs/operations/` is the maintainer runbook: setup, release, debugging. Every page under
   `internals/` and `operations/` opens with the "For maintainers" callout.
 - Do not write file catalogs, field or method enumerations, control-flow narration, or
