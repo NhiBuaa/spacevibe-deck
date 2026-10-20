@@ -35,8 +35,12 @@ above your recent folders. The board offers:
 - **Open workspace…** — pick a folder. A workspace is a local folder that becomes the working
   root for a tab.
 - **Recent workspaces** — selecting a folder fills the workspace and agent choices.
-  Review the selected agent, then choose **Open agent** to launch it. A folder that has
-  disappeared from disk cannot be opened.
+  Review the selected agent, then choose **Open agent** to launch it, or double-click the
+  folder to open it at once with its remembered agent (a terminal when no agent can run). A
+  folder that has disappeared from disk cannot be opened.
+- **Drop files or folders** onto Deck or the Open board to save them as workspaces. A file
+  adds its containing folder, and the first folder is selected. Nothing starts until you
+  open an agent; dropping onto a terminal pane still types the path.
 - **Clone repository…** — paste a GitHub repository (`owner/repo`, an HTTPS or SSH URL), choose
   where it goes, and Deck clones it with your own Git credentials and adds it as a workspace.
   Progress shows in the form and you can cancel; closing the form does not stop the clone.
