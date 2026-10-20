@@ -488,3 +488,36 @@ jobs:
             echo ""
             sed 's/^/- /' published.txt
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Announce the release on Discord
+        # Last on purpose: the release is already public, so a Discord outage
+        # or a revoked webhook must warn, never fail the run (the cut script
+        # watches this job's conclusion). The curl is therefore guarded in the
+        # script, not with `continue-on-error`, which the release tests ban.
+        # Stable only, like the product-named title; prereleases are the
+        # migration channel, not an announcement.
+        if: env.CHANNEL == 'stable'
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$DISCORD_WEBHOOK_URL" ]]; then
+            echo "::warning::DISCORD_WEBHOOK_URL is not set; skipping the Discord announcement"
+            exit 0
+          fi
+          VERSION="${TAG#v}"
+          # Embed descriptions cap at 4096 characters. Cut on a line boundary
+          # so a bullet is never sliced in half, and point at the full notes.
+          body="$(head -c 3500 section.md | sed '$d')"
+          [[ "$(wc -c < section.md)" -gt 3500 ]] || body="$(cat section.md)"
+          # `allowed_mentions.parse = []` keeps an @everyone typed in the
+          # changelog from pinging the group.
+          jq -n \
+            --arg title "SpaceVibe Deck $VERSION" \
+            --arg url "https://github.com/$GH_REPO/releases/tag/$TAG" \
+            --arg body "$body" \
+            '{allowed_mentions: {parse: []},
+              embeds: [{title: $title, url: $url, description: $body, color: 5793266}]}' \
+            | curl --fail --silent --show-error --max-time 20 \
+                -H 'Content-Type: application/json' -d @- "$DISCORD_WEBHOOK_URL" \
+            || echo "::warning::Discord announcement failed; the release itself is public"

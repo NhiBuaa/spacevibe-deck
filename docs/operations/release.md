@@ -121,6 +121,10 @@ with the latest release, so every assertion would run against whatever shipped l
 4. Promote: stable becomes `--latest`, prerelease becomes `--prerelease`. Promotion is what
    creates the release tag, so the version becomes discoverable only now.
 5. Write the run summary (source SHA, channel, promoted, published assets).
+6. Announce a **stable** release on Discord: the version, release link and CHANGELOG section go
+   to the webhook in the `DISCORD_WEBHOOK_URL` repository secret (Discord channel settings →
+   Integrations → Webhooks). It runs after promotion and only warns on failure, so a missing
+   secret or a dead webhook never blocks or reverts a public release. Mentions are disabled.
 
 ## `CHANGELOG.md` is machine-read
 
