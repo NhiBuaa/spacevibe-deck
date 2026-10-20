@@ -142,10 +142,12 @@ Several agent sessions run against this repo at once. The owner's standing rule 
   calls `EnterWorktree`. Both create `.claude/worktrees/<slug>/` on branch `worktree-<slug>`
   from the remote default branch, and copy the gitignored files listed in
   [`.worktreeinclude`](.worktreeinclude). Run `npm install` inside the new worktree: it is a
-  fresh checkout with no `node_modules`.
+  fresh checkout with no `node_modules`. Codex has no `EnterWorktree`: run
+  `git worktree add .claude/worktrees/<slug> -b worktree-<slug> origin/main`, copy the files
+  listed in `.worktreeinclude`, then work in that path.
 - **Foreign changes mean a worktree, without asking.** If `git status` shows fresh changes you
-  did not make, call `EnterWorktree` and continue there; do not edit around them and do not
-  stop to ask.
+  did not make, move to a worktree (`EnterWorktree`, or the Codex command above) and continue
+  there; do not edit around them and do not stop to ask.
 - **One `electron:dev` at a time.** Dev runs share the owner's real userData and the Vite port
   across checkouts.
 - **Merge the same day.** Rebase on `main`, fast-forward `main` to the branch, then
