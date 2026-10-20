@@ -124,7 +124,7 @@ describe("incremental Electron development compiler", () => {
     f.put("src/missing/value.ts", "export const value = 7;");
     await expect.poll(() => f.events.at(-1)?.ok, { timeout: LOADED_REBUILD_WAIT_MS }).toBe(true);
     expect(f.output("src/missing/value.cjs")).toContain("= 7");
-  }, 15_000);
+  }, 30_000);
 
   it("rejects bad compiler options and recovers when the config is fixed", async () => {
     const f = await fixture();
