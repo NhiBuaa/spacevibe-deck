@@ -256,16 +256,17 @@ describe("BoardComposer", () => {
     }
   });
 
-  it("offers the folder picker even with no recents or selected folder", () => {
+  it("offers the folder bar and Open folder even with no recents or selected folder", () => {
     const onPickFolder = vi.fn();
     mount({ promptStaging: false, draft: EMPTY_DRAFT, alive: [], onPickFolder });
     const field = host.querySelector<HTMLButtonElement>(".nt-workspace-picker__trigger")!;
     expect(field.textContent).toContain("Choose a folder");
     act(() => field.click());
     const items = host.querySelectorAll<HTMLButtonElement>('[role^="menuitem"]');
-    expect(items).toHaveLength(1);
+    expect(items[0].textContent).toContain("Create workspace…");
+    expect(host.querySelector('[role="menuitemradio"]')).toBeNull();
     expect(host.querySelector('[role="separator"]')).toBeNull();
-    act(() => items[0].click());
+    act(() => host.querySelector<HTMLButtonElement>(".nt-agent-launcher__action")!.click());
     expect(onPickFolder).toHaveBeenCalledTimes(1);
   });
 
@@ -302,49 +303,84 @@ describe("BoardComposer", () => {
     expect(onOpenAgent).not.toHaveBeenCalled();
     expect(event.defaultPrevented).toBe(false);
   });
+  const openFolderMenu = (): void => {
+    act(() => host.querySelector<HTMLButtonElement>(".nt-workspace-picker__trigger")!.click());
+  };
+  const menuLabels = (): string[] =>
+    Array.from(host.querySelectorAll(".nt-workspace-picker__menu button")).map(
+      (entry) => entry.textContent?.trim() ?? "",
+    );
+  const rowLabels = (): string[] =>
+    Array.from(host.querySelectorAll(".nt-agent-launcher__action")).map(
+      (entry) => entry.getAttribute("aria-label") ?? "",
+    );
+
+  it.each([
+    ["Open folder…", "onPickFolder"],
+    ["Clone repository…", "onCloneRepository"],
+    ["Create worktree…", "onCreateWorktree"],
+  ] as const)("shows %s as a button in the row beside the folder bar", (label, callback) => {
+    const action = vi.fn();
+    mount({ promptStaging: false, canCloneRepository: true, [callback]: action });
+    const button = host.querySelector<HTMLButtonElement>(
+      `.nt-agent-launcher__action[aria-label="${label}"]`,
+    )!;
+    act(() => button.click());
+    expect(action).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     ["Create workspace…", "onCreateWorkspace"],
-    ["Create worktree…", "onCreateWorktree"],
     ["Resume a session…", "onBrowseSessions"],
     ["Manage agents", "onManageAgents"],
-  ] as const)("keeps %s available through More and closes after activation", (label, callback) => {
+  ] as const)("keeps %s in the folder menu and closes it after activation", (label, callback) => {
     const action = vi.fn();
     mount({ promptStaging: false, [callback]: action });
-    const menu = host.querySelector<HTMLDetailsElement>(".nt-board__more")!;
-    expect(menu.open).toBe(false);
-    menu.querySelector("summary")!.click();
-    expect(menu.open).toBe(true);
-    const button = Array.from(menu.querySelectorAll("button")).find(
+    expect(host.querySelector(".nt-workspace-picker__menu")).toBeNull();
+    openFolderMenu();
+    const button = Array.from(host.querySelectorAll(".nt-workspace-picker__menu button")).find(
       (entry) => entry.textContent?.trim() === label,
-    )!;
-    button.click();
+    ) as HTMLButtonElement;
+    act(() => button.click());
     expect(action).toHaveBeenCalledTimes(1);
-    expect(menu.open).toBe(false);
+    expect(host.querySelector(".nt-workspace-picker__menu")).toBeNull();
+    expect(host.querySelector(".nt-board__more")).toBeNull();
     expect(host.querySelector(".nt-board__shortcuts")).toBeNull();
   });
 
-  it("dismisses More on Escape without forwarding it to the board", () => {
-    mount({ promptStaging: false });
-    const menu = host.querySelector<HTMLDetailsElement>(".nt-board__more")!;
-    const trigger = menu.querySelector("summary")!;
-    trigger.click();
-    const event = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
-    const outside = vi.fn();
-    host.addEventListener("keydown", outside);
-    menu.querySelector("button")!.dispatchEvent(event);
-    expect(menu.open).toBe(false);
-    expect(document.activeElement).toBe(trigger);
-    expect(event.defaultPrevented).toBe(true);
-    expect(outside).not.toHaveBeenCalled();
+  it("splits the actions: three in the row, the rest in the menu ahead of the recents", () => {
+    mount({ promptStaging: false, canCloneRepository: true, onCloneRepository: vi.fn() });
+    expect(rowLabels()).toEqual(["Open folder…", "Clone repository…", "Create worktree…"]);
+    openFolderMenu();
+    expect(menuLabels()).toEqual([
+      "Create workspace…",
+      "Resume a session…",
+      "Manage agents",
+      "deck",
+      "api",
+    ]);
   });
 
-  it("does not open More while a launch is pending", () => {
+  it("omits the actions a host cannot do", () => {
+    mount({
+      promptStaging: false,
+      canCreateWorkspace: false,
+      canCreateWorktree: false,
+      canBrowseSessions: false,
+    });
+    expect(rowLabels()).toEqual(["Open folder…"]);
+    openFolderMenu();
+    expect(menuLabels().slice(0, 1)).toEqual(["Manage agents"]);
+  });
+
+  it("disables the row while a launch is pending and keeps the folder menu shut", () => {
     mount({ promptStaging: false, pending: "opening-agent" });
-    const menu = host.querySelector<HTMLDetailsElement>(".nt-board__more")!;
-    menu.querySelector("summary")!.click();
-    expect(menu.open).toBe(false);
-    expect(Array.from(menu.querySelectorAll("button")).every((button) => button.disabled)).toBe(
-      true,
+    const buttons = Array.from(
+      host.querySelectorAll<HTMLButtonElement>(".nt-agent-launcher__action"),
     );
+    expect(buttons.length).toBeGreaterThan(0);
+    expect(buttons.every((button) => button.disabled)).toBe(true);
+    act(() => host.querySelector<HTMLButtonElement>(".nt-workspace-picker__trigger")!.click());
+    expect(host.querySelector(".nt-workspace-picker__menu")).toBeNull();
   });
 });

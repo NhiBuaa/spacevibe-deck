@@ -92,6 +92,11 @@ export interface TabManagerDeps extends TerminalManagerDeps {
    */
   onToggleSettings?: () => void;
   /**
+   * The File menu's "Clone Repository…": App opens the Open Board on its Clone
+   * form, because App owns every overlay's open flow. Missing = no-op.
+   */
+  onCloneRepository?: () => void;
+  /**
    * ⌘⇧U (`toggle-usage`) and the menu's "Token Usage" item route here rather
    * than reaching into the dock directly — the same reason `onToggleSettings`
    * above exists. App owns the reveal+focus-return flow for every surface it

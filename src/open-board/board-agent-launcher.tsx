@@ -1,10 +1,65 @@
+import {
+  ClockCounterClockwise,
+  DownloadSimple,
+  FolderPlus,
+  Gear,
+  GitBranch,
+} from "@phosphor-icons/react";
 import { AgentLaunchCards } from "../launcher/agent-launch-cards";
 import { launcherPendingLabel } from "../launcher/launcher-fields";
 import { quickAgentOptions } from "../settings/quick-agents";
 import { settings } from "../settings/settings-store";
 import type { BoardComposerProps } from "./board-composer";
-import { WorkspacePicker } from "./workspace-picker";
+import { DeckIcon, ROW_ICON } from "../ui/controls/deck-icon";
+import { WorkspacePicker, type WorkspacePickerAction } from "./workspace-picker";
 import "./board-agent-launcher.css";
+
+/** The three actions people reach for most, shown as buttons beside the folder bar. */
+const PROMOTED_ACTIONS: readonly string[] = ["open-folder", "clone-repository", "create-worktree"];
+
+/**
+ * Every workspace action the board offers, in menu order; a host that cannot do
+ * one omits it (DL-19.7). The promoted ones become buttons, the rest stay in the
+ * folder menu.
+ */
+function boardActions(props: BoardComposerProps): readonly WorkspacePickerAction[] {
+  return [
+    { id: "open-folder", label: "Open folder…", icon: FolderPlus, onActivate: props.onPickFolder },
+    props.canCreateWorkspace
+      ? {
+          id: "create-workspace",
+          label: "Create workspace…",
+          icon: FolderPlus,
+          onActivate: props.onCreateWorkspace,
+        }
+      : null,
+    props.canCloneRepository === true && props.onCloneRepository !== undefined
+      ? {
+          id: "clone-repository",
+          label: "Clone repository…",
+          icon: DownloadSimple,
+          onActivate: props.onCloneRepository,
+        }
+      : null,
+    props.canCreateWorktree
+      ? {
+          id: "create-worktree",
+          label: "Create worktree…",
+          icon: GitBranch,
+          onActivate: props.onCreateWorktree,
+        }
+      : null,
+    props.canBrowseSessions
+      ? {
+          id: "resume-session",
+          label: "Resume a session…",
+          icon: ClockCounterClockwise,
+          onActivate: props.onBrowseSessions,
+        }
+      : null,
+    { id: "manage-agents", label: "Manage agents", icon: Gear, onActivate: props.onManageAgents },
+  ].filter((action): action is WorkspacePickerAction => action !== null);
+}
 
 /**
  * Workspace selection is separate from the explicit Run on each agent. The
@@ -16,25 +71,48 @@ export function BoardAgentLauncher(props: BoardComposerProps) {
   const busy = props.pending !== null;
   const workspace = props.draft.workspacePath;
   const runnable = props.agents.filter((agent) => !agent.missing);
+  const actions = boardActions(props);
+  const promoted = PROMOTED_ACTIONS.flatMap((id) => actions.filter((action) => action.id === id));
+  const menuActions = actions.filter((action) => !PROMOTED_ACTIONS.includes(action.id));
   const cards = [
     ...quickAgentOptions(props.agents, settings.value.quickAgentIds),
     ...props.agents.filter((agent) => agent.missing),
   ];
   return (
     <section class="nt-agent-launcher" aria-label="Choose an agent">
-      <div class="nt-agent-launcher__destination">
-        <WorkspacePicker
-          value={workspace}
-          paths={props.alive.map((recent) => recent.path)}
-          homeDir={props.homeDir}
-          disabled={busy}
-          onSelect={props.onSelectWorkspace}
-          onPickFolder={props.onPickFolder}
-        />
-        {/* Only a host that resolves dropped paths promises the drop. */}
-        {props.canDropFolder ? (
-          <span class="nt-agent-launcher__hint">or drop a folder here</span>
-        ) : null}
+      <div class="nt-agent-launcher__bar">
+        <div class="nt-agent-launcher__destination">
+          <WorkspacePicker
+            value={workspace}
+            paths={props.alive.map((recent) => recent.path)}
+            homeDir={props.homeDir}
+            disabled={busy}
+            onSelect={props.onSelectWorkspace}
+            onPickFolder={props.onPickFolder}
+            actions={menuActions}
+            hideOpenFolder
+          />
+          {/* Only a host that resolves dropped paths promises the drop. */}
+          {props.canDropFolder ? (
+            <span class="nt-agent-launcher__hint">or drop a folder here</span>
+          ) : null}
+        </div>
+        <div class="nt-agent-launcher__actions" role="group" aria-label="Workspace actions">
+          {promoted.map((action) => (
+            <button
+              key={action.id}
+              type="button"
+              class="nt-agent-launcher__action"
+              disabled={busy}
+              title={action.label}
+              aria-label={action.label}
+              onClick={action.onActivate}
+            >
+              <DeckIcon icon={action.icon} size={ROW_ICON} />
+              <span>{action.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
       {!props.agentsResolved ? <p role="status">Looking for installed agents…</p> : null}
       {props.agentsResolved && runnable.length === 0 ? (

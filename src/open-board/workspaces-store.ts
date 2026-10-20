@@ -13,6 +13,7 @@ import { reportPersistError } from "../chrome/events";
 
 const STORE_FILE = "workspaces.json";
 const STORE_KEY = "workspaces";
+const CLONE_PARENT_KEY = "cloneParent";
 
 export const workspacesData = signal<WorkspacesData>({
   version: WORKSPACES_VERSION,
@@ -20,6 +21,7 @@ export const workspacesData = signal<WorkspacesData>({
 });
 
 let store: Store | null = null;
+let cloneParent: string | null = null;
 
 /** Load recents at startup — on failure fall back to empty, app keeps running. */
 export async function initWorkspaces(): Promise<void> {
@@ -27,6 +29,8 @@ export async function initWorkspaces(): Promise<void> {
     store = await Store.load(STORE_FILE, { defaults: {}, autoSave: false });
     const raw = await store.get<unknown>(STORE_KEY);
     workspacesData.value = validateWorkspaces(raw);
+    const parent = await store.get<unknown>(CLONE_PARENT_KEY);
+    cloneParent = typeof parent === "string" && parent !== "" ? parent : null;
   } catch (err) {
     console.warn("Failed to load workspace recents, starting empty:", err);
   }
@@ -45,6 +49,40 @@ export function recordWorkspaceOpen(path: string, presetId?: string, agent?: Age
   };
   workspacesData.value = next;
   persist(next, "Recent folder wasn't saved");
+}
+
+/**
+ * `recordWorkspaceOpen` for a folder Deck just created (a clone): resolves only
+ * after the write reached disk and rejects when it did not, because the clone
+ * form must keep the finished checkout and offer a retry rather than guess.
+ * The signal is updated first like every writer here, so a retry is idempotent:
+ * the path is already the head of Recents and only the write repeats.
+ */
+export function addWorkspaceDurably(path: string): Promise<void> {
+  const next: WorkspacesData = {
+    version: WORKSPACES_VERSION,
+    recents: pushRecent(workspacesData.value.recents, path, Date.now()),
+  };
+  workspacesData.value = next;
+  return persistDurably(next);
+}
+
+/** The parent folder of the last successful clone, from the previous run or this one. */
+export function lastCloneParent(): string | null {
+  return cloneParent;
+}
+
+export function rememberCloneParent(parent: string): void {
+  cloneParent = parent;
+  if (!store) {
+    return; // a convenience, not data: no persist-error bar for it
+  }
+  store
+    .set(CLONE_PARENT_KEY, parent)
+    .then(() => store?.save())
+    .catch((err: unknown) => {
+      console.warn("Failed to save the clone parent folder:", err);
+    });
 }
 
 /**
@@ -67,17 +105,24 @@ export function removeWorkspaceRecents(paths: readonly string[]): void {
 /** Write-behind only — callers update the signal first, and it stays the
  * source of truth for the session even when the write below fails. */
 function persist(next: WorkspacesData, failure: string): void {
+  persistDurably(next).catch((err: unknown) => {
+    console.warn("Failed to save workspace recents:", err);
+    reportPersistError(
+      err instanceof StorageUnavailableError
+        ? `${failure} (storage unavailable)`
+        : `${failure} to disk`,
+    );
+  });
+}
+
+class StorageUnavailableError extends Error {}
+
+/** The write `persist` fires and forgets, with its outcome left to the caller. */
+function persistDurably(next: WorkspacesData): Promise<void> {
   if (!store) {
-    reportPersistError(`${failure} (storage unavailable)`);
-    return;
+    return Promise.reject(new StorageUnavailableError("workspace storage is unavailable"));
   }
-  store
-    .set(STORE_KEY, next)
-    .then(() => store?.save())
-    .catch((err: unknown) => {
-      console.warn("Failed to save workspace recents:", err);
-      reportPersistError(`${failure} to disk`);
-    });
+  return store.set(STORE_KEY, next).then(() => store?.save());
 }
 
 /**

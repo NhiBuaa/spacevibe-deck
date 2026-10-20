@@ -39,7 +39,7 @@
    600 or 700 title, or beside nothing heavier, so the title stays distinct
    (DL-13.8's title over detail, DL-27.23's branch under the project). */
 .window--windows .nt-workspace-picker__menu button,
-.window--windows .nt-board__more,
+.window--windows .nt-agent-launcher__action,
 .window--windows .asr-wt__name,
 .window--windows .asr-row__name strong,
 .window--windows .asr-row__age,

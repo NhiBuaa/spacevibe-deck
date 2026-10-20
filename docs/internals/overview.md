@@ -43,6 +43,7 @@ keeps two processes from sharing one `userData`.
 | `electron/updater/`    | electron-updater lifecycle and the cross-window check flight                     |
 | `electron/telemetry/`  | Consent state, day buffers, the daily POST                                       |
 | `electron/git.ts`, `worktrees.ts`, `git/worktree.ts` | `git_branch`, repository scans, `git worktree add` via `execFile` |
+| `electron/git/clone.ts` | `git clone` jobs owned by the window that started them: progress, cancellation, leftovers |
 | `electron/agents.ts`, `links.ts`, `external-apps.ts`, `images.ts`, `prompt-assets.ts`, `github-star.ts`, `themes.ts` | Discovery, path resolution, external apps, images, prompt assets, `gh`, the themes folder |
 | `electron/ipc/`        | The channel table and one `register-*.ts` per service                            |
 

@@ -175,6 +175,8 @@ import { createUpdateController, type UpdateController } from "../updater/update
 import { activeUpdateController } from "../updater/active-update-controller";
 import { appVersion, loadAppVersion } from "../updater/app-version";
 import { feedbackUrl, SEND_FEEDBACK_ACTION } from "../lib/feedback-url";
+import { available as cloneHostAvailable } from "../host/clone-host";
+import { cloneFormRequest, getCloneController } from "../open-board/clone-session";
 import { UpdateAction } from "../updater/update-action";
 // It answers the Electron host and fails soft in a browser preview.
 import {
@@ -489,6 +491,15 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
     toggleSettingsPanel(restoreFocusAfterSettings);
   };
 
+  /** File ▸ Clone Repository…: the Open Board, opened on its Clone form. */
+  const openCloneForm = (): void => {
+    if (!cloneHostAvailable) {
+      return;
+    }
+    cloneFormRequest.value += 1;
+    boardOpen.value = true;
+  };
+
   /**
    * Reveal a dock tab, and hand focus back to the pane only when the press
    * CLOSED the column. Shared by the toolbar, the menu, ⌘⇧U / ⌘⇧B and the
@@ -661,6 +672,16 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
   // (`recent-activity-sync.ts`), so a sentence in the sidebar is the one the
   // agent said last rather than the one it said at launch.
   useEffect(() => installRecentActivitySync(), []);
+  // The window's clone job outlives the Open Board, so its controller is
+  // attached here for the window's whole life, not when the board mounts.
+  useEffect(() => {
+    if (!cloneHostAvailable) {
+      return;
+    }
+    const controller = getCloneController();
+    void controller.init();
+    return () => controller.dispose();
+  }, []);
 
   // The rail's tails: a debounced sync that re-reads a pane's newest turn only
   // when that pane's state actually moved. Inert off Electron, and the install
@@ -695,6 +716,7 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
       onOpenTaskLauncher: openTaskLauncher,
       onRequestAttentionFocus: (tabIndex) => requestAttentionFocus(tabIndex),
       onToggleSettings: () => toggleSettings(),
+      onCloneRepository: openCloneForm,
       onToggleUsage: () => toggleUsage(),
       onOpenUsage: () => openUsage(),
       onToggleMissionControl: () => missionControlRef.current.toggle(),

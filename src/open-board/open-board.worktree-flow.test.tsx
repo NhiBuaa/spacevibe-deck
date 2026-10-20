@@ -102,6 +102,20 @@ describe("OpenBoard create-worktree flow", () => {
     resetDesktopEnvironmentForTests();
   });
 
+  /** The row's buttons plus the folder menu's rows (opened first): where every workspace action lives. */
+  const pickerButtons = async (): Promise<HTMLButtonElement[]> => {
+    if (host.querySelector(".nt-workspace-picker__menu") === null) {
+      await act(async () => {
+        host.querySelector<HTMLButtonElement>(".nt-workspace-picker__trigger")?.click();
+      });
+    }
+    return [
+      ...host.querySelectorAll<HTMLButtonElement>(
+        ".nt-agent-launcher__action, .nt-workspace-picker__menu button",
+      ),
+    ];
+  };
+
   const mount = async (): Promise<void> => {
     await act(async () => {
       render(
@@ -129,18 +143,16 @@ describe("OpenBoard create-worktree flow", () => {
 
   it("shows Create worktree on the home view when the host capability is available", async () => {
     await mount();
-    expect(
-      [...host.querySelectorAll(".nt-board__more-actions button")].some((el) =>
-        el.textContent?.includes("Create worktree"),
-      ),
-    ).toBe(true);
+    expect((await pickerButtons()).some((el) => el.textContent?.includes("Create worktree"))).toBe(
+      true,
+    );
   });
 
   it("opens the worktree form and prefills the destination from repo + branch", async () => {
     seed(["/Users/dev/deck"]);
     await mount();
 
-    const createButton = [...host.querySelectorAll(".nt-board__more-actions button")].find((el) =>
+    const createButton = (await pickerButtons()).find((el) =>
       el.textContent?.includes("Create worktree"),
     ) as HTMLButtonElement;
     await act(async () => {
@@ -167,7 +179,7 @@ describe("OpenBoard create-worktree flow", () => {
     seed(["/Users/dev/deck"]);
     await mount();
 
-    const createButton = [...host.querySelectorAll(".nt-board__more-actions button")].find((el) =>
+    const createButton = (await pickerButtons()).find((el) =>
       el.textContent?.includes("Create worktree"),
     ) as HTMLButtonElement;
     await act(async () => {
@@ -201,7 +213,7 @@ describe("OpenBoard create-worktree flow", () => {
     });
     await mount();
 
-    const createButton = [...host.querySelectorAll(".nt-board__more-actions button")].find((el) =>
+    const createButton = (await pickerButtons()).find((el) =>
       el.textContent?.includes("Create worktree"),
     ) as HTMLButtonElement;
     await act(async () => {
@@ -240,7 +252,7 @@ describe("OpenBoard create-worktree flow", () => {
     });
     await mount();
 
-    const createButton = [...host.querySelectorAll(".nt-board__more-actions button")].find((el) =>
+    const createButton = (await pickerButtons()).find((el) =>
       el.textContent?.includes("Create worktree"),
     ) as HTMLButtonElement;
     await act(async () => {
@@ -272,7 +284,7 @@ describe("OpenBoard create-worktree flow", () => {
   it("Escape in the worktree view returns home before it cancels the board", async () => {
     await mount();
 
-    const createButton = [...host.querySelectorAll(".nt-board__more-actions button")].find((el) =>
+    const createButton = (await pickerButtons()).find((el) =>
       el.textContent?.includes("Create worktree"),
     ) as HTMLButtonElement;
     await act(async () => {

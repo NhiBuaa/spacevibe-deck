@@ -54,6 +54,7 @@ export const COMMAND_ACTIONS = [
   "focus-right",
   "focus-up",
   "move-pane-to-new-window",
+  "clone-repository",
   "new-preset",
   "new-tab",
   "next-tab",

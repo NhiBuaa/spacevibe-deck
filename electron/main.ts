@@ -68,7 +68,8 @@ import { registerShell } from "./ipc/register-shell";
 import { registerUpdater } from "./ipc/register-updater";
 import { registerTelemetry } from "./ipc/register-telemetry";
 import { registerAccount } from "./ipc/register-account";
-import { createUnavailableCloneService, registerClone } from "./ipc/register-clone";
+import { registerClone } from "./ipc/register-clone";
+import { createCloneService } from "./git/clone";
 import { registerDevServers } from "./ipc/register-dev-servers";
 import { registerChanges } from "./ipc/register-changes";
 import { registerAgentSignals } from "./ipc/register-agent-signals";
@@ -560,7 +561,7 @@ registerAccount({ userData: app.getPath("userData"), windows, emitTo });
 // Clone & add workspace (plan 2026-10-20-clone-workspace-mvp). A job belongs to
 // the window that started it: closing the window cancels it, and a committed
 // quit (`will-quit`, never the cancelable `before-quit`) cancels all of them.
-const cloneService = createUnavailableCloneService();
+const cloneService = createCloneService();
 registerClone({ service: cloneService, labelOf, emitTo });
 app.once("will-quit", () => void cloneService.dispose());
 // `app.exit()` skips `will-quit`; the service signals its children synchronously.

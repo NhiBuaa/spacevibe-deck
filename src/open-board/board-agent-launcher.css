@@ -12,10 +12,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   margin-bottom: 18px;
-  padding: 12px 16px;
-  border-radius: var(--radius-surface);
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--chrome-1) 65%, var(--bg));
   box-shadow: inset 0 0 0 1px var(--hair);
 }
@@ -37,6 +39,11 @@
   background: transparent;
   font: 550 var(--type-body)/1.4 var(--ui-font);
   cursor: pointer;
+}
+/* The board's folder bar is a compact control: the trigger fills it and reads at meta size. */
+.nt-agent-launcher__destination .nt-workspace-picker__trigger {
+  padding: 0;
+  font-size: var(--type-meta);
 }
 .nt-workspace-picker__trigger > span,
 .nt-workspace-picker__name,
@@ -116,67 +123,54 @@
   font-size: var(--type-body);
   color: var(--text-muted);
 }
-/* DL-13.1 / DL-32.1: secondary actions stay behind one quiet disclosure. */
-.nt-board__more {
-  position: relative;
-  width: fit-content;
-  margin: 14px 0 0 auto;
-  font: 450 var(--type-meta)/1.4 var(--ui-font);
+/* The bars above the agent cards fit a share of the column instead of spanning it. */
+.nt-board--agents .nt-last-session {
+  box-sizing: border-box;
+  width: 60%;
+  min-width: min(100%, 340px);
 }
-.nt-board__more summary {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 0 6px 8px;
-  border-radius: var(--radius-control);
-  color: var(--text-muted);
-  cursor: pointer;
-  list-style: none;
-}
-.nt-board__more summary::-webkit-details-marker {
-  display: none;
-}
-.nt-board__more summary:hover,
-.nt-board__more[open] summary {
-  color: var(--text-primary);
-}
-.nt-board__more summary[aria-disabled="true"] {
-  opacity: 0.5;
-  cursor: default;
-}
-.nt-board__more-actions {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 4px);
-  z-index: 2;
-  display: grid;
-  gap: 2px;
-  width: min(240px, calc(100cqw - 48px));
-  padding: 5px;
-  border-radius: var(--radius-surface);
-  color: var(--text-primary);
-  background: var(--chrome-2);
-  box-shadow: inset 0 0 0 1px var(--seam-raised);
-}
-.nt-board__more-actions button {
+/* The folder bar and the three most-used actions share one row. */
+.nt-agent-launcher__bar {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-bottom: 18px;
+}
+.nt-agent-launcher__bar > .nt-agent-launcher__destination {
+  flex: 1 1 0;
   min-width: 0;
-  padding: 9px 10px;
+  margin-bottom: 0;
+}
+.nt-agent-launcher__actions {
+  display: flex;
+  flex: none;
+  gap: 6px;
+}
+/* Compact controls, a step below the agent cards they sit above. */
+.nt-agent-launcher__action {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
   border: 0;
   border-radius: var(--radius-control);
+  color: var(--text-muted);
   background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
+  box-shadow: inset 0 0 0 1px var(--hair);
+  font: 450 var(--type-meta)/1 var(--ui-font);
+  white-space: nowrap;
   cursor: pointer;
 }
-.nt-board__more-actions button:hover:not(:disabled) {
+.nt-agent-launcher__action:hover:not(:disabled) {
+  color: var(--text-primary);
   background: var(--state-hover-bg);
 }
-.nt-board__more summary:focus-visible,
-.nt-board__more-actions button:focus-visible {
+.nt-agent-launcher__action:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.nt-agent-launcher__action:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -227,7 +221,21 @@
   background: var(--chrome-2);
   pointer-events: none;
 }
+@container (max-width: 760px) {
+  .nt-agent-launcher__action > span {
+    display: none;
+  }
+  .nt-agent-launcher__action {
+    padding: 0 9px;
+  }
+}
 @container (max-width: 440px) {
+  .nt-agent-launcher__bar {
+    flex-direction: column;
+  }
+  .nt-agent-launcher__actions {
+    flex-wrap: wrap;
+  }
   .nt-agent-launcher__destination {
     align-items: flex-start;
     flex-direction: column;

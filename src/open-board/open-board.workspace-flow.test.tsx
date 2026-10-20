@@ -63,6 +63,20 @@ describe("OpenBoard create-workspace flow", () => {
     resetDesktopEnvironmentForTests();
   });
 
+  /** The row's buttons plus the folder menu's rows (opened first): where every workspace action lives. */
+  const pickerButtons = async (): Promise<HTMLButtonElement[]> => {
+    if (host.querySelector(".nt-workspace-picker__menu") === null) {
+      await act(async () => {
+        host.querySelector<HTMLButtonElement>(".nt-workspace-picker__trigger")?.click();
+      });
+    }
+    return [
+      ...host.querySelectorAll<HTMLButtonElement>(
+        ".nt-agent-launcher__action, .nt-workspace-picker__menu button",
+      ),
+    ];
+  };
+
   const mount = async (): Promise<void> => {
     await act(async () => {
       render(
@@ -91,9 +105,9 @@ describe("OpenBoard create-workspace flow", () => {
   it("opens the create-workspace subview from the composer", async () => {
     await mount();
 
-    const trigger = [
-      ...host.querySelectorAll<HTMLButtonElement>(".nt-board__more-actions button"),
-    ].find((button) => button.textContent?.includes("Create workspace"));
+    const trigger = (await pickerButtons()).find((button) =>
+      button.textContent?.includes("Create workspace"),
+    );
     await act(async () => trigger?.click());
 
     expect(host.querySelector(".nt-create-workspace")).not.toBeNull();
@@ -103,9 +117,9 @@ describe("OpenBoard create-workspace flow", () => {
   it("creates, selects the folder, and returns to the composer", async () => {
     createWorkspaceMock.mockResolvedValue({ path: "/Users/dev/sandbox" });
     await mount();
-    const trigger = [
-      ...host.querySelectorAll<HTMLButtonElement>(".nt-board__more-actions button"),
-    ].find((button) => button.textContent?.includes("Create workspace"));
+    const trigger = (await pickerButtons()).find((button) =>
+      button.textContent?.includes("Create workspace"),
+    );
     await act(async () => trigger?.click());
 
     const name = host.querySelector<HTMLInputElement>('input[aria-label="Folder name"]');

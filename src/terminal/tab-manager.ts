@@ -2658,6 +2658,7 @@ export function createTabManager(
     // the close+focus-return flow it already owns for every other overlay.
     // Missing `onToggleSettings` = safe no-op, never a direct write.
     "toggle-settings": () => deps.onToggleSettings?.(),
+    "clone-repository": () => deps.onCloneRepository?.(),
     // Seam style, like `toggle-settings` above and unlike `toggle-prompts`
     // below: this one opens a full-window surface that must close Settings,
     // return focus on Escape, and refuse to open under a modal draft. All

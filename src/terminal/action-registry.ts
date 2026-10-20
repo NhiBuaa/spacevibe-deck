@@ -202,6 +202,14 @@ export const ACTION_REGISTRY = [
     menu: { submenu: "File", group: "primary" },
   },
   {
+    // Opens the Open Board on its Clone form; intercepted by App like
+    // `send-feedback`, so it never reaches TabManager and no chord exists.
+    id: "clone-repository",
+    label: "Clone Repository…",
+    scope: "board",
+    menu: { submenu: "File", group: "primary" },
+  },
+  {
     id: "new-preset",
     label: "New Layout Preset…",
     // Moved from the Window menu to File (HIG: File owns create/save

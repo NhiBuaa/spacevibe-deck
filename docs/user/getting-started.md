@@ -27,13 +27,22 @@ macOS or `%APPDATA%\dev.spacevibe.deck` on Windows. Electron uses a separate
 
 ## First launch
 
-Deck opens on the **Open board**, the start surface. It offers:
+Deck opens on the **Open board**, the start surface. Beside the folder bar sit three buttons for
+the most common ways to start: **Open folder…**, **Clone repository…** and **Create worktree…**.
+The folder bar's menu holds **Create workspace…**, **Resume a session…** and **Manage agents**
+above your recent folders. The board offers:
 
 - **Open workspace…** — pick a folder. A workspace is a local folder that becomes the working
   root for a tab.
 - **Recent workspaces** — selecting a folder fills the workspace and agent choices.
   Review the selected agent, then choose **Open agent** to launch it. A folder that has
   disappeared from disk cannot be opened.
+- **Clone repository…** — paste a GitHub repository (`owner/repo`, an HTTPS or SSH URL), choose
+  where it goes, and Deck clones it with your own Git credentials and adds it as a workspace.
+  Progress shows in the form and you can cancel; closing the form does not stop the clone.
+  It needs Git installed, clones the default branch with its full history, and leaves
+  submodules and dependencies alone. The same entry is on the File menu. Starting an agent in
+  the new workspace stays a separate step.
 - **Create worktree…** — for a git repository, create a new git worktree on a new branch and
   open it. Worktree and branch are one choice: Deck never offers a branch without its
   worktree.

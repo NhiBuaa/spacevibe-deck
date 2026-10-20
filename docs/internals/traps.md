@@ -88,6 +88,15 @@ constants that currently switch behaviour off and are meant to be flipped back.
   all three after interruption. Do not turn a registered worktree into success
   without checking its files, and do not add automatic cleanup or force retries:
   the remaining checkout may contain user work.
+- **A clone job belongs to the window that started it, and a failed clone is not cleaned up.**
+  [`registerClone`](../../electron/ipc/register-clone.ts) takes the owner from the sending
+  window, never from the payload. [The service](../../electron/git/clone.ts) kills the whole git
+  process group when that window closes or the app quits; the quit signal also runs from
+  `process.on("exit")`, where only the synchronous SIGTERM can happen. A failed or cancelled
+  clone reports `leftoverPath` and deletes nothing: the folder may hold a partial checkout the
+  user wants to inspect. The destination is `parent/name` as chosen, not a `realpath`; only the
+  destination lock is keyed on the real path. If the clone succeeds but the workspace cannot be
+  saved, the checkout stays and the form offers only "Retry adding workspace", never a second clone.
 - **A store that cannot be read is write-locked.** Do not "fix" an unreadable file by
   writing defaults over it; the lock exists so recoverable bytes survive.
 - **`CHANGELOG.md` is machine-read** by the release workflow. Its `## <version>` headings and

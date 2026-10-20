@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CloneJob, CloneService } from "../../src/lib/clone-contract";
 import { PROGRESS_SEQUENCE, SUCCEEDED } from "../../src/lib/clone-fixtures";
-import { createUnavailableCloneService, registerClone } from "./register-clone";
+import { registerClone } from "./register-clone";
 
 const mocks = vi.hoisted(() => ({
   handlers: new Map<string, (event: unknown, payload?: unknown) => Promise<unknown>>(),
@@ -81,16 +81,5 @@ describe("registerClone", () => {
     fake.push("deck-2", PROGRESS_SEQUENCE[0]);
     expect(emitTo).toHaveBeenCalledTimes(1);
     expect(emitTo).toHaveBeenCalledWith("deck-2", "clone:changed", PROGRESS_SEQUENCE[0]);
-  });
-});
-
-describe("createUnavailableCloneService", () => {
-  it("answers job-unavailable and has nothing to release", async () => {
-    const service = createUnavailableCloneService();
-    await expect(
-      service.start("main", { requestId: "r", repository: "o/r", parent: "/p", name: "n" }),
-    ).resolves.toEqual({ ok: false, error: "job-unavailable" });
-    expect(service.status("main")).toBeNull();
-    await expect(service.dispose()).resolves.toBeUndefined();
   });
 });

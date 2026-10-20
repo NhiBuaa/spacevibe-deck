@@ -1,14 +1,13 @@
 import {
-  CaretDown,
   ClockCounterClockwise,
+  DownloadSimple,
   FolderOpen,
   FolderPlus,
-  Gear,
   GitBranch,
   X,
 } from "@phosphor-icons/react";
 import { useSignal } from "@preact/signals";
-import { useEffect, useRef } from "preact/hooks";
+import { useRef } from "preact/hooks";
 import { hasPrimaryModifier } from "../lib/platform";
 import { tildify } from "../lib/process-info";
 import { workspaceLabel } from "../lib/workspace-label";
@@ -32,6 +31,9 @@ export interface BoardComposerProps extends Omit<
   /** Electron-only; omitted, never shown inert (DL-19.7). */
   readonly canCreateWorktree: boolean;
   onCreateWorktree(): void;
+  /** Electron-only; omitted, never shown inert (DL-19.7). */
+  readonly canCloneRepository?: boolean;
+  onCloneRepository?(): void;
   /** Folders that still exist, newest first. */
   readonly alive: readonly RecentWorkspace[];
   /** Folders `dirs_exist` could not find — collapsed behind a count. */
@@ -79,30 +81,9 @@ function lastSessionMeta(offer: LastSessionOffer): string {
 
 export function BoardComposer(props: BoardComposerProps) {
   const rootRef = useRef<HTMLDivElement>(null);
-  const moreRef = useRef<HTMLDetailsElement>(null);
   const missingExpanded = useSignal(false);
   const busy = props.pending !== null;
   const staging = props.promptStaging ?? TASK_PROMPT_STAGING_ENABLED;
-
-  useEffect(() => {
-    const dismiss = (event: PointerEvent) => {
-      const menu = moreRef.current;
-      if (menu !== null && event.target instanceof Node && !menu.contains(event.target)) {
-        menu.open = false;
-      }
-    };
-    document.addEventListener("pointerdown", dismiss);
-    return () => document.removeEventListener("pointerdown", dismiss);
-  }, []);
-  useEffect(() => {
-    if (busy && moreRef.current !== null) moreRef.current.open = false;
-  }, [busy]);
-
-  function moreAction(action: () => void): void {
-    if (busy) return;
-    if (moreRef.current !== null) moreRef.current.open = false;
-    action();
-  }
 
   function focusPrompt(): void {
     // The row's whole job is to answer the Workspace field and hand the user
@@ -257,6 +238,11 @@ export function BoardComposer(props: BoardComposerProps) {
                 <DeckIcon icon={FolderPlus} size={ROW_ICON} /> Create workspace…
               </button>
             ) : null}
+            {props.canCloneRepository === true ? (
+              <button type="button" disabled={busy} onClick={props.onCloneRepository}>
+                <DeckIcon icon={DownloadSimple} size={ROW_ICON} /> Clone repository…
+              </button>
+            ) : null}
             {props.canCreateWorktree ? (
               <button type="button" disabled={busy} onClick={props.onCreateWorktree}>
                 <DeckIcon icon={GitBranch} size={ROW_ICON} /> Create worktree…
@@ -268,70 +254,7 @@ export function BoardComposer(props: BoardComposerProps) {
               </button>
             ) : null}
           </div>
-        ) : (
-          <details
-            class="nt-board__more"
-            ref={moreRef}
-            onKeyDownCapture={(event) => {
-              if (event.key !== "Escape" || !moreRef.current?.open) return;
-              event.preventDefault();
-              event.stopPropagation();
-              moreRef.current.open = false;
-              moreRef.current.querySelector("summary")?.focus();
-            }}
-            onFocusOut={(event) => {
-              const next = event.relatedTarget;
-              if (next instanceof Node && !event.currentTarget.contains(next)) {
-                event.currentTarget.open = false;
-              }
-            }}
-          >
-            <summary
-              aria-disabled={busy}
-              onClick={(event) => {
-                if (busy) event.preventDefault();
-              }}
-            >
-              More… <DeckIcon icon={CaretDown} size={ROW_ICON} />
-            </summary>
-            <div class="nt-board__more-actions" role="group" aria-label="More workspace actions">
-              {props.canCreateWorkspace ? (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => moreAction(props.onCreateWorkspace)}
-                >
-                  <DeckIcon icon={FolderPlus} size={ROW_ICON} /> Create workspace…
-                </button>
-              ) : null}
-              {props.canCreateWorktree ? (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => moreAction(props.onCreateWorktree)}
-                >
-                  <DeckIcon icon={GitBranch} size={ROW_ICON} /> Create worktree…
-                </button>
-              ) : null}
-              {props.canBrowseSessions ? (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => moreAction(props.onBrowseSessions)}
-                >
-                  <DeckIcon icon={ClockCounterClockwise} size={ROW_ICON} /> Resume a session…
-                </button>
-              ) : null}
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => moreAction(props.onManageAgents)}
-              >
-                <DeckIcon icon={Gear} size={ROW_ICON} /> Manage agents
-              </button>
-            </div>
-          </details>
-        )}
+        ) : null}
 
         {hasRecents ? (
           <div class="board-home__recents">

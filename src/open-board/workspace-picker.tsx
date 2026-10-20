@@ -1,9 +1,17 @@
-import { CaretDown, Check, Folder, FolderPlus } from "@phosphor-icons/react";
+import { CaretDown, Check, Folder, FolderPlus, type Icon } from "@phosphor-icons/react";
 import { useSignal } from "@preact/signals";
 import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { tildify } from "../lib/process-info";
 import { workspaceLabel } from "../lib/workspace-label";
 import { DeckIcon, ROW_ICON } from "../ui/controls/deck-icon";
+
+/** A row beside `Open folder…`: another way to reach a workspace or the board's other screens. */
+export interface WorkspacePickerAction {
+  readonly id: string;
+  readonly label: string;
+  readonly icon: Icon;
+  readonly onActivate: () => void;
+}
 
 interface WorkspacePickerProps {
   /** The selected folder; null prints the empty prompt. */
@@ -17,6 +25,10 @@ interface WorkspacePickerProps {
   /** Fills the Workspace field. NEVER launches. */
   readonly onSelect: (path: string) => void | Promise<void>;
   readonly onPickFolder: () => void;
+  /** Rows after `Open folder…`, at the same level and in the same menu. */
+  readonly actions?: readonly WorkspacePickerAction[];
+  /** The board shows `Open folder…` as a button of its own, so the menu leaves it out. */
+  readonly hideOpenFolder?: boolean;
 }
 
 const NAV_KEYS = new Set(["ArrowDown", "ArrowUp", "Home", "End"]);
@@ -141,15 +153,29 @@ export function WorkspacePicker(props: WorkspacePickerProps) {
       </button>
       {open.value && !props.disabled ? (
         <div class="nt-workspace-picker__menu" role="menu" aria-label="Choose a folder">
-          <button
-            type="button"
-            role="menuitem"
-            tabIndex={-1}
-            onClick={() => activate(props.onPickFolder)}
-          >
-            <DeckIcon icon={FolderPlus} size={ROW_ICON} />
-            <span class="nt-workspace-picker__name">Open folder…</span>
-          </button>
+          {props.hideOpenFolder === true ? null : (
+            <button
+              type="button"
+              role="menuitem"
+              tabIndex={-1}
+              onClick={() => activate(props.onPickFolder)}
+            >
+              <DeckIcon icon={FolderPlus} size={ROW_ICON} />
+              <span class="nt-workspace-picker__name">Open folder…</span>
+            </button>
+          )}
+          {props.actions?.map((action) => (
+            <button
+              key={action.id}
+              type="button"
+              role="menuitem"
+              tabIndex={-1}
+              onClick={() => activate(action.onActivate)}
+            >
+              <DeckIcon icon={action.icon} size={ROW_ICON} />
+              <span class="nt-workspace-picker__name">{action.label}</span>
+            </button>
+          ))}
           {paths.length > 0 ? (
             <div class="nt-workspace-picker__separator" role="separator" />
           ) : null}

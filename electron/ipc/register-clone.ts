@@ -26,19 +26,6 @@ function text(value: unknown): string | null {
 
 const INVALID_INPUT: CloneResult = { ok: false, error: "invalid-input" };
 
-/** Stands in until the real service is registered: every start reports the capability absent. */
-export function createUnavailableCloneService(): CloneService {
-  const unavailable: CloneResult = { ok: false, error: "job-unavailable" };
-  return {
-    start: async () => unavailable,
-    status: () => null,
-    cancel: async () => unavailable,
-    onChanged: () => () => {},
-    releaseOwner: async () => {},
-    dispose: async () => {},
-  };
-}
-
 export function registerClone(deps: RegisterCloneDeps): void {
   const { service } = deps;
   service.onChanged((owner: string, job: CloneJob) => {

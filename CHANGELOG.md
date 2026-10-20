@@ -25,6 +25,14 @@ the release PR, and frozen at the tag — never an auto-generated commit list.
 - **Busy-work checks recognize shell scripts.** [Process classification](electron/platform/classify.ts)
   keeps shell workloads in the close warning, and [Windows process selection](electron/platform/windows.ts)
   rejects stale parent-child relationships after PID reuse.
+- **Clone a GitHub repository from Deck.** **Clone repository…** on the Open board and in the
+  File menu takes `owner/repo` or an HTTPS or SSH link, clones it with your own Git
+  credentials, shows progress with a Cancel, and adds the folder as a workspace. Nothing
+  starts automatically: submodules stay uninitialized (Deck says so) and no agent runs.
+- **The Open board puts the common actions in a row.** **Open folder…**, **Clone repository…**
+  and **Create worktree…** are buttons beside the folder bar; **Create workspace…**, **Resume a
+  session…** and **Manage agents** moved from **More…** into the folder bar's menu. The folder
+  bar and the last-session banner no longer span the whole window.
 
 ## 2.12.1
 

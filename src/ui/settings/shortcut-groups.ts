@@ -101,6 +101,7 @@ const PLACEMENT: Readonly<Record<string, ShortcutGroupId>> = {
   "toggle-markdown-view": "files",
 
   "toggle-settings": "app",
+  "clone-repository": "app",
   "toggle-prompts": "app",
   // "app", not "panes": the panel is a surface of the window like Settings and
   // the Prompt Board, not something that acts on the focused pane.

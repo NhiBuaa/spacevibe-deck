@@ -23,6 +23,10 @@ import type { SessionEntry } from "../lib/session-history";
 import { formatShortcutBinding } from "../lib/shortcut-label";
 import { BoardComposer, type LastSessionOffer } from "./board-composer";
 import { CreateWorkspaceForm } from "./create-workspace-form";
+import { CloneWorkspaceForm } from "./clone-workspace-form";
+import { getCloneController } from "./clone-session";
+import { useCloneBoard } from "./use-clone-board";
+import { available as cloneAvailable } from "../host/clone-host";
 import { OpenBoardWorktreeForm } from "./open-board-worktree-form";
 import { available as worktreeHostAvailable } from "../host/worktree-host";
 import {
@@ -98,10 +102,10 @@ export interface OpenBoardProps {
 }
 
 /**
- * Home composes a task. Workspace and worktree are destination-creation
+ * Home composes a task. Workspace, clone and worktree are destination-creation
  * subviews that return to that same draft without starting a process.
  */
-type BoardView = "home" | "sessions" | "workspace" | "worktree";
+type BoardView = "home" | "sessions" | "workspace" | "clone" | "worktree";
 
 function agentLabel(id: string, customAgents: readonly CustomAgent[]): string {
   const builtin = BUILTIN_AGENTS.find((agent) => agent.id === id);
@@ -391,6 +395,11 @@ export function OpenBoard({
     view.value = "workspace";
   }
 
+  function openCloneForm(): void {
+    notice.value = null;
+    view.value = "clone";
+  }
+
   async function pickWorkspaceParent(): Promise<string | null> {
     return open({ directory: true, multiple: false });
   }
@@ -497,6 +506,13 @@ export function OpenBoard({
     const starred = settings.value.defaultAgent;
     return runs(starred) ? (starred as string) : (runnable[0]?.id ?? null);
   }
+
+  useCloneBoard({
+    openForm: openCloneForm,
+    isFormOpen: () => view.value === "clone",
+    leaveForm: goHome,
+    selectWorkspace,
+  });
 
   function removeRecentRows(paths: readonly string[]): void {
     if (paths.length === 0) {
@@ -674,6 +690,17 @@ export function OpenBoard({
             />
           </div>
         </main>
+      ) : view.value === "clone" ? (
+        <main class="nt-board">
+          <div class="nt-board__content nt-board__content--subview">
+            <CloneWorkspaceForm
+              controller={getCloneController()}
+              home={home}
+              onPickParent={pickWorkspaceParent}
+              onBack={goHome}
+            />
+          </div>
+        </main>
       ) : view.value === "worktree" ? (
         <OpenBoardWorktreeForm
           recents={recents}
@@ -711,6 +738,7 @@ export function OpenBoard({
           homeDir={home}
           openFolderShortcut={openFolderShortcut}
           canCreateWorkspace={workspaceCreateAvailable}
+          canCloneRepository={cloneAvailable}
           canCreateWorktree={worktreeHostAvailable}
           canBrowseSessions={canBrowseSessions}
           alive={groups.alive}
@@ -737,6 +765,7 @@ export function OpenBoard({
           draggingFolder={folderDrop.dragging}
           onPickFolder={() => void pickFolder()}
           onCreateWorkspace={openWorkspaceForm}
+          onCloneRepository={openCloneForm}
           onCreateWorktree={openWorktreeForm}
           onManageAgents={onManageAgents}
           onBrowseSessions={openSessions}

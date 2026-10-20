@@ -1,0 +1,54 @@
+/* Clone repository form. It reuses the Create workspace frame (`18-new-task-launcher.css`); only the
+   progress rows and the error line are new. Weights stay on the static
+   400 / 600 ladder, so the Windows ledger owes nothing here. */
+
+.nt-clone__status {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  color: var(--text-primary);
+  font: 600 var(--type-body) / 1.4 var(--ui-font);
+}
+
+.nt-clone__percent {
+  color: var(--text-muted);
+  font: 400 var(--type-meta) / 1.4 var(--ui-font);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The fill scales rather than resizes: DL-1.2 allows `transform`, not `width`.
+   An unknown percent draws an empty track, because DL-1.2 allows no idle loop. */
+.nt-clone__bar {
+  height: 4px;
+  overflow: hidden;
+  border-radius: var(--radius-tight);
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+}
+
+.nt-clone__fill {
+  display: block;
+  height: 100%;
+  background: var(--text-muted);
+  transform-origin: left center;
+  transition: transform var(--duration) var(--ease);
+}
+
+.nt-create-workspace__body .nt-clone__problem {
+  margin: 0;
+  color: var(--red);
+}
+
+.nt-create-workspace__body .nt-clone__path {
+  display: block;
+  color: var(--text-muted);
+  font: 400 var(--type-body) / 1.4 var(--ui-font);
+  overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nt-clone__fill {
+    transition: none;
+  }
+}
