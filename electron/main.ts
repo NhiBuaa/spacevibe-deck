@@ -75,20 +75,12 @@ import { createCodexCapabilities } from "./agent-shell/codex-capabilities";
 import { hooksSupported } from "./agent-hooks/hooks-supported";
 import { installAppImagePolicy } from "./app-image-policy";
 import { installBrowserSessionPolicy } from "./network-policy";
+import { configureAppIdentity } from "./app-identity";
 
-// Isolate app name and userData from upstream SpaceVibe Deck installations.
-const testUserData = process.env.DECK_TEST_USERDATA;
-const isDev = !app.isPackaged;
-app.name = "SpaceDeck Local";
-if (isDev) {
-  app.name = "SpaceDeck Local Dev";
-}
-const appName = app.name;
-if (testUserData) {
-  app.setPath("userData", path.resolve(testUserData));
-} else {
-  app.setPath("userData", path.join(app.getPath("appData"), appName));
-}
+// Isolate app name, appId, and userData across dev, preview and release packages.
+configureAppIdentity(app, {
+  testUserData: process.env.DECK_TEST_USERDATA,
+});
 
 // __dirname is `dist-electron/electron`, so the Vite output is two levels up.
 const RENDERER_DIR = path.join(__dirname, "..", "..", "dist");

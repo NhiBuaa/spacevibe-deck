@@ -26,8 +26,16 @@ export const DEFAULT_SIGNAL_ADAPTERS: SignalAdapters = {
   opencode: false,
 };
 
-/** First revision whose stored booleans are trusted at all. */
-const FIRST_TRUSTED_REVISION = 2;
+/**
+ * First revision whose stored booleans represent an explicit user opt-in in this fork.
+ * Upstream SpaceVibe Deck automatically enabled adapters through ladder rungs
+ * (3 for claude, 4 for codex, 5 for opencode), saving revision 5 with auto-enabled
+ * `true` values.
+ *
+ * SpaceDeck Local treats revisions <= 5 as legacy unverified defaults, resetting them
+ * to false. Revision 6 or higher represents an explicit choice in this fork.
+ */
+export const FIRST_TRUSTED_REVISION = 6;
 
 export const SIGNAL_ADAPTERS_REVISION = FIRST_TRUSTED_REVISION;
 

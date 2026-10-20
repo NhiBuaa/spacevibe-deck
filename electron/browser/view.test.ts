@@ -105,6 +105,13 @@ class FakeContents {
   focus(): void {
     this.focused = true;
   }
+  webrtcPolicy: string = "default";
+  setWebRTCIPHandlingPolicy(policy: string): void {
+    this.webrtcPolicy = policy;
+  }
+  getWebRTCIPHandlingPolicy(): string {
+    return this.webrtcPolicy;
+  }
 }
 
 class FakeView {
@@ -366,6 +373,12 @@ describe("BrowserPanels", () => {
     const callback = vi.fn();
     view.webContents.permissionHandler?.({}, "media", callback);
     expect(callback).toHaveBeenCalledWith(false);
+  });
+
+  it("applies disable_non_proxied_udp WebRTC IP handling policy on panel creation", () => {
+    const { panels, view } = setup();
+    panels.open(LABEL, "http://localhost:3000/");
+    expect(view.webContents.getWebRTCIPHandlingPolicy()).toBe("disable_non_proxied_udp");
   });
 
   it("closing detaches the view and kills the page", () => {

@@ -330,4 +330,23 @@ describe("Codex lifecycle bridge", () => {
     expect(integration.enabled()).toBe(false);
     await disabling;
   });
+
+  it("never touches user hooks on startup with disabled or legacy revision <= 5 settings", async () => {
+    const deps = await setup();
+    const syncHooks = vi.fn();
+    const integration = createCodexIntegration({ ...deps, supported: true, syncHooks });
+
+    // Initial sync with empty or legacy settings
+    await integration.sync({});
+    expect(syncHooks).not.toHaveBeenCalled();
+    expect(integration.enabled()).toBe(false);
+
+    // Legacy settings with revision 5 and codex: true from upstream
+    await integration.sync({
+      signalAdaptersRevision: 5,
+      agentSignalAdapters: { codex: true },
+    });
+    expect(syncHooks).not.toHaveBeenCalled();
+    expect(integration.enabled()).toBe(false);
+  });
 });

@@ -320,13 +320,7 @@ export class BrowserPanels {
     if (view.webContents.session?.webRequest) {
       installBrowserSessionPolicy(view.webContents.session.webRequest);
     }
-    try {
-      (
-        view.webContents.session as unknown as { setWebRTCIPHandlingPolicy?: (p: string) => void }
-      )?.setWebRTCIPHandlingPolicy?.("disable_non_proxied_udp");
-    } catch {
-      // Fail-soft if unsupported
-    }
+    view.webContents.setWebRTCIPHandlingPolicy("disable_non_proxied_udp");
 
     this.wire(label, panel);
     return panel;
@@ -427,6 +421,7 @@ export class BrowserPanels {
     contents.session.setPermissionRequestHandler((_wc, _permission, callback) => {
       callback(false);
     });
+    contents.session.setPermissionCheckHandler?.((_wc, _permission) => false);
 
     contents.ipc.on(GRAB_EVENT, (_event, raw: unknown) => {
       const payload = parseGrabPayload(raw);

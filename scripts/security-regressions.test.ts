@@ -74,13 +74,12 @@ describe("privacy regressions: upstream telemetry, crash reporting, account and 
 
   it("isolates application identity and userData from upstream SpaceVibe", () => {
     const mainTs = read("electron/main.ts");
-    expect(mainTs).toContain('app.name = "SpaceDeck Local"');
-    expect(mainTs).toContain('app.setAppUserModelId("io.github.nhibuaa.spacedeck.local")');
+    expect(mainTs).toContain("configureAppIdentity(app");
     expect(mainTs).not.toContain('app.setAppUserModelId("dev.spacevibe.deck.electron")');
 
     const builderYml = read("electron-builder.yml");
-    expect(builderYml).toContain("appId: io.github.nhibuaa.spacedeck.local");
-    expect(builderYml).toContain("productName: SpaceDeck Local");
+    expect(builderYml).toContain("appId: io.github.nhibuaa.spacedeck.local.dev");
+    expect(builderYml).toContain("productName: SpaceDeck Local Dev");
 
     const releaseBuilderYml = read("electron-builder.release.yml");
     expect(releaseBuilderYml).toContain("appId: io.github.nhibuaa.spacedeck.local");

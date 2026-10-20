@@ -10,25 +10,29 @@ const DEFAULTS = { claude: false, codex: false, opencode: false };
 
 describe("resolveSignalAdapters", () => {
   it("defaults all three adapters to false for anything that is not a trusted settings file", () => {
-    expect(SIGNAL_ADAPTERS_REVISION).toBe(2);
+    expect(SIGNAL_ADAPTERS_REVISION).toBe(6);
     expect(resolveSignalAdapters(undefined)).toEqual(DEFAULTS);
     expect(resolveSignalAdapters({})).toEqual(DEFAULTS);
     expect(resolveSignalAdapters(null)).toEqual(DEFAULTS);
     expect(resolveSignalAdapters("settings")).toEqual(DEFAULTS);
   });
 
-  it("reads a 1.1.x file without trusted revision as defaults", () => {
+  it("treats legacy settings files with revisions 1 through 5 as unverified defaults", () => {
     const all = { claude: true, codex: true, opencode: true };
+    // Missing revision
     expect(resolveSignalAdapters({ agentSignalAdapters: all })).toEqual(DEFAULTS);
-    expect(resolveSignalAdapters({ signalAdaptersRevision: 1, agentSignalAdapters: all })).toEqual(
-      DEFAULTS,
-    );
+    // Legacy revisions 1..5 which had automatic upstream ladder enabling
+    for (let rev = 1; rev <= 5; rev++) {
+      expect(
+        resolveSignalAdapters({ signalAdaptersRevision: rev, agentSignalAdapters: all }),
+      ).toEqual(DEFAULTS);
+    }
   });
 
-  it("keeps stored values as they are under a trusted revision", () => {
+  it("keeps stored values as they are under a trusted revision (revision >= 6)", () => {
     expect(
       resolveSignalAdapters({
-        signalAdaptersRevision: SIGNAL_ADAPTERS_REVISION,
+        signalAdaptersRevision: 6,
         agentSignalAdapters: { claude: true, codex: false, opencode: true },
       }),
     ).toEqual({ claude: true, codex: false, opencode: true });
@@ -63,9 +67,15 @@ describe("storedSignalAdapterOn", () => {
     expect(storedSignalAdapterOn(undefined, "toString")).toBe(false);
   });
 
-  it("returns true when explicitly enabled by user in settings", () => {
+  it("returns true when explicitly enabled by user in settings with trusted revision", () => {
+    const legacy = {
+      signalAdaptersRevision: 5,
+      agentSignalAdapters: { claude: true, codex: true, opencode: true },
+    };
+    expect(storedSignalAdapterOn(legacy, "claude")).toBe(false);
+
     const stored = {
-      signalAdaptersRevision: 2,
+      signalAdaptersRevision: SIGNAL_ADAPTERS_REVISION,
       agentSignalAdapters: { claude: true, codex: false, opencode: false },
     };
     expect(storedSignalAdapterOn(stored, "claude")).toBe(true);
