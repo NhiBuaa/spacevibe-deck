@@ -53,6 +53,8 @@ a chord temporarily suspends the menu accelerators so the key reaches the record
 
 Deck's version, **Check for updates**, and **Release notes**. An update is never downloaded or
 installed without your choice; Deck asks before closing panes to install.
+That confirmation includes busy work and unsaved files in every open window, as checked by
+the [update census](../../electron/ipc/register-updater.ts).
 
 ## Privacy
 

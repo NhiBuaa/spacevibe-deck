@@ -5,6 +5,27 @@ User-facing release notes. The release workflow's `promote` job publishes the
 platform-limitations header), so each section is written for users, reviewed in
 the release PR, and frozen at the tag — never an auto-generated commit list.
 
+## Unreleased
+
+- **Safer terminal paste and Markdown.** [Pasted text](src/lib/terminal-paste.ts) cannot
+  terminate its protected paste frame with embedded control characters. The
+  [app image policy](electron/app-image-policy.ts) blocks external HTTP(S) images,
+  including images requested while rendering Mermaid diagrams.
+- **Changes avoids executing repository callbacks.** The [Git reader](electron/git/changes.ts)
+  disables fsmonitor and reports an error when tracked files require executable filters.
+  Submodule commit changes remain visible; dirty files inside submodules are not scanned.
+  [Git metadata reads](electron/git/git-dir.ts) reject special and oversized files.
+- **Account teardown preserves the right session.** A [cancelled sign-in](electron/account/service.ts)
+  cannot overwrite or erase a later account. Failed saved-credential removal is reported;
+  malformed [sign-in callbacks](electron/account/callback-listener.ts) receive an error response.
+- **Multi-window operations respect every window.** [Update confirmation](electron/ipc/register-updater.ts)
+  includes other windows' work and unsaved files. [Pane transfers](electron/coordinator.ts)
+  validate their source and destination, and [session restore](electron/ipc/register-store.ts)
+  no longer loses windows through concurrent index updates.
+- **Busy-work checks recognize shell scripts.** [Process classification](electron/platform/classify.ts)
+  keeps shell workloads in the close warning, and [Windows process selection](electron/platform/windows.ts)
+  rejects stale parent-child relationships after PID reuse.
+
 ## 2.12.1
 
 - **opencode status works on opencode 2.** The rail again shows when opencode is working,

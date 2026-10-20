@@ -1,5 +1,5 @@
 ---
-translated-from: 14423446
+translated-from: b353ffb2
 ---
 
 # Bắt đầu
@@ -118,6 +118,14 @@ chỗ.
 
 Trong một git checkout, chuyển explorer từ **Files** sang **Changes** để xem những gì đã đổi kể
 từ commit gần nhất: mỗi file kèm trạng thái và số dòng thêm, bớt. Bấm vào một file để mở nó.
+
+Nếu file đã được Git theo dõi cần chạy filter, chẳng hạn Git LFS, Changes sẽ báo không thể
+đọc an toàn; hãy dùng Git client quen thuộc để xem các file đó. Thay đổi commit của submodule
+vẫn được hiển thị, nhưng thay đổi file bên trong submodule không được quét.
+Xem [phần đọc Changes](../../electron/git/changes.ts).
+
+Sơ đồ Markdown không tải ảnh HTTP(S) bên ngoài trong app đã cài.
+[Chính sách ảnh](../../electron/app-image-policy.ts) không ảnh hưởng đến browser panel.
 
 **⌘+click** (Windows: **Ctrl+click**) vào đường dẫn mà agent in ra để mở nó. Đường dẫn nằm trong
 một workspace mà cửa sổ này đang mở sẽ mở trong editor của Deck, đúng dòng đó; còn lại thì mở

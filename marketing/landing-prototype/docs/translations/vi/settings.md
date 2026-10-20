@@ -1,5 +1,5 @@
 ---
-translated-from: b3fb9495
+translated-from: a3d49202
 ---
 
 # Cài đặt
@@ -58,6 +58,8 @@ tắt của menu tạm ngưng để phím bạn bấm tới được ô ghi.
 
 Phiên bản Deck, **Check for updates** và **Release notes**. Bản cập nhật không bao giờ tự tải hay
 tự cài khi bạn chưa chọn; Deck sẽ hỏi trước khi đóng pane để cài.
+Lần xác nhận đó tính cả công việc đang chạy và file chưa lưu trong mọi cửa sổ đang mở,
+theo [kiểm tra trước khi cập nhật](../../electron/ipc/register-updater.ts).
 
 ## Privacy
 

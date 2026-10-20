@@ -116,6 +116,14 @@ and switching documents opens the folders above it and scrolls it into view.
 
 In a git checkout, switch the explorer from **Files** to **Changes** to see what has changed since the last commit: each file with its status and added and removed lines. Click one to open it.
 
+If tracked files require executable Git filters, such as Git LFS, Changes reports that it
+cannot read them safely; use your usual Git client for those files. Submodule commit changes
+are shown, but file changes inside a submodule are not scanned.
+See the [Changes reader](../../electron/git/changes.ts).
+
+Markdown diagrams do not load external HTTP(S) images in the installed app.
+The [image policy](../../electron/app-image-policy.ts) does not affect the browser panel.
+
 **⌘+click** (Windows: **Ctrl+click**) on a path an agent prints opens it. A path inside a
 workspace this window has open lands in Deck's own editor at that line; anything else goes to
 the app chosen in [Settings → Links & editor](settings.md#links--editor). On Windows only
