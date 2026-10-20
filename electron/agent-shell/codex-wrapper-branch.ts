@@ -75,14 +75,9 @@ export function codexWrapperBranch(markerPath: string): string[] {
     "  unset DECK_PANE_ID DECK_HOOK_TOKEN DECK_HOOK_PORT",
     `elif [ -e ${shellQuote(markerPath)} ]; then`,
     '  help=$("$real" --help 2>/dev/null </dev/null) || help=',
-    "  case $help in",
-    `    *${CODEX_BYPASS_FLAG}*)`,
-    `      [ -n "$has_bypass" ] || set -- ${CODEX_BYPASS_FLAG} "$@"`,
-    '      if [ -n "$interactive" ] && [ -z "$has_no_daemon" ]; then',
-    `        case $help in *${CODEX_NO_DAEMON_FLAG}*) set -- ${CODEX_NO_DAEMON_FLAG} "$@" ;; esac`,
-    "      fi",
-    "      ;;",
-    "  esac",
+    '  if [ -n "$interactive" ] && [ -z "$has_no_daemon" ]; then',
+    `    case $help in *${CODEX_NO_DAEMON_FLAG}*) set -- ${CODEX_NO_DAEMON_FLAG} "$@" ;; esac`,
+    "  fi",
     "fi",
   ];
 }

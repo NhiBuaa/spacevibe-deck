@@ -9,7 +9,7 @@ const MODE = ["--mode"];
 export const AGY: AgentDefinition = {
   id: "agy",
   label: "Antigravity",
-  defaultCommand: "agy --dangerously-skip-permissions",
+  defaultCommand: "agy",
   url: "https://antigravity.google",
   // The page is client-rendered: read through a rendering fetch twice, both reads agreeing.
   // Windows lists a PowerShell and a CMD form; PowerShell is the one a Deck pane runs.

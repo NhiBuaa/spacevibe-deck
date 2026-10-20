@@ -347,6 +347,19 @@ describe("BrowserPanels", () => {
     expect(opened).toEqual([]);
   });
 
+  it("preserves blocked navigation error when an earlier in-flight load completes", () => {
+    const { panels, view } = setup();
+    panels.open(LABEL, "http://localhost:3000/");
+    // Staging a blocked navigation while the allowed one is in flight
+    panels.navigate(LABEL, "https://evil.com/");
+    expect(panels.state(LABEL)?.error).toContain("Blocked");
+
+    // Earlier allowed load finishes now
+    view.webContents.emit("did-finish-load");
+    // Blocked error must remain intact
+    expect(panels.state(LABEL)?.error).toContain("Blocked");
+  });
+
   it("denies every permission the page asks for", () => {
     const { panels, view } = setup();
     panels.open(LABEL, "http://localhost:3000/");

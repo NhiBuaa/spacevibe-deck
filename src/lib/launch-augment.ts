@@ -32,7 +32,7 @@
  * is skipped and the row stays inferred for that half. Typed VISIBLY
  * (spec §10.3): the user sees exactly what Deck runs.
  */
-import { CODEX_BYPASS_FLAG, CODEX_NO_DAEMON_FLAG, classifyCodexArgs } from "./codex-launch-form";
+import { CODEX_NO_DAEMON_FLAG, classifyCodexArgs } from "./codex-launch-form";
 import { commandAgentId, commandFlags } from "./launch-profile";
 
 export interface SignalAdapters {
@@ -126,9 +126,11 @@ export function augmentLaunchCommand(command: string, context: AugmentContext): 
             ...(form.interactive && !form.remote && !form.hasNoDaemon && context.codexNoDaemon
               ? [CODEX_NO_DAEMON_FLAG]
               : []),
-            ...(form.hasBypass ? [] : [CODEX_BYPASS_FLAG]),
           ];
-          return { command: insertCodexFlags(command, flags), sessionId };
+          return {
+            command: flags.length === 0 ? command : insertCodexFlags(command, flags),
+            sessionId,
+          };
         }
       } else if (!hasConfigKey(command, "tui.notification_condition")) {
         extra.push("-c", "tui.notification_condition=always");

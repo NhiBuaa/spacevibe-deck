@@ -42,10 +42,11 @@ describe("PrivacySection", () => {
     const text = mount.textContent ?? "";
     expect(text).toContain("SpaceDeck Local");
     expect(text).toContain("privacy-first");
-    expect(text).toContain("permanently disabled and disconnected");
-    expect(text).toContain("local-only mode");
+    expect(text).toContain("permanently disconnected");
+    expect(text).toContain("local-only network boundary");
     expect(text).toContain("loopback");
-    expect(text).toContain("does not collect, track, or inspect your credentials");
+    expect(text).toContain("solely on your local machine");
+    expect(text).toContain("Terminal agents run as independent child processes");
   });
 
   it("offers no control at all, in every consent phase", () => {

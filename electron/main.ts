@@ -78,9 +78,16 @@ import { installBrowserSessionPolicy } from "./network-policy";
 
 // Isolate app name and userData from upstream SpaceVibe Deck installations.
 const testUserData = process.env.DECK_TEST_USERDATA;
+const isDev = !app.isPackaged;
 app.name = "SpaceDeck Local";
+if (isDev) {
+  app.name = "SpaceDeck Local Dev";
+}
+const appName = app.name;
 if (testUserData) {
   app.setPath("userData", path.resolve(testUserData));
+} else {
+  app.setPath("userData", path.join(app.getPath("appData"), appName));
 }
 
 // __dirname is `dist-electron/electron`, so the Vite output is two levels up.

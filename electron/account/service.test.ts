@@ -40,7 +40,7 @@ describe("privacy-first account service", () => {
     expect(openExternalMock).not.toHaveBeenCalled();
   });
 
-  it("signOut clears store and returns signed-out", async () => {
+  it("signOut clears store and returns signed-out when successful", async () => {
     const onStateChanged = vi.fn();
     const service = createAccountService({
       config: null,
@@ -51,5 +51,48 @@ describe("privacy-first account service", () => {
     const result = await service.signOut();
     expect(result).toEqual({ status: "signed-out", reason: null });
     expect(store.clear).toHaveBeenCalled();
+    expect(onStateChanged).toHaveBeenCalledWith({ status: "signed-out", reason: null });
+  });
+
+  it("signOut reports error when store.clear returns false", async () => {
+    const failStore = {
+      ...store,
+      clear: vi.fn(async () => false),
+    };
+    const onStateChanged = vi.fn();
+    const service = createAccountService({
+      config: null,
+      store: failStore,
+      onStateChanged,
+    });
+
+    const result = await service.signOut();
+    expect(result).toEqual({ status: "signed-out", reason: REASONS.savedAccount });
+    expect(onStateChanged).toHaveBeenCalledWith({
+      status: "signed-out",
+      reason: REASONS.savedAccount,
+    });
+  });
+
+  it("signOut reports error when store.clear throws or rejects", async () => {
+    const errorStore = {
+      ...store,
+      clear: vi.fn(async () => {
+        throw new Error("disk error");
+      }),
+    };
+    const onStateChanged = vi.fn();
+    const service = createAccountService({
+      config: null,
+      store: errorStore,
+      onStateChanged,
+    });
+
+    const result = await service.signOut();
+    expect(result).toEqual({ status: "signed-out", reason: REASONS.savedAccount });
+    expect(onStateChanged).toHaveBeenCalledWith({
+      status: "signed-out",
+      reason: REASONS.savedAccount,
+    });
   });
 });

@@ -97,6 +97,8 @@ interface Panel {
   pending: string | null;
   /** When the last accepted grab was forwarded, for the rate limit. */
   lastGrabAt: number;
+  navigationGeneration: number;
+  activeLoadGeneration: number;
 }
 
 export class BrowserPanels {
@@ -133,6 +135,7 @@ export class BrowserPanels {
     if (panel === undefined) {
       return;
     }
+    panel.navigationGeneration++;
     panel.error = null;
     if (!isLoadableUrl(url)) {
       panel.error = `Blocked: Only local loopback connections (localhost / 127.0.0.1) are permitted. (${url})`;
@@ -140,6 +143,7 @@ export class BrowserPanels {
       this.publish(label);
       return;
     }
+    panel.activeLoadGeneration = panel.navigationGeneration;
     panel.pending = url;
     panel.view.webContents.loadURL(url).catch((err: unknown) => {
       // `loadURL` rejects on the same failures `did-fail-load` reports, so the
@@ -304,6 +308,8 @@ export class BrowserPanels {
       error: null,
       pending: null,
       lastGrabAt: 0,
+      navigationGeneration: 0,
+      activeLoadGeneration: 0,
     };
     this.panels.set(label, panel);
 
@@ -313,6 +319,13 @@ export class BrowserPanels {
 
     if (view.webContents.session?.webRequest) {
       installBrowserSessionPolicy(view.webContents.session.webRequest);
+    }
+    try {
+      (
+        view.webContents.session as unknown as { setWebRTCIPHandlingPolicy?: (p: string) => void }
+      )?.setWebRTCIPHandlingPolicy?.("disable_non_proxied_udp");
+    } catch {
+      // Fail-soft if unsupported
     }
 
     this.wire(label, panel);
@@ -343,6 +356,11 @@ export class BrowserPanels {
     contents.on("did-finish-load", inject);
 
     contents.on("did-finish-load", () => {
+      if (panel.navigationGeneration !== panel.activeLoadGeneration) {
+        panel.inspect = false;
+        this.publish(label);
+        return;
+      }
       panel.pending = null;
       panel.error = null;
       // Inspect is per-document: a navigation replaces the page that was armed.
@@ -352,6 +370,10 @@ export class BrowserPanels {
 
     contents.on("did-fail-load", (_event, code, description, url, isMainFrame) => {
       if (!isMainFrame) {
+        return;
+      }
+      if (panel.navigationGeneration !== panel.activeLoadGeneration) {
+        this.publish(label);
         return;
       }
       // -3 is ERR_ABORTED, which a redirect or a fast second navigation

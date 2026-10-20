@@ -71,37 +71,65 @@ export function parseLocalDevOrigin(developmentUrl?: string): string | null {
 
 /**
  * Enforces combined local-only policy and image protection on the main app session.
- *  - Blocks any image from remote or local servers unless it is the verified Vite dev origin.
- *  - Blocks any outbound network traffic from renderer outside the verified Vite dev origin.
+ *  - Packaged app: blocks all outbound HTTP/HTTPS/WS/WSS network traffic from the renderer.
+ *  - Development app: permits only the verified local dev origin (assets + HMR WebSocket).
+ *  - Blocks any image from remote or local servers outside the verified dev server.
  */
 export function installAppSessionPolicy(
   webRequest: Pick<WebRequest, "onBeforeRequest">,
   developmentUrl?: string,
 ): void {
   const developmentOrigin = parseLocalDevOrigin(developmentUrl);
-
-  webRequest.onBeforeRequest({ urls: ["http://*/*", "https://*/*"] }, (details, callback) => {
-    let isDevAsset = false;
-    if (developmentOrigin !== null) {
-      try {
-        isDevAsset = new URL(details.url).origin === developmentOrigin;
-      } catch {
-        // Invalid URL fails closed.
-      }
+  let devHost: string | null = null;
+  if (developmentOrigin !== null) {
+    try {
+      devHost = new URL(developmentOrigin).host;
+    } catch {
+      devHost = null;
     }
+  }
 
-    callback({ cancel: details.resourceType === "image" && !isDevAsset });
-  });
+  webRequest.onBeforeRequest(
+    { urls: ["http://*/*", "https://*/*", "ws://*/*", "wss://*/*"] },
+    (details, callback) => {
+      // In packaged builds (or when no valid dev server origin is set),
+      // the renderer session is completely local-only; reject all HTTP/HTTPS/WS/WSS.
+      if (devHost === null) {
+        callback({ cancel: true });
+        return;
+      }
+
+      // In development mode, only requests strictly targeting the verified dev server host
+      // (HTTP assets and HMR WebSockets) are permitted.
+      try {
+        const parsed = new URL(details.url);
+        const isDevAsset =
+          (parsed.protocol === "http:" ||
+            parsed.protocol === "https:" ||
+            parsed.protocol === "ws:" ||
+            parsed.protocol === "wss:") &&
+          parsed.host === devHost;
+
+        callback({ cancel: !isDevAsset });
+      } catch {
+        callback({ cancel: true });
+      }
+    },
+  );
 }
 
 /**
  * Enforces loopback-only policy on the embedded browser partition.
- * Completely blocks any request (scripts, images, stylesheets, beacons, websockets, fetches)
- * that does not target a verified loopback address.
+ * Intercepts HTTP, HTTPS, WS, and WSS requests, completely blocking any request
+ * (scripts, images, stylesheets, beacons, websockets, fetches) that does not target
+ * a verified loopback address.
  */
 export function installBrowserSessionPolicy(webRequest: Pick<WebRequest, "onBeforeRequest">): void {
-  webRequest.onBeforeRequest({ urls: ["*://*/*"] }, (details, callback) => {
-    const allowed = isVerifiedLoopbackUrl(details.url);
-    callback({ cancel: !allowed });
-  });
+  webRequest.onBeforeRequest(
+    { urls: ["http://*/*", "https://*/*", "ws://*/*", "wss://*/*"] },
+    (details, callback) => {
+      const allowed = isVerifiedLoopbackUrl(details.url);
+      callback({ cancel: !allowed });
+    },
+  );
 }

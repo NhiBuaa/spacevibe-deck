@@ -50,8 +50,13 @@ export function createAccountService(deps: AccountServiceDeps): AccountService {
       return state;
     },
     async signOut(): Promise<AccountState> {
-      await deps.store.clear().catch(() => undefined);
-      state = SIGNED_OUT;
+      let cleared = false;
+      try {
+        cleared = await deps.store.clear();
+      } catch {
+        cleared = false;
+      }
+      state = cleared ? SIGNED_OUT : { status: "signed-out", reason: REASONS.savedAccount };
       deps.onStateChanged(state);
       return state;
     },

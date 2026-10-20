@@ -25,7 +25,7 @@ const NO_ANIMATIONS = NO_ANIMATIONS_FORM.join(" ");
 export const CODEX: AgentDefinition = {
   id: "codex",
   label: "Codex",
-  defaultCommand: `codex --dangerously-bypass-approvals-and-sandbox ${NO_ANIMATIONS}`,
+  defaultCommand: `codex ${NO_ANIMATIONS}`,
   url: "https://developers.openai.com/codex/cli",
   // The README's standalone installers; npm and Homebrew were the alternatives.
   install: {

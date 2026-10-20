@@ -39,6 +39,10 @@ export function createClaudeIntegration(deps: IntegrationDeps) {
         .then(async () => {
           if (!supported) return;
           if (applied === requested) return;
+          if (applied === null && !requested) {
+            applied = false;
+            return;
+          }
           paths ??= await (deps.writeFiles ?? writeClaudeHooksFiles)(deps.userData);
           if (paths === null) return;
           await (deps.syncSettings ?? syncClaudeUserSettings)(

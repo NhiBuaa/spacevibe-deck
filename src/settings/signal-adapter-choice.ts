@@ -21,25 +21,15 @@ import type { SignalAdapters } from "../lib/launch-augment";
  * window has validated it. Pure on purpose: main imports it.
  */
 export const DEFAULT_SIGNAL_ADAPTERS: SignalAdapters = {
-  claude: true,
-  codex: true,
-  opencode: true,
-};
-
-/** Revision N switches on the agent it maps to for installs saved below N. */
-const SIGNAL_ADAPTER_LADDER: Readonly<Record<number, keyof SignalAdapters>> = {
-  3: "claude",
-  4: "codex",
-  5: "opencode",
+  claude: false,
+  codex: false,
+  opencode: false,
 };
 
 /** First revision whose stored booleans are trusted at all. */
 const FIRST_TRUSTED_REVISION = 2;
 
-export const SIGNAL_ADAPTERS_REVISION = Math.max(
-  FIRST_TRUSTED_REVISION,
-  ...Object.keys(SIGNAL_ADAPTER_LADDER).map(Number),
-);
+export const SIGNAL_ADAPTERS_REVISION = FIRST_TRUSTED_REVISION;
 
 /** The adapters a stored (unvalidated) settings value stands for. */
 export function resolveSignalAdapters(settings: unknown): SignalAdapters {
@@ -54,14 +44,8 @@ export function resolveSignalAdapters(settings: unknown): SignalAdapters {
     typeof stored === "object" && stored !== null && !Array.isArray(stored)
       ? (stored as Record<string, unknown>)
       : {};
-  const forced = new Set(
-    Object.entries(SIGNAL_ADAPTER_LADDER)
-      .filter(([rung]) => revision < Number(rung))
-      .map(([, agent]) => agent),
-  );
   const flag = (key: keyof SignalAdapters): boolean =>
-    forced.has(key) ||
-    (typeof record[key] === "boolean" ? (record[key] as boolean) : DEFAULT_SIGNAL_ADAPTERS[key]);
+    typeof record[key] === "boolean" ? (record[key] as boolean) : DEFAULT_SIGNAL_ADAPTERS[key];
   return { claude: flag("claude"), codex: flag("codex"), opencode: flag("opencode") };
 }
 

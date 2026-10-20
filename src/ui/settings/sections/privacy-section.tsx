@@ -31,19 +31,24 @@ export function PrivacySection() {
   return (
     <>
       <p class="settings-screen__note">
-        SpaceDeck Local is a privacy-first build. Telemetry, usage statistics, and Sentry crash
-        reporting are permanently disabled and disconnected. No analytics, telemetry snapshots, or
-        error reports are ever transmitted to the publisher or third parties.
+        SpaceDeck Local is a privacy-first build. Upstream publisher telemetry, usage analytics,
+        account integrations, and Sentry crash reporting are permanently disconnected. No metrics,
+        error reports, or telemetry data are ever transmitted to the publisher or external servers.
       </p>
       <p class="settings-screen__note">
-        The application interface and embedded browser operate in local-only mode, restricted
-        strictly to loopback addresses. Outbound internet requests from the embedded browser are
-        blocked.
+        Application data—including workspaces, session restore journals, and local token usage
+        summaries—is processed and stored solely on your local machine.
       </p>
       <p class="settings-screen__note">
-        Terminal agents run as independent processes and connect only to the AI model providers you
-        configure. Deck does not collect, track, or inspect your credentials, prompts, file paths,
-        or session contents.
+        The application interface and embedded browser operate under a local-only network boundary,
+        restricting network traffic strictly to verified loopback addresses (127.0.0.1 / ::1).
+        Outbound internet requests and remote WebSockets from the embedded browser are blocked.
+      </p>
+      <p class="settings-screen__note">
+        Terminal agents run as independent child processes with their own direct network access
+        according to your configuration (such as AI model providers, tools, or MCP servers).
+        Outbound network traffic initiated by agent processes operates outside Deck's loopback
+        network filter.
       </p>
     </>
   );

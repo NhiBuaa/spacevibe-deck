@@ -373,7 +373,7 @@ describe("createTabManager — arm-time augmentation (stage 2)", () => {
     // Upgraded while Deck ran: main re-probed, and the next launch follows it.
     answer.codexBypassHookTrust = true;
     answer.codexNoDaemon = true;
-    expect(await launch()).toBe("codex --no-daemon --dangerously-bypass-hook-trust resume\r");
+    expect(await launch()).toBe("codex --no-daemon resume\r");
     // A bootstrapped shell: the wrapper adds the flags, the typed command is the user's.
     answer.shellBootstrap = true;
     expect(await launch()).toBe("codex resume\r");

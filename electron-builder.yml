@@ -7,8 +7,8 @@
 # `electron-builder.release.yml`.
 #
 # Identity is deliberately isolated for SpaceDeck Local.
-appId: io.github.nhibuaa.spacedeck.local
-productName: SpaceDeck Local
+appId: io.github.nhibuaa.spacedeck.local.dev
+productName: SpaceDeck Local Dev
 directories:
   output: dist-electron-app
 # Electron Builder writes this into the packaged app's package.json — `main`
@@ -22,7 +22,7 @@ directories:
 # run — measured, not assumed.
 extraMetadata:
   main: dist-electron/electron/main.cjs
-  productName: SpaceDeck Local
+  productName: SpaceDeck Local Dev
 files:
   - dist/**
   - dist-electron/electron/**/*.cjs

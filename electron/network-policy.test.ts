@@ -86,7 +86,7 @@ describe("parseLocalDevOrigin", () => {
 });
 
 describe("installBrowserSessionPolicy", () => {
-  it("cancels any request to a non-loopback destination", () => {
+  it("cancels any request to a non-loopback destination and intercepts websockets", () => {
     type Listener = Parameters<WebRequest["onBeforeRequest"]>[1];
     let listener: Listener | undefined;
     const webRequest: Pick<WebRequest, "onBeforeRequest"> = {
@@ -96,6 +96,11 @@ describe("installBrowserSessionPolicy", () => {
     };
 
     installBrowserSessionPolicy(webRequest);
+
+    expect(webRequest.onBeforeRequest).toHaveBeenCalledWith(
+      { urls: ["http://*/*", "https://*/*", "ws://*/*", "wss://*/*"] },
+      expect.any(Function),
+    );
 
     const check = (url: string, resourceType = "xhr") => {
       let cancelled = false;
@@ -108,19 +113,51 @@ describe("installBrowserSessionPolicy", () => {
     expect(check("http://127.0.0.1:3000/app.js", "script")).toBe(false);
     expect(check("http://localhost:5173/style.css", "stylesheet")).toBe(false);
     expect(check("ws://127.0.0.1:5173/", "websocket")).toBe(false);
+    expect(check("ws://localhost:3000/socket", "websocket")).toBe(false);
 
     // Blocked:
     expect(check("https://google.com/analytics.js", "script")).toBe(true);
     expect(check("https://cdn.example.com/font.woff2", "font")).toBe(true);
     expect(check("https://api.example.com/telemetry", "ping")).toBe(true);
     expect(check("wss://tracker.example.com/", "websocket")).toBe(true);
+    expect(check("ws://remote-host.com/live", "websocket")).toBe(true);
     expect(check("http://192.168.1.1/api", "xhr")).toBe(true);
     expect(check("http://0.0.0.0:8000/data", "fetch")).toBe(true);
   });
 });
 
 describe("installAppSessionPolicy", () => {
-  it("blocks remote and loopback images while allowing dev server images only from verified dev origin", () => {
+  it("packaged mode blocks all outbound http/https/ws/wss traffic from renderer", () => {
+    type Listener = Parameters<WebRequest["onBeforeRequest"]>[1];
+    let listener: Listener | undefined;
+    const webRequest: Pick<WebRequest, "onBeforeRequest"> = {
+      onBeforeRequest: vi.fn((_filter, callback) => {
+        listener = callback ?? undefined;
+      }),
+    };
+
+    installAppSessionPolicy(webRequest);
+
+    expect(webRequest.onBeforeRequest).toHaveBeenCalledWith(
+      { urls: ["http://*/*", "https://*/*", "ws://*/*", "wss://*/*"] },
+      expect.any(Function),
+    );
+
+    const check = (url: string, resourceType = "xhr") => {
+      let cancelled = false;
+      listener?.({ url, resourceType } as Parameters<NonNullable<Listener>>[0], (res) => {
+        cancelled = res.cancel === true;
+      });
+      return cancelled;
+    };
+
+    expect(check("https://example.test/api", "xhr")).toBe(true);
+    expect(check("http://127.0.0.1:3000/data", "fetch")).toBe(true);
+    expect(check("ws://127.0.0.1:5173/", "websocket")).toBe(true);
+    expect(check("https://example.com/avatar.png", "image")).toBe(true);
+  });
+
+  it("development mode allows verified dev server assets and HMR ws, blocking all external requests", () => {
     type Listener = Parameters<WebRequest["onBeforeRequest"]>[1];
     let listener: Listener | undefined;
     const webRequest: Pick<WebRequest, "onBeforeRequest"> = {
@@ -139,11 +176,16 @@ describe("installAppSessionPolicy", () => {
       return cancelled;
     };
 
-    // Images:
+    // Allowed dev server requests:
     expect(check("http://127.0.0.1:5173/src/logo.svg", "image")).toBe(false);
+    expect(check("http://127.0.0.1:5173/@vite/client", "script")).toBe(false);
+    expect(check("ws://127.0.0.1:5173/", "websocket")).toBe(false);
+
+    // Blocked requests outside verified dev origin:
     expect(check("http://127.0.0.1:5174/logo.svg", "image")).toBe(true);
-    expect(check("https://example.com/avatar.png", "image")).toBe(true);
     expect(check("http://127.0.0.1:9000/avatar.png", "image")).toBe(true);
-    expect(check("https://example.test/api", "xhr")).toBe(false);
+    expect(check("https://example.com/avatar.png", "image")).toBe(true);
+    expect(check("https://example.test/api", "xhr")).toBe(true);
+    expect(check("wss://evil.com/socket", "websocket")).toBe(true);
   });
 });

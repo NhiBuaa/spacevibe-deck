@@ -152,10 +152,10 @@ describe("the shipping Electron release config", () => {
     );
   });
 
-  it("publishes to the GitHub repository the updater feed names", () => {
-    expect(declares(releaseConfig, "- provider: github")).toBe(true);
-    expect(declares(releaseConfig, "owner: mxrsv")).toBe(true);
-    expect(declares(releaseConfig, "repo: spacevibe-deck")).toBe(true);
+  it("does not publish to upstream GitHub repository", () => {
+    expect(declares(releaseConfig, "owner: mxrsv")).toBe(false);
+    expect(declares(releaseConfig, "repo: spacevibe-deck")).toBe(false);
+    expect(declares(releaseConfig, "publish: null")).toBe(true);
   });
 
   it("leaves the channel to the version, so both sides derive the same name", () => {

@@ -13,7 +13,7 @@ const APPROVAL = ["--approval-mode"];
 export const GEMINI: AgentDefinition = {
   id: "gemini",
   label: "Gemini CLI",
-  defaultCommand: "gemini --yolo",
+  defaultCommand: "gemini",
   url: "https://github.com/google-gemini/gemini-cli",
   // No installer script. The README's global npm install covers every OS; Homebrew and
   // MacPorts were the alternatives.

@@ -80,6 +80,21 @@ describe("Claude integration lifecycle", () => {
     expect(writeFiles).not.toHaveBeenCalled();
     expect(integration.scriptPath()).toBeNull();
   });
+
+  it("never touches user settings on startup when Claude integration is disabled", async () => {
+    const syncSettings = vi.fn();
+    const writeFiles = vi.fn();
+    const integration = createClaudeIntegration({
+      userData: "/deck",
+      supported: true,
+      writeFiles,
+      syncSettings,
+    });
+    await integration.sync({});
+    expect(syncSettings).not.toHaveBeenCalled();
+    expect(writeFiles).not.toHaveBeenCalled();
+    expect(integration.enabled()).toBe(false);
+  });
 });
 
 describe("Claude integration default hook support", () => {
