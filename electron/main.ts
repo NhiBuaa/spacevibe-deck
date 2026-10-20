@@ -66,6 +66,7 @@ import { registerBrowser, reactGrabSource } from "./ipc/register-browser";
 import { registerShell } from "./ipc/register-shell";
 import { registerUpdater } from "./ipc/register-updater";
 import { registerTelemetry } from "./ipc/register-telemetry";
+import { registerAccount } from "./ipc/register-account";
 import { registerDevServers } from "./ipc/register-dev-servers";
 import { registerChanges } from "./ipc/register-changes";
 import { registerAgentSignals } from "./ipc/register-agent-signals";
@@ -545,6 +546,11 @@ registerSettingsIpc({
 // no id and start no timer. Registered above the quit block because the quit
 // chain below sends the best-effort final snapshot.
 const telemetry = registerTelemetry({ stores, windows, emitTo });
+
+// ------------------------------------------------------------- Account
+// Optional Google account (spec 2026-10-20-accounts). Signed out by default,
+// and signed out sends nothing.
+registerAccount();
 
 // ------------------------------------------------------------------ Quit
 ipcMain.handle(CHANNELS.confirmQuit, (_event, { requestId }) => {

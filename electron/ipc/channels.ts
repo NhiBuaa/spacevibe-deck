@@ -200,6 +200,13 @@ export const CHANNELS = {
   // reachable only from the Changes list that the frozen Tauri host never shows.
   // Flat `{ root, path }` per R6; `path` is root-relative with `/`.
   gitHeadFile: "git_head_file",
+  // Optional Google account (docs/specs/2026-10-20-accounts.md). Main owns the
+  // session; every reply and the broadcast below carry display state only,
+  // never a token (A7). All four take no payload.
+  accountState: "account_state",
+  accountSignIn: "account_sign_in",
+  accountCancelSignIn: "account_cancel_sign_in",
+  accountSignOut: "account_sign_out",
 } as const;
 
 /** Events: main → renderer, fire and forget. */
@@ -237,6 +244,9 @@ export const EVENTS = {
   // "Read the changes again" for the checkout this window watches. Carries the
   // root only, never a file list: the renderer owns all scheduling.
   gitChanged: "git:changed",
+  // Every account state change, broadcast so all windows agree (A12). The
+  // payload is the same display state `account_state` returns.
+  accountState: "account:state-changed",
 } as const;
 
 /**
