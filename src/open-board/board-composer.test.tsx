@@ -284,10 +284,10 @@ describe("BoardComposer", () => {
 
   it("promises a folder drop only when the host can resolve it", () => {
     mount({ promptStaging: false });
-    expect(host.textContent).not.toContain("or drop a folder here");
+    expect(host.textContent).not.toContain("or drop files or folders here");
     act(() => render(null, host));
     mount({ promptStaging: false, canDropFolder: true });
-    expect(host.textContent).toContain("or drop a folder here");
+    expect(host.textContent).toContain("or drop files or folders here");
   });
   it("does not launch the hidden draft agent from the old composer shortcut", () => {
     const onOpenAgent = vi.fn();

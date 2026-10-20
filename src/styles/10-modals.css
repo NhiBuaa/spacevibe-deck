@@ -477,6 +477,23 @@
   animation: rise-in 0.2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.workspace-drop-hint {
+  position: fixed;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  box-sizing: border-box;
+  max-width: calc(100% - 32px);
+  padding: 12px 16px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-control);
+  background: var(--chrome-1);
+  color: var(--text-primary);
+  font-size: var(--type-body);
+  pointer-events: none;
+}
+
 .settings-load-alert {
   position: absolute;
   top: calc(var(--frame-h) + 10px);

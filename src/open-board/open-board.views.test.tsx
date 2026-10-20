@@ -55,7 +55,7 @@ vi.mock("../terminal/pty-client", () => ({
 import { WORKSPACES_VERSION, type RecentWorkspace } from "../lib/workspace-recents";
 import { PRESETS_VERSION } from "../lib/preset-schema";
 import { presetsData } from "../presets/presets-store";
-import { workspacesData } from "./workspaces-store";
+import { initWorkspaces, workspacesData } from "./workspaces-store";
 import { OpenBoard } from "./open-board";
 import { newTaskDraft, resetLauncherStore } from "../launcher/launcher-store";
 import { EMPTY_DRAFT, withWorkspace, type NewTaskDraft } from "../launcher/new-task-draft";
@@ -139,6 +139,7 @@ describe("OpenBoard home view", () => {
       onClearDraft?: () => void;
       hasUserDraftContent?: boolean;
       externalPending?: "sending-prompt" | "opening-agent" | "retrying-prompt" | null;
+      onPendingChange?: (pending: boolean) => void;
     } = {},
   ): Promise<void> => {
     await act(async () => {
@@ -158,6 +159,7 @@ describe("OpenBoard home view", () => {
           canFocusOpenedAgent={props.canFocusOpenedAgent ?? false}
           hasUserDraftContent={props.hasUserDraftContent ?? false}
           externalPending={props.externalPending ?? null}
+          onPendingChange={props.onPendingChange}
           onRetryDelivery={props.onRetryDelivery ?? (async () => "prompt-not-sent")}
           onFocusOpenedAgent={props.onFocusOpenedAgent ?? (() => {})}
           onClearDraft={props.onClearDraft ?? (() => {})}
@@ -709,7 +711,7 @@ describe("OpenBoard home view", () => {
     detected = [{ name: "claude", path: "/usr/bin/claude" }];
     vi.stubGlobal("__deckHost", {
       getPathForFile: () => "/w/dropped folder",
-      grantDroppedWorkspace: vi.fn().mockResolvedValue(true),
+      grantDroppedWorkspace: vi.fn().mockResolvedValue("/w/dropped folder"),
     });
     const launch = vi.fn(async (): Promise<LaunchTaskOutcome> => "started");
     await mount(launch, { promptStaging: false });
@@ -722,6 +724,7 @@ describe("OpenBoard home view", () => {
     });
     await settle();
     expect(newTaskDraft.value.workspacePath).toBe("/w/dropped folder");
+    expect(workspacesData.value.recents.map((entry) => entry.path)).toEqual(["/w/dropped folder"]);
     expect(launch).not.toHaveBeenCalled();
     await act(async () => {
       host.querySelector<HTMLButtonElement>('[aria-label="Run Claude Code"]')!.click();
@@ -730,6 +733,49 @@ describe("OpenBoard home view", () => {
       expect.objectContaining({ workspacePath: "/w/dropped folder", agentId: "claude" }),
     ]);
     vi.unstubAllGlobals();
+  });
+
+  it("saves a mixed batch once per root and preserves the prompt and explicit agent", async () => {
+    await initWorkspaces();
+    seed(["/w/alpha"]);
+    detected = [{ name: "claude", path: "/usr/bin/claude" }];
+    newTaskDraft.value = {
+      ...EMPTY_DRAFT,
+      workspacePath: "/w/alpha",
+      prompt: "Keep this task",
+      agentId: "claude",
+    };
+    vi.stubGlobal("__deckHost", {
+      getPathForFile: (file: File) => file.name,
+      grantDroppedWorkspace: vi.fn(async (file: File) =>
+        file.name === "new.txt" ? "/w/new" : "/w/alpha",
+      ),
+    });
+    const launch = vi.fn(async (): Promise<LaunchTaskOutcome> => "started");
+    await mount(launch);
+    await settle();
+    const performDrop = async () => {
+      const event = new Event("drop", { bubbles: true, cancelable: true });
+      Object.defineProperty(event, "dataTransfer", {
+        value: {
+          types: ["Files"],
+          files: ["new.txt", "alpha", "alpha.txt"].map((name) => new File([], name)),
+        },
+      });
+      await act(async () => {
+        host.querySelector(".open-board")!.dispatchEvent(event);
+      });
+      await settle();
+    };
+    await performDrop();
+    await performDrop();
+    expect(workspacesData.value.recents.map((entry) => entry.path)).toEqual(["/w/new", "/w/alpha"]);
+    expect(newTaskDraft.value).toMatchObject({
+      workspacePath: "/w/new",
+      prompt: "Keep this task",
+      agentId: "claude",
+    });
+    expect(launch).not.toHaveBeenCalled();
   });
 
   it("keeps a rejected launch retryable and prevents duplicate activation", async () => {
@@ -767,7 +813,12 @@ describe("OpenBoard home view", () => {
     };
     const start = vi.fn(async (): Promise<LaunchTaskOutcome> => "sent");
     const launch = vi.fn(async (): Promise<LaunchTaskOutcome> => "started");
-    await mount(start, { promptStaging: false, onOpenAgent: launch });
+    const pendingChanged = vi.fn();
+    await mount(start, {
+      promptStaging: false,
+      onOpenAgent: launch,
+      onPendingChange: pendingChanged,
+    });
     await settle();
     let finish!: () => void;
     dirsGate = new Promise((resolve) => {
@@ -775,7 +826,10 @@ describe("OpenBoard home view", () => {
     });
     vi.stubGlobal("__deckHost", {
       getPathForFile: () => "/w/new folder",
-      grantDroppedWorkspace: vi.fn().mockResolvedValue(true),
+      grantDroppedWorkspace: vi.fn(async () => {
+        await dirsGate;
+        return "/w/new folder";
+      }),
     });
     const event = new Event("drop", { bubbles: true, cancelable: true });
     Object.defineProperty(event, "dataTransfer", {
@@ -786,6 +840,7 @@ describe("OpenBoard home view", () => {
     });
     const run = host.querySelector<HTMLButtonElement>('[aria-label="Run Claude Code"]')!;
     expect(run.disabled).toBe(true);
+    expect(pendingChanged).toHaveBeenLastCalledWith(true);
     act(() => run.click());
     expect(launch).not.toHaveBeenCalled();
     expect(newTaskDraft.value.workspacePath).toBe("/w/previous");
@@ -794,6 +849,7 @@ describe("OpenBoard home view", () => {
     });
     await settle();
     expect(run.disabled).toBe(false);
+    expect(pendingChanged).toHaveBeenLastCalledWith(false);
     await act(async () => run.click());
     expect(launch.mock.calls).toEqual([
       [expect.objectContaining({ workspacePath: "/w/new folder", agentId: "claude" })],

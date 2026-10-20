@@ -51,9 +51,10 @@ export function droppedFilePaths(files: readonly File[]): string[] {
     .filter((path): path is string => typeof path === "string" && path.length > 0);
 }
 
-/** Ask Electron main to grant image access for an OS-backed dropped folder. */
-export async function grantDroppedWorkspace(file: File): Promise<boolean> {
-  return (await hostBridge()?.grantDroppedWorkspace?.(file)) === true;
+/** Validate an OS-backed drop, grant image access, and return its workspace root. */
+export async function grantDroppedWorkspace(file: File): Promise<string | null> {
+  const root: unknown = await hostBridge()?.grantDroppedWorkspace?.(file);
+  return typeof root === "string" && root.length > 0 ? root : null;
 }
 
 /**
@@ -68,7 +69,7 @@ export function canResolveDroppedPaths(): boolean {
 /** The preload bridge, for the one thing that is not invoke/listen. */
 interface HostBridge {
   getPathForFile?: (file: File) => string;
-  grantDroppedWorkspace?: (file: File) => Promise<boolean>;
+  grantDroppedWorkspace?: (file: File) => Promise<string | null>;
 }
 
 function hostBridge(): HostBridge | undefined {

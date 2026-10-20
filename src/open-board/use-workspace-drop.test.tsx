@@ -2,44 +2,43 @@
 import { render } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { invoke } from "../host/bridge";
 import { useWorkspaceDrop } from "./use-workspace-drop";
+import { MAX_RECENTS } from "../lib/workspace-recents";
 
-vi.mock("../host/bridge", () => ({ invoke: vi.fn() }));
-const select = vi.fn<(path: string) => Promise<void>>();
+const select = vi.fn();
 const error = vi.fn();
+const checking = vi.fn();
+const grant = vi.fn();
 let host: HTMLDivElement;
 
 function Surface({ enabled = true }: { enabled?: boolean }) {
-  const drop = useWorkspaceDrop({ enabled, onSelect: select, onError: error });
+  const drop = useWorkspaceDrop({
+    enabled,
+    onSelect: select,
+    onError: error,
+    onChecking: checking,
+  });
   return (
     <div {...drop.handlers} data-drop data-dragging={drop.dragging}>
       <button disabled={drop.checking}>Run</button>
     </div>
   );
 }
-
 function dispatch(type: string, names = ["/work/My Folder"], types = ["Files"]) {
   const event = new Event(type, { bubbles: true, cancelable: true });
   Object.defineProperty(event, "dataTransfer", {
-    value: {
-      types,
-      files: names.map((name) => new File([], name)),
-      dropEffect: "none",
-    },
+    value: { types, files: names.map((name) => new File([], name)), dropEffect: "none" },
   });
   host.querySelector("[data-drop]")!.dispatchEvent(event);
   return event;
 }
-
 beforeEach(() => {
   vi.resetAllMocks();
+  grant.mockImplementation(async (file: File) => file.name);
   vi.stubGlobal("__deckHost", {
     getPathForFile: (file: File) => file.name,
-    grantDroppedWorkspace: vi.fn().mockResolvedValue(true),
+    grantDroppedWorkspace: grant,
   });
-  vi.mocked(invoke).mockResolvedValue([true]);
-  select.mockResolvedValue(undefined);
   host = document.createElement("div");
   document.body.appendChild(host);
   act(() => render(<Surface />, host));
@@ -50,24 +49,48 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("workspace folder drop", () => {
-  it("validates one folder and selects its full path without launching", async () => {
-    await act(async () => {
+async function flush(action: () => void) {
+  await act(async () => {
+    action();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
+
+describe("workspace drops", () => {
+  it("rejects a batch that would exceed recent-workspace capacity", async () => {
+    await flush(() => {
+      dispatch(
+        "drop",
+        Array.from({ length: MAX_RECENTS + 1 }, (_, i) => `/w/${i}`),
+      );
+    });
+    expect(select).not.toHaveBeenCalled();
+    expect(error).toHaveBeenLastCalledWith(
+      `Drop up to ${MAX_RECENTS} different workspace folders at a time.`,
+    );
+  });
+  it("selects the host-validated folder without launching", async () => {
+    await flush(() => {
       dispatch("drop");
-      await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    expect(invoke).toHaveBeenCalledWith("dirs_exist", { paths: ["/work/My Folder"] });
-    expect(select).toHaveBeenCalledExactlyOnceWith("/work/My Folder");
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
+    expect(select).toHaveBeenCalledExactlyOnceWith("/work/My Folder", ["/work/My Folder"]);
     expect(host.querySelector("button")?.disabled).toBe(false);
     expect(error).toHaveBeenCalledExactlyOnceWith(null);
+    expect(checking.mock.calls).toEqual([[true], [false]]);
   });
-
-  it("blocks Run and duplicate drops until directory validation answers", async () => {
-    let resolve!: (flags: boolean[]) => void;
-    vi.mocked(invoke).mockReturnValue(
+  it("maps a mixed batch to unique roots and selects the first", async () => {
+    grant
+      .mockResolvedValueOnce("/first")
+      .mockResolvedValueOnce("/first")
+      .mockResolvedValueOnce("/second");
+    await flush(() => {
+      dispatch("drop", ["/first/a.txt", "/first", "/second/b.txt"]);
+    });
+    expect(select).toHaveBeenCalledExactlyOnceWith("/first", ["/first", "/second"]);
+  });
+  it("blocks Run and duplicate drops while validation is pending", async () => {
+    let resolve!: (value: string) => void;
+    grant.mockReturnValueOnce(
       new Promise((done) => {
         resolve = done;
       }),
@@ -76,85 +99,44 @@ describe("workspace folder drop", () => {
       dispatch("drop");
     });
     expect(host.querySelector("button")?.disabled).toBe(true);
-    await act(async () => {
+    await flush(() => {
       dispatch("drop", ["/other"]);
     });
-    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(grant).toHaveBeenCalledTimes(1);
     expect(select).not.toHaveBeenCalled();
-    await act(async () => {
-      resolve([true]);
-      await new Promise((done) => setTimeout(done, 0));
+    await flush(() => {
+      resolve("/work/My Folder");
     });
-    expect(select).toHaveBeenCalledExactlyOnceWith("/work/My Folder");
+    expect(select).toHaveBeenCalledTimes(1);
   });
-
-  it.each([{ names: [] }, { names: ["/one", "/two"] }])(
-    "rejects an invalid entry count: $names",
-    async ({ names }) => {
-      await act(async () => {
-        dispatch("drop", names);
-      });
-      expect(invoke).not.toHaveBeenCalled();
-      expect(select).not.toHaveBeenCalled();
-      expect(error).toHaveBeenCalledWith("Drop one folder at a time.");
-    },
-  );
-
-  it("rejects files or missing directories without changing the workspace", async () => {
-    vi.mocked(invoke).mockResolvedValue([false]);
-    await act(async () => {
-      dispatch("drop", ["/work/file.txt"]);
-    });
-    expect(select).not.toHaveBeenCalled();
-    expect(error).toHaveBeenLastCalledWith("Drop an existing folder, not a file.");
-  });
-
-  it("explains a missing native path", async () => {
-    vi.stubGlobal("__deckHost", { getPathForFile: () => "" });
-    await act(async () => {
-      dispatch("drop");
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    });
-    expect(invoke).not.toHaveBeenCalled();
-    expect(select).not.toHaveBeenCalled();
-    expect(error).toHaveBeenLastCalledWith("Couldn't read that folder — use Open folder instead.");
-  });
-
-  it.each([null, [], ["true"], [true, false]].map((flags) => ({ flags })))(
-    "fails closed on malformed host data: $flags",
-    async ({ flags }) => {
-      vi.mocked(invoke).mockResolvedValue(flags);
-      await act(async () => {
-        dispatch("drop");
+  it.each([null, false, true, "", 7, {}])(
+    "rejects failed or malformed grants: %s",
+    async (answer) => {
+      grant.mockResolvedValueOnce("/valid").mockResolvedValueOnce(answer);
+      await flush(() => {
+        dispatch("drop", ["/valid", "/invalid"]);
       });
       expect(select).not.toHaveBeenCalled();
       expect(error).toHaveBeenLastCalledWith(
-        "Couldn't open that folder — try again or use Open folder.",
+        "Couldn't open that file or folder — try again or use Open folder.",
       );
       expect(host.querySelector("button")?.disabled).toBe(false);
     },
   );
-
-  it("reports a failed host call and allows retry", async () => {
-    vi.mocked(invoke).mockRejectedValueOnce(new Error("offline"));
-    await act(async () => {
+  it("reports a failed call and allows retry", async () => {
+    grant.mockRejectedValueOnce(new Error("offline"));
+    await flush(() => {
       dispatch("drop");
-      await new Promise((resolve) => setTimeout(resolve, 0));
     });
     expect(select).not.toHaveBeenCalled();
-    expect(error).toHaveBeenLastCalledWith(
-      "Couldn't open that folder — try again or use Open folder.",
-    );
-    await act(async () => {
+    await flush(() => {
       dispatch("drop");
-      await new Promise((resolve) => setTimeout(resolve, 0));
     });
     expect(select).toHaveBeenCalledTimes(1);
   });
-
-  it.each(["unmount", "disable"])("ignores an in-flight answer after %s", async (change) => {
-    let resolve!: (flags: boolean[]) => void;
-    vi.mocked(invoke).mockReturnValue(
+  it.each(["unmount", "disable"])("ignores an in-flight reply after %s", async (change) => {
+    let resolve!: (value: string) => void;
+    grant.mockReturnValueOnce(
       new Promise((done) => {
         resolve = done;
       }),
@@ -163,42 +145,36 @@ describe("workspace folder drop", () => {
       dispatch("drop");
     });
     act(() => render(change === "unmount" ? null : <Surface enabled={false} />, host));
-    await act(async () => {
-      resolve([true]);
+    await flush(() => {
+      resolve("/valid");
     });
     expect(select).not.toHaveBeenCalled();
     expect(error).toHaveBeenCalledExactlyOnceWith(null);
+    expect(checking).toHaveBeenLastCalledWith(false);
   });
-
-  it("ignores text and consumes file drops while unavailable", async () => {
-    await act(async () => {
+  it("rejects empty batches and ignores text", async () => {
+    await flush(() => {
       dispatch("drop", [], ["text/plain"]);
     });
+    expect(error).not.toHaveBeenCalled();
+    await flush(() => {
+      dispatch("drop", []);
+    });
+    expect(error).toHaveBeenCalledWith("Drop a file or folder from your computer.");
+    expect(grant).not.toHaveBeenCalled();
+  });
+  it("consumes disabled drops without granting or selecting", async () => {
     act(() => render(<Surface enabled={false} />, host));
-    let event!: Event;
-    await act(async () => {
-      event = dispatch("drop");
-    });
-    expect(event.defaultPrevented).toBe(true);
-    expect(invoke).not.toHaveBeenCalled();
-    expect(error).not.toHaveBeenCalled();
+    expect(dispatch("drop").defaultPrevented).toBe(true);
+    expect(grant).not.toHaveBeenCalled();
   });
-
-  it("leaves drops alone on a host that cannot resolve paths", async () => {
+  it("leaves drops alone without native path support", async () => {
     vi.stubGlobal("__deckHost", undefined);
-    const over = dispatch("dragover");
-    let dropped!: Event;
-    await act(async () => {
-      dropped = dispatch("drop");
-    });
-    expect(over.defaultPrevented).toBe(false);
-    expect(dropped.defaultPrevented).toBe(false);
-    expect(host.querySelector("[data-drop]")?.getAttribute("data-dragging")).toBe("false");
-    expect(invoke).not.toHaveBeenCalled();
-    expect(error).not.toHaveBeenCalled();
+    expect(dispatch("dragover").defaultPrevented).toBe(false);
+    expect(dispatch("drop").defaultPrevented).toBe(false);
+    expect(grant).not.toHaveBeenCalled();
   });
-
-  it("clears the drop highlight after leaving or dropping", async () => {
+  it("clears the highlight on leave and drop", async () => {
     act(() => {
       dispatch("dragover");
     });
@@ -207,7 +183,7 @@ describe("workspace folder drop", () => {
       dispatch("dragleave");
     });
     expect(host.querySelector("[data-drop]")?.getAttribute("data-dragging")).toBe("false");
-    await act(async () => {
+    await flush(() => {
       dispatch("dragover");
       dispatch("drop");
     });

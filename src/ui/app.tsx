@@ -79,7 +79,13 @@ import { UsageConsentModal } from "./usage-consent-modal";
 import { ensureTelemetryStateLoaded, usageConsentOpen } from "../telemetry/consent-store";
 import { installUsageCounterEffects } from "../telemetry/usage-counters";
 import { OpenBoard } from "../open-board/open-board";
-import { clearDraft, newTaskDraft, taskDraftTouched } from "../launcher/launcher-store";
+import { WorkspaceDrop } from "./workspace-drop";
+import {
+  clearDraft,
+  newTaskDraft,
+  selectDraftWorkspace,
+  taskDraftTouched,
+} from "../launcher/launcher-store";
 import {
   agentLaunchCommand,
   agentLaunchCommandChoices,
@@ -291,6 +297,8 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
   const stagesRef = useRef<HTMLDivElement>(null);
   const resumingWorkspacesRef = useRef<ReadonlySet<string>>(new Set());
   const taskOperationPending = useSignal<LauncherPending | null>(null);
+  const workspaceDropChecking = useSignal(false);
+  const boardSelectionPending = useSignal(false);
   const taskOperationFlight = useRef<Promise<LaunchTaskOutcome> | null>(null);
   const launchAttempt = useSignal<TaskLaunchAttempt | null>(null);
   const tabsRef = useRef<TabManager | null>(null);
@@ -1236,6 +1244,7 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
     pending: LauncherPending,
     operation: () => Promise<LaunchTaskOutcome>,
   ): Promise<LaunchTaskOutcome> {
+    if (workspaceDropChecking.value) return Promise.resolve("spawn-failed");
     if (taskOperationFlight.current !== null) {
       return taskOperationFlight.current;
     }
@@ -2769,7 +2778,13 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
               canRetryDelivery={canRetryTaskDelivery}
               canFocusOpenedAgent={launchTargetExists}
               hasUserDraftContent={taskDraftTouched.value}
-              externalPending={taskOperationPending.value}
+              externalPending={
+                taskOperationPending.value ??
+                (workspaceDropChecking.value ? "selecting-workspace" : null)
+              }
+              onPendingChange={(pending) => {
+                boardSelectionPending.value = pending;
+              }}
               onRetryDelivery={handleRetryTaskPrompt}
               onFocusOpenedAgent={focusTaskLaunchTarget}
               onClearDraft={clearTaskLaunchDraft}
@@ -2842,6 +2857,19 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
             </div>
           ) : null}
           <PersistErrorBar />
+          <WorkspaceDrop
+            enabled={taskOperationPending.value === null && !boardSelectionPending.value}
+            onChecking={(checking) => {
+              workspaceDropChecking.value = checking;
+            }}
+            onSelect={(path, paths) => {
+              for (const root of [...paths].reverse()) recordWorkspaceOpen(root);
+              selectDraftWorkspace(path);
+              settingsOpen.value = false;
+              usageOpen.value = false;
+              openTaskBoard();
+            }}
+          />
           <UsagePage open={usageOpen.value} onClose={closeUsage} />
           <SettingsScreen open={settingsOpen.value} onClose={closePanel} />
         </main>

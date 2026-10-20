@@ -28,7 +28,6 @@ import { createOpencodeIntegration } from "./agent-hooks/opencode-integration";
  *    touches a session.
  */
 import path from "node:path";
-import fs from "node:fs/promises";
 import {
   app,
   BrowserWindow,
@@ -58,6 +57,7 @@ import { createMenuState } from "./menu-state";
 import { registerSettingsIpc } from "./settings-ipc";
 import { registerServices } from "./ipc/register-services";
 import { resolveRoot } from "./fs/path-guard";
+import { droppedWorkspaceRoot } from "./fs/dropped-workspace";
 import { ImageWorkspaceGrants } from "./image-workspace-grants";
 import { registerThemes } from "./ipc/register-themes";
 import { registerExplorer } from "./ipc/register-explorer";
@@ -119,14 +119,10 @@ const imageWorkspaceGrants = ImageWorkspaceGrants.open(stores);
 // This channel is reachable only through the preload's File-backed method;
 // it is intentionally excluded from the general renderer invoke allowlist.
 ipcMain.handle("grant_dropped_workspace", async (event, droppedPath: unknown) => {
-  if (typeof droppedPath !== "string" || droppedPath.length === 0) return false;
-  const realPath = await fs.realpath(droppedPath).catch(() => null);
-  const canonical = realPath === null ? null : resolveRoot(realPath);
-  if (canonical === null || !(await fs.stat(canonical).catch(() => null))?.isDirectory()) {
-    return false;
-  }
+  const canonical = await droppedWorkspaceRoot(droppedPath);
+  if (canonical === null) return null;
   const grants = await imageWorkspaceGrants;
-  if (!(await grants.grant(canonical))) return false;
+  if (!(await grants.grant(canonical))) return null;
   const active = activeImageRootsBySender.get(event.sender.id) ?? new Set<string>();
   active.add(canonical);
   while (active.size > MAX_IMAGE_ROOTS_PER_WINDOW) {
@@ -135,7 +131,7 @@ ipcMain.handle("grant_dropped_workspace", async (event, droppedPath: unknown) =>
     active.delete(oldest);
   }
   activeImageRootsBySender.set(event.sender.id, active);
-  return true;
+  return canonical;
 });
 
 /**

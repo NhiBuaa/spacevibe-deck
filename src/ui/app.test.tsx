@@ -332,7 +332,9 @@ describe("task launcher mount", () => {
 
   it("shares one task-operation lock across both launcher surfaces and every Board entry", () => {
     expect(source).toContain("function runTaskOperation(");
-    expect(source).toContain("externalPending={taskOperationPending.value}");
+    expect(source).toMatch(/externalPending=\{\s*taskOperationPending\.value\s*\?\?/);
+    expect(source).toContain('workspaceDropChecking.value ? "selecting-workspace" : null');
+    expect(source).toContain("!boardSelectionPending.value");
     // `New Workspace` left the frame row for the rail (DL-27.14), so the lock
     // reaches it through the rail's `legacy` object rather than a JSX prop.
     expect(source).toContain("onOpenWorkspace: openTaskBoard");

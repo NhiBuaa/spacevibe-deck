@@ -1,6 +1,6 @@
 import { invoke } from "../host/bridge";
 import { useSignal } from "@preact/signals";
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { open } from "../host/dialog-host";
 import {
   agentForWorkspace,
@@ -18,7 +18,7 @@ import {
 } from "../terminal/agent-detection-store";
 import { agentOptions, BUILTIN_AGENTS, probeNames, type CustomAgent } from "../lib/agent-catalog";
 import { settings } from "../settings/settings-store";
-import { removeWorkspaceRecents, workspacesData } from "./workspaces-store";
+import { recordWorkspaceOpen, removeWorkspaceRecents, workspacesData } from "./workspaces-store";
 import type { SessionEntry } from "../lib/session-history";
 import { formatShortcutBinding } from "../lib/shortcut-label";
 import { BoardComposer, type LastSessionOffer } from "./board-composer";
@@ -89,6 +89,7 @@ export interface OpenBoardProps {
   hasUserDraftContent: boolean;
   /** An operation started by the sibling Quick Launch surface. */
   readonly externalPending?: LauncherPending | null;
+  readonly onPendingChange?: (pending: boolean) => void;
   onFocusOpenedAgent(): void;
   onClearDraft(): void;
   /** Resolves false when the history entry could not materialize. */
@@ -154,6 +155,7 @@ export function OpenBoard({
   canFocusOpenedAgent,
   hasUserDraftContent,
   externalPending = null,
+  onPendingChange,
   onFocusOpenedAgent,
   onClearDraft,
   onResumeSession,
@@ -362,7 +364,10 @@ export function OpenBoard({
   const folderDrop = useWorkspaceDrop({
     enabled:
       view.value === "home" && !opening.value && pending.value === null && externalPending === null,
-    onSelect: selectWorkspace,
+    onSelect: async (path, paths) => {
+      await selectWorkspace(path);
+      for (const root of [...paths].reverse()) recordWorkspaceOpen(root);
+    },
     onError: (message) => {
       notice.value = message;
     },
@@ -371,6 +376,13 @@ export function OpenBoard({
     opening.value || folderDrop.checking
       ? "selecting-workspace"
       : (pending.value ?? externalPending);
+  const locallyPending = opening.value || folderDrop.checking || pending.value !== null;
+  const pendingObserver = useRef(onPendingChange);
+  pendingObserver.current = onPendingChange;
+  useLayoutEffect(() => {
+    pendingObserver.current?.(locallyPending);
+    return () => pendingObserver.current?.(false);
+  }, [locallyPending]);
   /* oxlint-disable react-hooks/exhaustive-deps -- `notice` is the output being cleared; only the recovery transition drives this effect */
   useEffect(() => {
     if (recoveryWasAvailable.current && !recoveryAvailable) {

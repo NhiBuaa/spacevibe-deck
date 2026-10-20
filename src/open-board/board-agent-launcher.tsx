@@ -94,7 +94,7 @@ export function BoardAgentLauncher(props: BoardComposerProps) {
           />
           {/* Only a host that resolves dropped paths promises the drop. */}
           {props.canDropFolder ? (
-            <span class="nt-agent-launcher__hint">or drop a folder here</span>
+            <span class="nt-agent-launcher__hint">or drop files or folders here</span>
           ) : null}
         </div>
         <div class="nt-agent-launcher__actions" role="group" aria-label="Workspace actions">

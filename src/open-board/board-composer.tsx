@@ -218,7 +218,7 @@ export function BoardComposer(props: BoardComposerProps) {
 
         {props.draggingFolder ? (
           <div class="nt-board__drop-hint" role="status">
-            Drop a folder to use as your workspace
+            Drop files or folders to add workspaces
           </div>
         ) : null}
         {staging ? (
