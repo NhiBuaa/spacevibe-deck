@@ -17,10 +17,12 @@ on:
     branches: [main]
     paths:
       - "marketing/**"
+      - "docs/user/**"
       - ".github/workflows/landing.yml"
   pull_request:
     paths:
       - "marketing/**"
+      - "docs/user/**"
       - ".github/workflows/landing.yml"
   workflow_dispatch:
 

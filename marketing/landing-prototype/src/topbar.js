@@ -2,7 +2,7 @@ import { BRAND_ICON_SRC } from "./appwin.js";
 import { RELEASES_URL, REPO_URL, WINDOWS_FALLBACK_URL } from "./download-links.js";
 import { initialInstallPlatform } from "./install-command.js";
 import { renderInstallIcon } from "./os-icons.js";
-import { CHANGELOG_URL, FEEDBACK_URL, LANDING_URL } from "./site-urls.js";
+import { CHANGELOG_URL, DOCS_URLS, FEEDBACK_URL, LANDING_URL } from "./site-urls.js";
 
 const PARTNER_MARK_SRC = "/landing-prototype/assets/partner-mark.svg";
 
@@ -44,6 +44,9 @@ export function renderTopbar(copy) {
     <header class="a-topbar">
       <a class="a-topbar__brand" href="${LANDING_URL}" aria-label="${copy.navProduct}">
         ${renderBrandMark(copy)}
+      </a>
+      <a class="a-topbar__changelog" href="${DOCS_URLS.en}">
+        <span data-copy="navDocs">${copy.navDocs}</span>
       </a>
       <a class="a-topbar__changelog" href="${CHANGELOG_URL}">
         <span data-copy="navChangelog">${copy.navChangelog}</span>

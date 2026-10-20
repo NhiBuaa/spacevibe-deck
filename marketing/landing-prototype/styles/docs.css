@@ -1,0 +1,423 @@
+/* The docs page reuses the changelog's chrome (topbar, brand, page floor)
+   from changelog.css and adds a reading layout: a sticky guide index beside
+   one prose column.
+
+   The build may emit changelog.css AFTER this file (it is a chunk shared with
+   the changelog page), so every override of a changelog rule here wins on
+   specificity, never on source order. */
+
+:root {
+  --docs-ink-body: rgb(255 255 255 / 78%);
+  /* Quieter than body text, still 4.5:1 on the page floor (the changelog's
+     42% faint ink is not). */
+  --docs-ink-quiet: rgb(255 255 255 / 54%);
+  --docs-nav-width: 15rem;
+  --docs-measure: 44rem;
+  scrollbar-color: rgb(255 255 255 / 22%) transparent;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root {
+    scroll-behavior: smooth;
+  }
+}
+
+/* The changelog's slow light sweep is ambience for a short ledger; behind
+   long-form reading it is motion in the corner of the eye. */
+html body::after {
+  content: none;
+}
+
+::selection {
+  color: #fff;
+  background: rgb(255 255 255 / 24%);
+}
+
+.docs-page {
+  width: var(--frame-width);
+  min-height: 100svh;
+  margin-inline: auto;
+  border-bottom: 1px solid var(--log-line);
+}
+
+/* Brand · language · Changelog · back: one more column than the changelog's. */
+.docs-page .docs-topbar {
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+}
+
+.docs-topbar .docs-topbar__changelog {
+  justify-self: end;
+}
+
+/* The changelog's EN/VI pill, as links: each language is its own page. */
+.docs-lang a {
+  position: relative;
+  z-index: 1;
+  min-width: 2.1rem;
+  padding: 0.34rem 0.55rem;
+  border-radius: 999px;
+  color: var(--docs-ink-quiet);
+  font: 650 0.6rem/1 var(--font-display);
+  text-align: center;
+  transition: color 220ms var(--log-ease);
+}
+
+.docs-lang a:hover {
+  color: var(--log-ink);
+}
+
+.docs-lang a[aria-current="page"] {
+  color: var(--log-surface-0);
+}
+
+.docs-page .docs-lang a:focus-visible {
+  outline-offset: 4px;
+  border-radius: 999px;
+}
+
+.docs-intro {
+  display: grid;
+  grid-template-columns: var(--docs-nav-width) minmax(0, 1fr);
+  column-gap: clamp(2rem, 5vw, 5rem);
+  padding: clamp(3.5rem, 8vh, 6rem) var(--frame-pad) clamp(2.75rem, 6vh, 4.5rem);
+  border-bottom: 1px solid var(--log-line);
+}
+
+.docs-intro h1 {
+  grid-column: 2;
+  margin: 0;
+  font: 760 clamp(3.4rem, 7vw, 6rem) / 0.86 var(--font-display);
+  letter-spacing: -0.04em;
+}
+
+.docs-intro__body {
+  grid-column: 2;
+  max-width: 56ch;
+  margin: 1.5rem 0 0;
+  color: var(--log-ink-soft);
+  font: 430 clamp(0.95rem, 1.3vw, 1.08rem) / 1.65 var(--font-display);
+  text-wrap: pretty;
+}
+
+.docs-body {
+  display: grid;
+  grid-template-columns: var(--docs-nav-width) minmax(0, 1fr);
+  column-gap: clamp(2rem, 5vw, 5rem);
+  padding: 0 var(--frame-pad);
+}
+
+/* ── Guide index ─────────────────────────────────────────────────────────── */
+
+.docs-nav {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  max-height: 100svh;
+  padding-block: 2.5rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.docs-nav ol,
+.docs-nav ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.docs-nav__list > li + li {
+  margin-top: 1.6rem;
+}
+
+.docs-nav a {
+  display: block;
+  transition: color 180ms var(--log-ease);
+}
+
+.docs-nav__guide {
+  color: var(--log-ink);
+  font: 650 0.86rem/1.3 var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+.docs-nav__sections {
+  margin-top: 0.6rem;
+  border-left: 1px solid var(--log-line);
+}
+
+.docs-nav__sections a {
+  margin-left: -1px;
+  padding: 0.3rem 0 0.3rem 0.85rem;
+  border-left: 1px solid transparent;
+  color: var(--docs-ink-quiet);
+  font: 450 0.8rem/1.35 var(--font-display);
+  transition:
+    color 180ms var(--log-ease),
+    border-color 180ms var(--log-ease);
+}
+
+.docs-nav__sections a:hover,
+.docs-nav__guide:hover {
+  color: var(--log-ink);
+}
+
+.docs-nav__sections a[aria-current="location"] {
+  border-left-color: var(--log-ink);
+  color: var(--log-ink);
+}
+
+/* ── Prose ───────────────────────────────────────────────────────────────── */
+
+.docs-article {
+  min-width: 0;
+  max-width: var(--docs-measure);
+  padding-block: 2.5rem clamp(4rem, 10vh, 7rem);
+  color: var(--docs-ink-body);
+  font: 430 1rem/1.72 var(--font-display);
+}
+
+.docs-guide + .docs-guide {
+  margin-top: clamp(4rem, 9vh, 6rem);
+  padding-top: clamp(3rem, 7vh, 4.5rem);
+  border-top: 1px solid var(--log-line);
+}
+
+.docs-article :is(h2, h3, h4) {
+  color: var(--log-ink);
+  font-family: var(--font-display);
+  text-wrap: balance;
+  scroll-margin-top: 1.5rem;
+}
+
+.docs-article :is(h2, h3, h4) a {
+  text-decoration: none;
+}
+
+.docs-article h2 {
+  margin: 0 0 1.25rem;
+  font-size: clamp(2rem, 3.4vw, 2.75rem);
+  font-weight: 720;
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+}
+
+.docs-article h3 {
+  margin: 3rem 0 0.85rem;
+  font-size: 1.32rem;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: -0.018em;
+}
+
+.docs-article h4 {
+  margin: 2.25rem 0 0.6rem;
+  font-size: 1.05rem;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.docs-article p,
+.docs-article ul,
+.docs-article ol {
+  margin: 0 0 1.1rem;
+  text-wrap: pretty;
+}
+
+.docs-article ul,
+.docs-article ol {
+  padding-left: 1.25rem;
+}
+
+.docs-article li + li {
+  margin-top: 0.45rem;
+}
+
+.docs-article li::marker {
+  color: var(--log-ink-faint);
+}
+
+.docs-article strong {
+  color: var(--log-ink);
+  font-weight: 640;
+}
+
+.docs-article a {
+  color: var(--log-ink);
+  text-decoration: underline;
+  text-decoration-color: var(--log-line-strong);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.22em;
+  transition: text-decoration-color 180ms var(--log-ease);
+}
+
+.docs-article a:hover {
+  text-decoration-color: currentcolor;
+}
+
+/* A guide's citation of the app source it describes, kept as quiet text. */
+.docs-source {
+  color: var(--docs-ink-quiet);
+}
+
+.docs-article code {
+  padding: 0.1em 0.38em;
+  border: 1px solid var(--log-line);
+  border-radius: 4px;
+  color: var(--log-ink);
+  background: var(--log-surface-2);
+  font: 500 0.84em/1 var(--font-mono);
+}
+
+.docs-article pre {
+  margin: 0 0 1.25rem;
+  padding: 1rem 1.15rem;
+  overflow-x: auto;
+  border: 1px solid var(--log-line);
+  border-radius: 6px;
+  background: var(--log-surface-1);
+}
+
+.docs-article pre code {
+  padding: 0;
+  border: 0;
+  background: none;
+  line-height: 1.6;
+}
+
+.docs-table {
+  margin: 0.5rem 0 1.5rem;
+  overflow-x: auto;
+}
+
+.docs-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.docs-table th {
+  padding: 0 1.25rem 0.7rem 0;
+  border-bottom: 1px solid var(--log-line-strong);
+  color: var(--docs-ink-quiet);
+  font: 600 0.66rem/1.2 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.docs-table td {
+  padding: 0.65rem 1.25rem 0.65rem 0;
+  border-bottom: 1px solid var(--log-line);
+  vertical-align: top;
+}
+
+.docs-table td:first-child {
+  color: var(--log-ink);
+}
+
+.docs-article .docs-feedback {
+  margin-top: clamp(4rem, 9vh, 6rem);
+  padding-top: 2rem;
+  border-top: 1px solid var(--log-line);
+  color: var(--log-ink-soft);
+  font-size: 0.92rem;
+}
+
+/* On a translated page, a guide still showing in English says why. */
+.docs-article .docs-untranslated {
+  margin: -0.25rem 0 1.5rem;
+  padding: 0.75rem 0.95rem;
+  border: 1px solid var(--log-line);
+  border-radius: 6px;
+  color: var(--log-ink-soft);
+  background: var(--log-surface-1);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.docs-page a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* ── Narrow: the index becomes a strip of guides above the prose ──────── */
+
+@media (max-width: 60rem) {
+  .docs-intro,
+  .docs-body {
+    display: block;
+  }
+
+  .docs-nav {
+    z-index: 2;
+    max-height: none;
+    margin-inline: calc(var(--frame-pad) * -1);
+    padding: 0 var(--frame-pad);
+    overflow-x: auto;
+    border-bottom: 1px solid var(--log-line);
+    background: var(--log-surface-0);
+    scrollbar-width: none;
+  }
+
+  .docs-nav__list {
+    display: flex;
+    gap: 1.5rem;
+  }
+
+  .docs-nav__list > li + li {
+    margin-top: 0;
+  }
+
+  .docs-nav__guide {
+    padding-block: 0.95rem;
+    border-bottom: 1px solid transparent;
+    color: var(--log-ink-soft);
+    white-space: nowrap;
+  }
+
+  .docs-nav__guide[aria-current="true"] {
+    border-bottom-color: var(--log-ink);
+    color: var(--log-ink);
+  }
+
+  .docs-nav__sections {
+    display: none;
+  }
+
+  .docs-article {
+    font-size: 0.96rem;
+  }
+
+  .docs-article :is(h2, h3, h4) {
+    scroll-margin-top: 4rem;
+  }
+}
+
+@media (max-width: 47.5rem) {
+  .docs-page .docs-topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .docs-topbar .docs-topbar__changelog {
+    display: none;
+  }
+
+  .docs-intro {
+    padding-block: 3rem 2.5rem;
+  }
+
+  .docs-intro h1 {
+    font-size: clamp(3rem, 16vw, 4.25rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .docs-lang a,
+  .docs-nav a,
+  .docs-article a {
+    transition: none;
+  }
+}

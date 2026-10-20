@@ -80,6 +80,11 @@ function copyRuntimeAssets() {
 //     rewritten to the hashed file Rollup actually emitted; an unmapped asset
 //     URL fails the build rather than shipping a 404 into the markup.
 const PRERENDER_ROOT = '<main id="specimen-root">';
+const DOCS_ROOT = '<main id="docs-root" class="docs-page">';
+const DOCS_PAGES = {
+  en: "landing-prototype/docs/index.html",
+  vi: "landing-prototype/vi/docs/index.html",
+};
 
 /**
  * `agent-claude-BXqk1t.svg` -> `agent-claude.svg`.
@@ -157,40 +162,63 @@ function prerenderShell() {
         appType: "custom",
       });
 
-      let markup;
+      const pages = [];
 
       try {
-        const [{ messages }, { renderHero }, { renderTour }] = await Promise.all([
-          server.ssrLoadModule("/landing-prototype/src/copy.js"),
-          server.ssrLoadModule("/landing-prototype/src/hero.js"),
-          server.ssrLoadModule("/landing-prototype/src/tour/index.js"),
-        ]);
+        const [{ messages }, { renderHero }, { renderTour }, { renderDocsPage }] =
+          await Promise.all([
+            server.ssrLoadModule("/landing-prototype/src/copy.js"),
+            server.ssrLoadModule("/landing-prototype/src/hero.js"),
+            server.ssrLoadModule("/landing-prototype/src/tour/index.js"),
+            server.ssrLoadModule("/landing-prototype/src/docs-view.js"),
+          ]);
 
-        markup = renderHero(messages.en).markup + renderTour(messages.en).markup;
+        pages.push({
+          file: "landing-prototype/index.html",
+          root: PRERENDER_ROOT,
+          markup: renderHero(messages.en).markup + renderTour(messages.en).markup,
+        });
+
+        // The docs pages are the guides themselves; rendering them here is
+        // also what fails the build on a guide link that points nowhere. A
+        // translation behind its English guide does NOT fail it — that page
+        // shows the guide in English — so it is only reported.
+        for (const [locale, file] of Object.entries(DOCS_PAGES)) {
+          const { markup, untranslated } = renderDocsPage(locale);
+
+          for (const { slug, status } of untranslated) {
+            console.warn(
+              `Landing build: the ${locale} docs show "${slug}" in English (translation ${status}; ` +
+                "see npm run docs:translations).",
+            );
+          }
+
+          pages.push({ file, root: DOCS_ROOT, markup });
+        }
       } finally {
         await server.close();
       }
 
-      const page = resolve(outDir, "landing-prototype/index.html");
-      const html = readFileSync(page, "utf8");
+      for (const { file, root, markup } of pages) {
+        const page = resolve(outDir, file);
+        const html = readFileSync(page, "utf8");
 
-      if (!html.includes(PRERENDER_ROOT)) {
-        throw new Error(
-          `Landing build: prerender root "${PRERENDER_ROOT}" is missing from index.html.`,
-        );
+        if (!html.includes(root)) {
+          throw new Error(`Landing build: prerender root "${root}" is missing from ${file}.`);
+        }
+
+        const resolved = rewriteAssetUrls(markup, emitted);
+        const unresolved = [...resolved.matchAll(/(?:src|href)="((?:file:|\/@fs|\.\.?\/)[^"]*)"/g)];
+
+        if (unresolved.length > 0) {
+          throw new Error(
+            `Landing build: prerendered markup in ${file} kept ${unresolved.length} unresolved ` +
+              `asset URL(s), first "${unresolved[0][1]}".`,
+          );
+        }
+
+        writeFileSync(page, html.replace(root, `${root}${resolved}`));
       }
-
-      const resolved = rewriteAssetUrls(markup, emitted);
-      const unresolved = [...resolved.matchAll(/(?:src|href)="((?:file:|\/@fs|\.\.?\/)[^"]*)"/g)];
-
-      if (unresolved.length > 0) {
-        throw new Error(
-          `Landing build: prerendered markup kept ${unresolved.length} unresolved asset URL(s), ` +
-            `first "${unresolved[0][1]}".`,
-        );
-      }
-
-      writeFileSync(page, html.replace(PRERENDER_ROOT, `${PRERENDER_ROOT}${resolved}`));
     },
   };
 }
@@ -209,6 +237,8 @@ export default defineConfig({
         landing: resolve(import.meta.dirname, "index.html"),
         changelog: resolve(import.meta.dirname, "changelog/index.html"),
         feedback: resolve(import.meta.dirname, "feedback/index.html"),
+        docs: resolve(import.meta.dirname, "docs/index.html"),
+        docsVi: resolve(import.meta.dirname, "vi/docs/index.html"),
       },
     },
   },

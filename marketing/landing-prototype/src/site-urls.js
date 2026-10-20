@@ -27,6 +27,15 @@ export const LANDING_URL = PROD ? "/" : "/landing-prototype/";
 /** The release list. */
 export const CHANGELOG_URL = PROD ? "/changelog" : "/landing-prototype/changelog/";
 
+/**
+ * The user guides, rendered from `docs/user/`, per locale. The locale leads
+ * the path (`/vi/docs`) so each language is its own crawlable page.
+ */
+export const DOCS_URLS = {
+  en: PROD ? "/docs" : "/landing-prototype/docs/",
+  vi: PROD ? "/vi/docs" : "/landing-prototype/vi/docs/",
+};
+
 /** The feedback form and its public status board. */
 export const FEEDBACK_URL = PROD ? "/feedback" : "/landing-prototype/feedback/";
 

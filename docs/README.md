@@ -5,6 +5,10 @@ tense.
 
 ## `user/` — using Deck
 
+Published as the docs page at `deck.spacevibe.dev/docs` by
+[`docs-render.js`](../marketing/landing-prototype/src/docs-render.js) on every deploy, with
+translations at `/<locale>/docs` from `marketing/landing-prototype/docs/translations/`.
+
 - [Getting started](user/getting-started.md) — install, first launch, the window, panes and
   files.
 - [Agents](user/agents.md) — the built-in commands, custom agents, what Deck knows about each
