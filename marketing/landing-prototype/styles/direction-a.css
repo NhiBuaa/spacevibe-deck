@@ -408,11 +408,17 @@
     padding: 0;
   }
 
-  /* One compact row: the brand, the changelog and the board's link. */
+  /* One compact row: the brand marks, the docs, the changelog and the board's
+     link. The wordmark gives way, as it does on the changelog page, so the
+     row still fits a 320px phone. */
   .a-topbar {
     justify-content: space-between;
-    gap: 1rem;
+    gap: 0.75rem;
     padding-block: 0.95rem;
+  }
+
+  .a-topbar__brand strong {
+    display: none;
   }
 
   /* Download gives way too: a phone cannot run the app, and the hero's own

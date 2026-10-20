@@ -249,7 +249,13 @@ index is [docs/README.md](docs/README.md).
   maintainer would get wrong without it. It is the one place in the repository that still
   takes new documentation.
 - `docs/user/` helps users accomplish tasks, in the voice of the shipped product, with no
-  implementation detail and no contributor tooling. A UI tweak needs no entry.
+  implementation detail and no contributor tooling. These files are the public docs page at
+  `deck.spacevibe.dev/docs`, rendered by
+  [`docs-render.js`](marketing/landing-prototype/src/docs-render.js) on every deploy of
+  `main`. A change to what a user sees, clicks or reads — a label, a control, where something
+  lives, a flow, a shortcut — updates its guide in the same commit; a purely visual tweak
+  (colour, spacing, motion) needs no entry. A guide link that names no real heading fails the
+  landing build.
 - `docs/operations/` is the maintainer runbook: setup, release, debugging. Every page under
   `internals/` and `operations/` opens with the "For maintainers" callout.
 - Do not write file catalogs, field or method enumerations, control-flow narration, or

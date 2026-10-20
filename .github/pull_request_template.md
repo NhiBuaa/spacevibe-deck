@@ -26,7 +26,8 @@ reviewed. Anything in a fork-listed area of AGENTS.md needs an issue before code
 
 <!-- Does a page under docs/ now disagree with the code? Which one did you update, or why
      none needs it? Internal pages hold decisions and constraints, not feature descriptions;
-     user guides change when how to use a feature changes. -->
+     user guides change when how to use a feature changes, and are published as-is at
+     deck.spacevibe.dev/docs. -->
 
 ## Checklist
 

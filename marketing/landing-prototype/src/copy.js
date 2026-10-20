@@ -1,6 +1,7 @@
 export const messages = {
   en: {
     navProduct: "Deck",
+    navDocs: "Docs",
     navChangelog: "Changelog",
     navGithub: "GitHub",
     navDownload: "Download",
@@ -130,6 +131,7 @@ export const messages = {
   },
   vi: {
     navProduct: "Deck",
+    navDocs: "Tài liệu",
     navChangelog: "Changelog",
     navGithub: "GitHub",
     navDownload: "Tải về",

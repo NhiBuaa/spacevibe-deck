@@ -25,6 +25,11 @@
 # is copied verbatim into the output root and served by the /privacy rewrites.
 !/marketing/public
 
+# The docs page renders the user guides straight from here.
+!/docs
+/docs/*
+!/docs/user
+
 # The landing's agent logos live with the app's own assets, and the agent strip
 # reads the app's agent registry.
 !/src

@@ -38,6 +38,14 @@
       "destination": "/landing-prototype/changelog/index.html"
     },
     {
+      "source": "/docs",
+      "destination": "/landing-prototype/docs/index.html"
+    },
+    {
+      "source": "/docs/",
+      "destination": "/landing-prototype/docs/index.html"
+    },
+    {
       "source": "/feedback",
       "destination": "/landing-prototype/feedback/index.html"
     },
@@ -112,6 +120,16 @@
     {
       "source": "/landing-prototype/changelog/",
       "destination": "/changelog",
+      "permanent": true
+    },
+    {
+      "source": "/landing-prototype/docs",
+      "destination": "/docs",
+      "permanent": true
+    },
+    {
+      "source": "/landing-prototype/docs/",
+      "destination": "/docs",
       "permanent": true
     },
     {

@@ -27,6 +27,9 @@ export const LANDING_URL = PROD ? "/" : "/landing-prototype/";
 /** The release list. */
 export const CHANGELOG_URL = PROD ? "/changelog" : "/landing-prototype/changelog/";
 
+/** The user guides, rendered from `docs/user/`. */
+export const DOCS_URL = PROD ? "/docs" : "/landing-prototype/docs/";
+
 /** The feedback form and its public status board. */
 export const FEEDBACK_URL = PROD ? "/feedback" : "/landing-prototype/feedback/";
 
