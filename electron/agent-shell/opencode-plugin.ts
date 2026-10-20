@@ -35,7 +35,7 @@ export function opencodePluginSource(): string {
 // Written by Deck; edits are overwritten at the next launch.
 import net from "node:net";
 
-export const DeckSignalsPlugin = async ({ client }) => {
+function signals(lookup) {
   const env = process.env;
   // Read once at load: the credentials of the pane opencode was started in.
   const pane = env.DECK_PANE_ID || "";
@@ -46,13 +46,17 @@ export const DeckSignalsPlugin = async ({ client }) => {
     !/^[0-9]{1,10}$/.test(pane) ||
     !/^[A-Za-z0-9._-]{1,200}$/.test(token) ||
     !/^[0-9]{1,5}$/.test(port) ||
+    Number(port) < 1 || Number(port) > 65535 ||
     env.DECK_AGENT_NESTED ||
     env.DECK_AGENT_ID !== "opencode"
   ) {
-    return {};
+    return null;
   }
+  let active = true;
+  const sockets = new Set();
   const post = (name, sessionID, message) =>
     new Promise((resolve) => {
+      if (!active) return resolve();
       const body = JSON.stringify({
         hook_event_name: name,
         session_id: String(sessionID).slice(0, 128),
@@ -67,10 +71,11 @@ export const DeckSignalsPlugin = async ({ client }) => {
         "\\r\\nConnection: close\\r\\n\\r\\n";
       // Best effort: Deck being gone, slow or refusing must never reach opencode.
       const socket = net.connect({ host: "127.0.0.1", port: Number(port) });
+      sockets.add(socket);
       socket.setTimeout(${POST_TIMEOUT_MS}, () => socket.destroy());
       socket.on("error", () => {});
-      socket.on("close", resolve);
-      socket.on("connect", () => socket.end(head + body));
+      socket.on("close", () => { sockets.delete(socket); resolve(); });
+      socket.on("connect", () => { if (active) socket.end(head + body); else socket.destroy(); });
       socket.resume();
     });
 
@@ -87,10 +92,8 @@ export const DeckSignalsPlugin = async ({ client }) => {
   const childCache = new Map();
   const isChild = async (id) => {
     if (childCache.has(id)) return childCache.get(id);
-    if (!client?.session?.list) return true;
     try {
-      const sessions = await client.session.list();
-      const session = sessions.data?.find((s) => s.id === id);
+      const session = await lookup(id);
       if (!session) return true;
       childCache.set(id, Boolean(session.parentID));
       return childCache.get(id);
@@ -122,7 +125,7 @@ export const DeckSignalsPlugin = async ({ client }) => {
   // Events can arrive while an earlier post is in flight; keep them in arrival order.
   let pending = Promise.resolve();
   const enqueue = (handle) => {
-    pending = pending.then(handle).catch(() => {});
+    pending = pending.then(() => active ? handle() : undefined).catch(() => {});
   };
 
   // The only events that can change what Deck shows; everything else is skipped before any
@@ -185,6 +188,11 @@ export const DeckSignalsPlugin = async ({ client }) => {
   };
 
   return {
+    dispose: () => {
+      active = false;
+      for (const socket of sockets) socket.destroy();
+      childCache.clear();
+    },
     event: ({ event }) => {
       enqueue(() => onEvent(event));
     },
@@ -196,6 +204,60 @@ export const DeckSignalsPlugin = async ({ client }) => {
       });
     },
   };
+}
+
+// V1 >= 1.18.29 calls server(); V2 calls setup(). No runtime package import is needed.
+export default {
+  id: "deck-signals",
+  async server({ client }) {
+    return signals(async (id) => {
+      const sessions = await client?.session?.list?.();
+      return sessions?.data?.find((session) => session.id === id);
+    }) || {};
+  },
+  setup(ctx) {
+    const hooks = signals((sessionID) => ctx.session.get({ sessionID }));
+    if (!hooks) return;
+    const controller = new AbortController();
+    const seen = new Set();
+    const types = {
+      "session.execution.started": "session.busy",
+      "session.execution.succeeded": "session.idle",
+      "session.execution.interrupted": "session.idle",
+      "session.execution.failed": "session.error",
+      "form.created": "question.asked",
+      "form.replied": "question.replied",
+      "form.cancelled": "question.rejected",
+      "permission.asked": "permission.asked",
+      "permission.replied": "permission.replied",
+      "session.created": "session.created",
+      "session.deleted": "session.deleted",
+    };
+    void (async () => {
+      try {
+        for await (const event of ctx.event.subscribe({ signal: controller.signal })) {
+          if (controller.signal.aborted) break;
+          const type = types[event.type];
+          if (!type) continue;
+          // Public event IDs dedupe replayed delivery without retaining an unbounded history.
+          if (event.id) {
+            if (seen.has(event.id)) continue;
+            seen.add(event.id);
+            if (seen.size > 256) seen.delete(seen.values().next().value);
+          }
+          const data = event.data || {};
+          hooks.event({ event: { type, properties: {
+            sessionID: data.sessionID ?? data.form?.sessionID,
+            ...(type === "session.created" ? { info: { id: data.sessionID, parentID: data.parentID } } : {}),
+            error: data.error,
+          } } });
+        }
+      } catch {
+        // Abort and server shutdown are normal; subscription failures remain best effort.
+      }
+    })();
+    return () => { hooks.dispose(); controller.abort(); seen.clear(); };
+  },
 };
 `;
 }

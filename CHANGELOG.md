@@ -7,6 +7,10 @@ the release PR, and frozen at the tag — never an auto-generated commit list.
 
 ## 2.12.1
 
+- **opencode status works on opencode 2.** The rail again shows when opencode is working,
+  waiting for you or finished, on both opencode 1.18.29+ and 2.x. Deck loads its plugin only for a
+  local session: `--attach`, `--server`, `--help` and `--version` runs are left alone, and the
+  plugin closes its connection to Deck when opencode shuts it down.
 - **Claude Code sessions use less CPU.** Deck reads Claude's usage limits from its status line,
   and used to start a collector on every refresh. It now collects at most once every 30 seconds
   per session. With a status line that refreshes every second, nine sessions were spending
