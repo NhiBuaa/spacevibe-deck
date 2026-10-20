@@ -492,7 +492,7 @@ jobs:
       - name: Announce the release on Discord
         # Last on purpose: the release is already public, so a Discord outage
         # or a revoked webhook must warn, never fail the run (the cut script
-        # watches this job's conclusion). The curl is therefore guarded in the
+        # watches the run's conclusion). The curl is therefore guarded in the
         # script, not with `continue-on-error`, which the release tests ban.
         # Stable only, like the product-named title; prereleases are the
         # migration channel, not an announcement.
@@ -505,15 +505,13 @@ jobs:
             echo "::warning::DISCORD_WEBHOOK_URL is not set; skipping the Discord announcement"
             exit 0
           fi
-          VERSION="${TAG#v}"
           # Embed descriptions cap at 4096 characters. Cut on a line boundary
-          # so a bullet is never sliced in half, and point at the full notes.
-          body="$(head -c 3500 section.md | sed '$d')"
-          [[ "$(wc -c < section.md)" -gt 3500 ]] || body="$(cat section.md)"
+          # so a bullet is never sliced in half; the title links the full notes.
+          body="$(awk '{ n += length + 1; if (n > 3500) exit; print }' section.md)"
           # `allowed_mentions.parse = []` keeps an @everyone typed in the
           # changelog from pinging the group.
           jq -n \
-            --arg title "SpaceVibe Deck $VERSION" \
+            --arg title "SpaceVibe Deck ${TAG#v}" \
             --arg url "https://github.com/$GH_REPO/releases/tag/$TAG" \
             --arg body "$body" \
             '{allowed_mentions: {parse: []},
