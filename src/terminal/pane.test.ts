@@ -24,6 +24,38 @@ const silentEvents: PaneEvents = {
 };
 
 describe("Pane transfer primitives", () => {
+  it("keeps control bytes inside programmatic text from ending bracketed paste", async () => {
+    const writes: string[] = [];
+    const originalPaste = Terminal.prototype.paste;
+    // Exercise xterm's real framing without mounting its canvas renderer.
+    const paste = vi.spyOn(Terminal.prototype, "paste").mockImplementation(function (
+      this: Terminal,
+      text,
+    ) {
+      const core = (this as unknown as { _core: { textarea?: HTMLTextAreaElement } })._core;
+      core.textarea ??= document.createElement("textarea");
+      originalPaste.call(this, text);
+    });
+    const pane = createPane(99, DEFAULT_SETTINGS as Settings, {
+      ...silentEvents,
+      onData: (_id, data) => {
+        writes.push(data);
+        return Promise.resolve(true);
+      },
+    });
+    try {
+      pane.write("\u001b[?2004h");
+      await pane.flush();
+      await pane.pasteText("first\n\u001b[201~\rmarker\u009b201~\tlast\n\n");
+      expect(writes).toHaveLength(1);
+      expect(writes[0].split("\u001b[201~")).toHaveLength(2);
+      expect(writes[0]).not.toContain("\u009b");
+      expect(writes[0]).toBe("\u001b[200~first\r[201~\rmarker201~\tlast\r\r\u001b[201~");
+    } finally {
+      paste.mockRestore();
+      pane.dispose();
+    }
+  });
   it("flush() resolves after xterm has parsed everything already written", async () => {
     const pane = createPane(1, DEFAULT_SETTINGS as Settings, silentEvents);
     pane.write("hello");

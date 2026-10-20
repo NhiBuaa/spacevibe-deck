@@ -8,6 +8,8 @@
  * else composes to the body alone rather than to a guess.
  */
 
+import { hasTerminalControls } from "../lib/terminal-paste";
+
 export type PromptAssetKind = "skill" | "subagent";
 
 /** The CLIs whose asset layouts were verified on disk (spec §5). */
@@ -41,7 +43,7 @@ export function formatAssetReference(
   kind: PromptAssetKind,
   name: string,
 ): string | null {
-  if (!isPromptAgentId(agent)) {
+  if (!isPromptAgentId(agent) || hasTerminalControls(name)) {
     return null;
   }
   const trimmed = name.trim();

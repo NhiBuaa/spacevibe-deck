@@ -17,6 +17,7 @@ import { paneCwd } from "./pane-cwd";
 import { classifyOscNotification } from "../lib/osc-notification";
 import { copyTerminalSelection, pasteIntoTerminal } from "./terminal-clipboard";
 import { getDesktopEnvironment } from "../lib/platform";
+import { sanitizeTerminalPaste } from "../lib/terminal-paste";
 import { createCodexWheelHandler } from "./codex-wheel";
 import { mountPaneAgentHeader } from "./pane-agent-header";
 
@@ -357,7 +358,7 @@ export function createPane(
   function pasteUserText(text: string): void {
     userInput = true;
     try {
-      term.paste(text);
+      term.paste(sanitizeTerminalPaste(text));
     } finally {
       userInput = false;
     }

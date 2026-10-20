@@ -2,6 +2,13 @@ import { describe, expect, it } from "vitest";
 import { composePromptText, formatAssetReference, isPromptAgentId } from "./snippet-format";
 
 describe("formatAssetReference", () => {
+  it.each(["review\u001b[201~\rmarker", "review\u009b201~", "review\nmarker", "review\tmarker"])(
+    "refuses control characters in an asset name",
+    (name) => {
+      expect(formatAssetReference("claude", "skill", name)).toBeNull();
+      expect(formatAssetReference("codex", "subagent", name)).toBeNull();
+    },
+  );
   it("phrases each cell of the per-CLI table", () => {
     expect(formatAssetReference("claude", "skill", "superpowers:brainstorming")).toBe(
       "Use the superpowers:brainstorming skill.",

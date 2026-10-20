@@ -18,6 +18,8 @@
  *    and Deck never makes it for a grab (see `browser-store.ts`).
  */
 
+import { sanitizeTerminalPaste } from "../lib/terminal-paste";
+
 /** Hard ceiling on what one grab may paste. The host caps at the same figure. */
 export const MAX_GRAB_CHARS = 16_000;
 
@@ -34,24 +36,9 @@ export interface GrabLike {
  * HTML across several lines. Everything else in C0, plus DEL, goes.
  */
 export function sanitizeGrabText(text: string): string {
-  return (
-    text
-      .replace(/\r\n?/g, "\n")
-      // Every C0 control except tab (\u0009) and newline (\u000A), then DEL and
-      // the whole C1 block. Written as code points, never as literal
-      // characters: an invisible ESC inside a character class is precisely the
-      // thing a reviewer cannot see.
-      //
-      // C1 is not decoration. \u009B is the 8-bit form of CSI, so \u009B201~ is
-      // the bracketed-paste terminator written without an ESC — it survives a
-      // C0-only filter, reaches the PTY as the bytes C2 9B, and any terminal
-      // honouring 8-bit controls reads it as the end of the paste. That is the
-      // same escape this function exists to prevent, spelled differently.
-      // oxlint-disable-next-line no-control-regex -- the filter's job is matching C0/C1 controls
-      .replace(/[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g, "")
-      .replace(/\n{3,}/g, "\n\n")
-      .trimEnd()
-  );
+  return sanitizeTerminalPaste(text)
+    .replace(/\n{3,}/g, "\n\n")
+    .trimEnd();
 }
 
 /**

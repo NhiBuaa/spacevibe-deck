@@ -61,6 +61,16 @@ describe("parseFrontmatter", () => {
   });
 });
 
+it("does not offer skills whose declared names contain terminal controls", () => {
+  const home = tempDir();
+  const project = tempDir();
+  writeSkill(join(project, ".claude"), "unsafe", "---\nname: review\u001b[201~\n---\n");
+  writeSkill(join(project, ".claude"), "safe", "---\nname: safe-review\n---\n");
+  expect(collect("claude", home, project).skills.map((skill) => skill.name)).toEqual([
+    "safe-review",
+  ]);
+});
+
 describe("parseTomlDescription", () => {
   it("reads a top-level description", () => {
     expect(parseTomlDescription('description = "A codex agent"\n')).toBe("A codex agent");

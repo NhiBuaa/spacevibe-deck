@@ -11,6 +11,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { hasTerminalControls } from "../src/lib/terminal-paste";
 
 /** Bytes read from any descriptor. Frontmatter sits at the top, so a
  * multi-megabyte SKILL.md must never be pulled into memory to find it. */
@@ -325,7 +326,7 @@ function merge(ordered: PromptAsset[]): PromptAsset[] {
   const seen = new Set<string>();
   return ordered
     .filter((asset) => {
-      if (seen.has(asset.name)) {
+      if (hasTerminalControls(asset.name) || seen.has(asset.name)) {
         return false;
       }
       seen.add(asset.name);
