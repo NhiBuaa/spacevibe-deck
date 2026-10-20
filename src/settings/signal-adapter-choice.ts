@@ -9,12 +9,11 @@ import type { SignalAdapters } from "../lib/launch-augment";
  * `signalAdaptersRevision`; a file without a revision of at least 2 reads as the
  * defaults, whatever it stores.
  *
- * Each agent's slice turns Signals on by default through a rung of
- * `SIGNAL_ADAPTER_LADDER`. A file saved under an older revision keeps every
- * stored value and has the agents of the rungs above its revision forced on
- * once; from the current revision on, stored values are the user's choice.
- * Revision 2 cannot tell a chosen "off" from the old default, so that one
- * agent comes back on (DEF1).
+ * In SpaceDeck Local, privacy-first defaults apply: all agent signal adapters
+ * default to false unless explicitly opted into by the user under trusted
+ * revision >= 6. Legacy settings from upstream releases (revisions 1 through 5),
+ * which automatically forced adapters on via upgrade ladder rungs, are treated
+ * as unverified defaults and resolve to false for all adapters.
  *
  * The renderer's settings validator and main's boot-time hook sync share
  * `resolveSignalAdapters`, because main reads the stored file before any

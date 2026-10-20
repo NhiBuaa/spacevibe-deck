@@ -76,6 +76,7 @@ describe("privacy regressions: upstream telemetry, crash reporting, account and 
     const mainTs = read("electron/main.ts");
     expect(mainTs).toContain("configureAppIdentity(app");
     expect(mainTs).not.toContain('app.setAppUserModelId("dev.spacevibe.deck.electron")');
+    expect(mainTs).not.toMatch(/\bapp\.setAppUserModelId\s*\(/);
 
     const builderYml = read("electron-builder.yml");
     expect(builderYml).toContain("appId: io.github.nhibuaa.spacedeck.local.dev");

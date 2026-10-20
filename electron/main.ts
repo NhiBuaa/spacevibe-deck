@@ -704,19 +704,12 @@ registerBrowser({ labelOf, browserPanels });
 
 registerShell();
 
-// ------------------------------------------------------- Windows identity
-// Both of these are no-ops away from Windows, and both are load-bearing on it.
-//
-// Without the AppUserModelID, a toast attributes itself to "Electron" and
-// taskbar entries do not group — and `notification_send` is how an agent tells
-// the user it is waiting for them, so the notification that matters most is
-// the one wearing the wrong name.
-//
+// -------------------------------------------------- Windows single-instance lock
 // Without the single-instance lock, launching Deck twice yields two processes
 // sharing one `userData`: `settings.json` and `workspaces.json` become
 // last-writer-wins between them, and the session journal — which mirrors every
 // window's live tabs — is written by both.
-app.setAppUserModelId("io.github.nhibuaa.spacedeck.local");
+// Note: AppUserModelID is configured early in configureAppIdentity(app).
 if (!app.requestSingleInstanceLock()) {
   // A second launch hands its argv to the first instance and leaves. Quitting
   // before `whenReady` means no window, no PTY and no store was ever opened
