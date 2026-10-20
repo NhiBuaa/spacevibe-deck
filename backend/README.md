@@ -124,6 +124,37 @@ row through Studio; partial uploads use the same report-ID folder. There is no
 automatic feedback expiry. The [privacy notice](../marketing/public/privacy/2026-10-08/index.html)
 describes text drafts, screenshots and the separate feedback storage lifecycle.
 
+## Accounts
+
+Deck's optional Google sign-in uses Supabase Auth in the feedback project
+(`calkpkscykzmvyayfxih`); requirements are in the
+[accounts spec](../docs/specs/2026-10-20-accounts.md). The app holds only the project URL and
+the publishable key ([config](../electron/account/config.ts)); the service-role key never
+enters the app or the repository.
+
+- **Migration:** [`profiles`](supabase/migrations/20261020000100_accounts.sql) holds one row per
+  auth user, created by a `security definer` trigger on `auth.users`. RLS lets an
+  authenticated user `select` only their own row; no client can write `plan`. The table and
+  the trigger function revoke the default grants from `anon` and `authenticated`. Apply it
+  with `db push` as in the setup above, after the dry run.
+- **Check:** [`tests/accounts.test.sql`](supabase/tests/accounts.test.sql) is a pgTAP test for
+  `supabase test db` on the local stack (needs Docker). It asserts own-row reads, no `plan`
+  writes, nothing for `anon`, and that `authenticated` cannot read `feedback_reports` or
+  execute the trigger functions.
+- **Google provider:** in the Google Cloud OAuth web client add the redirect URI
+  `https://calkpkscykzmvyayfxih.supabase.co/auth/v1/callback`; then enable Google in
+  Authentication → Providers and paste the client ID and secret. The consent screen asks for
+  `openid email profile` only.
+- **Redirect allow-list:** Authentication → URL Configuration must allow
+  `http://127.0.0.1:*/auth/callback`. Whether `*` matches a port is unverified; if a sign-in is
+  sent to the Site URL instead, replace it with a small fixed port range.
+- **Other providers:** disable Email and Phone, and confirm anonymous sign-ins are off. With a
+  public key, an open Email provider lets anyone create accounts.
+- **Change a plan:** Table Editor → `profiles` → set `plan` to `free` or `pro`. The app reads
+  it after sign-in and once per launch.
+- **Erase an account:** delete the user in Authentication → Users; the delete cascades to
+  `profiles`.
+
 ## Operations and privacy
 
 Worker logging, invocation logging, tracing and Logpush are disabled. Do not use `wrangler

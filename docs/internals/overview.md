@@ -128,6 +128,16 @@ The renderer may open only the allowlisted stores `settings.json`, `workspaces.j
 - Every write is atomic through one implementation in `electron/fs/write.ts`.
 - `saveAll` on quit uses `allSettled`, so one failing store cannot skip the rest.
 
+The optional Google account is the one place a credential lives in this app, so
+[`electron/account/`](../../electron/account/service.ts) keeps the whole session in main:
+supabase-js runs there, refreshes there, and persists through `account.json`, which is
+encrypted with `safeStorage` and, like `telemetry.json`, is not in the renderer's store
+allowlist. Windows receive only the display state (`signed-out`, `signing-in`, or
+`signed-in` with email, name and plan) from `account_state` and `account:state-changed`;
+a token that crossed IPC would be readable by any script running in any renderer. When the OS cannot encrypt, the session stays in memory
+for that run rather than reaching disk in the clear. See the
+[spec](../specs/2026-10-20-accounts.md) for the requirements.
+
 ## Load-bearing seams (R4)
 
 These modules require a plan and cross-boundary verification, not a drive-by refactor:
