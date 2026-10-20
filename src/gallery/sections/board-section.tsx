@@ -638,6 +638,7 @@ function LiveComposerSpecimen() {
                 onSelectWorkspace={(path) => {
                   draft.value = { ...draft.value, workspacePath: path };
                 }}
+                onOpenWorkspace={NOOP}
                 onPickFolder={() => {
                   notice.value = "Preview: Open folder opens the system folder dialog in Deck.";
                 }}

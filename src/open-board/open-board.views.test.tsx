@@ -685,6 +685,25 @@ describe("OpenBoard home view", () => {
     expect(newTaskDraft.value.agentId).toBe("claude");
   });
 
+  it("double-clicking a recent selects it, then opens it with its agent", async () => {
+    seed(["/w/alpha"]);
+    detected = [{ name: "claude", path: "/usr/bin/claude" }];
+    newTaskDraft.value = { ...EMPTY_DRAFT };
+    const launch = vi.fn(async (): Promise<LaunchTaskOutcome> => "started");
+    const start = vi.fn(async (): Promise<LaunchTaskOutcome> => "sent");
+    await mount(start, { promptStaging: false, onOpenAgent: launch });
+    const row = host.querySelector<HTMLButtonElement>(".row__open")!;
+    await act(async () => {
+      row.click();
+      row.click();
+      row.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    });
+    await vi.waitFor(() => expect(launch).toHaveBeenCalledTimes(1));
+    expect(launch.mock.calls[0]).toEqual([
+      expect.objectContaining({ workspacePath: "/w/alpha", agentId: "claude" }),
+    ]);
+  });
+
   it("selects a dropped folder without launching, then runs in that folder", async () => {
     seed([]);
     detected = [{ name: "claude", path: "/usr/bin/claude" }];

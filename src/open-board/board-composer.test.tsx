@@ -25,10 +25,12 @@ function mount(overrides: Partial<BoardComposerProps> = {}): {
   onSelectWorkspace: ReturnType<typeof vi.fn>;
   onStartTask: ReturnType<typeof vi.fn>;
   onOpenAgent: ReturnType<typeof vi.fn>;
+  onOpenWorkspace: ReturnType<typeof vi.fn>;
 } {
   const onSelectWorkspace = vi.fn();
   const onStartTask = vi.fn();
   const onOpenAgent = vi.fn();
+  const onOpenWorkspace = vi.fn();
   const props: BoardComposerProps = {
     // The staged prompt is hidden in production behind
     // `TASK_PROMPT_STAGING_ENABLED`; these tests keep it wired, the
@@ -60,6 +62,7 @@ function mount(overrides: Partial<BoardComposerProps> = {}): {
     onCreateWorktree: vi.fn(),
     onManageAgents: vi.fn(),
     onSelectWorkspace,
+    onOpenWorkspace,
     onBrowseSessions: vi.fn(),
     onRemove: vi.fn(),
     onStartTask,
@@ -71,7 +74,7 @@ function mount(overrides: Partial<BoardComposerProps> = {}): {
     ...overrides,
   };
   render(<BoardComposer {...props} />, host);
-  return { onSelectWorkspace, onStartTask, onOpenAgent };
+  return { onSelectWorkspace, onStartTask, onOpenAgent, onOpenWorkspace };
 }
 
 function rows(): HTMLButtonElement[] {
@@ -105,6 +108,17 @@ describe("BoardComposer", () => {
     expect(onSelectWorkspace).toHaveBeenCalledWith("/repo/api");
     expect(onStartTask).not.toHaveBeenCalled();
     expect(onOpenAgent).not.toHaveBeenCalled();
+  });
+
+  it("double-clicking a recents row opens that workspace", () => {
+    const { onOpenWorkspace } = mount();
+    rows()[1].dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    expect(onOpenWorkspace).toHaveBeenCalledExactlyOnceWith("/repo/api");
+  });
+
+  it("keeps a row clickable while a workspace selection is pending", () => {
+    mount({ pending: "selecting-workspace" });
+    expect(rows()[1].disabled).toBe(false);
   });
 
   it("marks the row that matches the draft", () => {

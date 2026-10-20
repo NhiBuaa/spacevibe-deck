@@ -46,6 +46,8 @@ export interface BoardComposerProps extends Omit<
   describeCombo?: (recent: RecentWorkspace) => string;
   /** Fills the Workspace field. NEVER launches. */
   onSelectWorkspace(path: string): void | Promise<void>;
+  /** Double-click on a recent: select it, then open it in the rail. */
+  onOpenWorkspace(path: string): void | Promise<void>;
   onRunAgent(agentId: string): void;
   /** The host can resolve a dropped folder's path; false hides the drop hint. */
   readonly canDropFolder?: boolean;
@@ -140,10 +142,13 @@ export function BoardComposer(props: BoardComposerProps) {
         <button
           type="button"
           class="row__open"
-          disabled={busy}
+          // Not disabled while selecting: a disabled button drops the second
+          // click of a double-click, and re-entry is already ignored upstream.
+          disabled={busy && props.pending !== "selecting-workspace"}
           aria-pressed={selected}
           aria-label={`Use workspace ${name}`}
           onClick={() => selectWorkspace(recent.path)}
+          onDblClick={() => void props.onOpenWorkspace(recent.path)}
         >
           <DeckIcon icon={FolderOpen} size={BOARD_ICON} class="row__ico" />
           <span class="row__body">

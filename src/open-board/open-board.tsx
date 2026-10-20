@@ -418,7 +418,24 @@ export function OpenBoard({
    * old flow that substitution is now VISIBLE before anything is pressed,
    * which is what the removed config view could not offer.
    */
-  async function selectWorkspace(path: string): Promise<void> {
+  /** Lets a double-click wait for the selection its first click began. */
+  const lastSelection = useRef<Promise<void>>(Promise.resolve());
+  function selectWorkspace(path: string): Promise<void> {
+    const idle = !opening.value;
+    const run = selectWorkspaceNow(path);
+    if (idle) lastSelection.current = run;
+    return run;
+  }
+
+  /** Double-click on a recent: the draft's agent, or a shell when none can run. */
+  async function openRecent(path: string): Promise<void> {
+    await lastSelection.current;
+    if (newTaskDraft.value.workspacePath !== path) await selectWorkspace(path);
+    if (newTaskDraft.value.workspacePath !== path) return;
+    await runLaunch("open", newTaskDraft.value.agentId === null ? TERMINAL_LAUNCH_ID : undefined);
+  }
+
+  async function selectWorkspaceNow(path: string): Promise<void> {
     if (opening.value) {
       return;
     }
@@ -714,6 +731,7 @@ export function OpenBoard({
           describeCombo={describeCombo}
           onDraftChange={updateDraft}
           onSelectWorkspace={selectWorkspace}
+          onOpenWorkspace={openRecent}
           onRunAgent={(id) => void runLaunch("open", id)}
           canDropFolder={folderDrop.available}
           draggingFolder={folderDrop.dragging}
