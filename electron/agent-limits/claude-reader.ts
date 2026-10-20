@@ -18,6 +18,15 @@ const MAX_CAPTURE_BYTES = 16384;
 const MAX_CAPTURES = 64;
 const MANIFEST = "statusline-owner.json";
 const SCRIPT = "claude-statusline.cjs";
+const GATES = "gates";
+/**
+ * Claude reruns the status line as often as every second (`refreshInterval: 1`),
+ * and starting this binary as Node costs ~60 ms of CPU per run — half a core
+ * across nine sessions, measured. Limits are read every 15 s and expire after
+ * five minutes, so one capture per Claude process per interval loses nothing;
+ * the refreshes in between run the user's command directly.
+ */
+const CAPTURE_INTERVAL_SECONDS = 30;
 
 export interface ClaudeLimitOptions {
   readonly directory: string;
@@ -73,7 +82,7 @@ function unwrapOnce(command: string): string | null | undefined {
 export async function installClaudeLimitCollector(options: ClaudeLimitOptions): Promise<void> {
   const script = path.join(options.directory, SCRIPT);
   const manifestFile = path.join(options.directory, MANIFEST);
-  await fs.mkdir(options.directory, { recursive: true, mode: 0o700 });
+  await fs.mkdir(path.join(options.directory, GATES), { recursive: true, mode: 0o700 });
   await updateClaudeUserSettings(
     options.settingsPath ?? claudeUserSettingsPath(),
     async (document) => {
@@ -93,9 +102,15 @@ export async function installClaudeLimitCollector(options: ClaudeLimitOptions): 
         throw new Error("Unsupported Claude status line; settings were not changed.");
       }
       const executable = shellQuote(options.executable);
-      const run = `ELECTRON_RUN_AS_NODE=1 ${executable} ${shellQuote(script)} ${shellQuote(String(status?.command ?? ""))}`;
+      // One gate per Claude process (`$PPID`) holding the epoch it reopens at.
+      // POSIX sh only, and fail-open: a missing or unreadable gate collects.
+      const due = `{ g=${shellQuote(`${path.join(options.directory, GATES)}/`)}$PPID; n=$(date +%s); l=0; [ -f "$g" ] && { read -r l < "$g" || l=0; }; [ "$n" -ge "$l" ] || ! [ "$l" -ge 0 ]; } 2>/dev/null`;
+      const close = `{ [ "$n" -ge 0 ] && echo "$((n + ${CAPTURE_INTERVAL_SECONDS}))" > "$g"; } 2>/dev/null`;
+      const run = `${close}; ELECTRON_RUN_AS_NODE=1 ${executable} ${shellQuote(script)} ${shellQuote(String(status?.command ?? ""))}`;
       const fallback = `sh -c ${shellQuote(String(status?.command ?? ":"))}`;
-      const installedCommand = `if [ -x ${executable} ] && [ -f ${shellQuote(script)} ]; then ${run}; else ${fallback}; fi`;
+      // Keeps the `if [ -x ` head and the `else sh -c …; fi` tail that every
+      // Deck build's `unwrapOnce` peels, so older installs can still take over.
+      const installedCommand = `if [ -x ${executable} ] && [ -f ${shellQuote(script)} ] && ${due}; then ${run}; else ${fallback}; fi`;
       await writeFileAtomically(script, claudeStatuslineSource(), { mode: 0o600 });
       await writeFileAtomically(manifestFile, JSON.stringify({ original, installedCommand }), {
         mode: 0o600,

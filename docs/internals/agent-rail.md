@@ -102,8 +102,12 @@ stdin/output and records only five-hour/seven-day quota fields in bounded local
 captures. It does not store prompts or authentication tokens.
 
 Claude's source is a session-reported observation, not an on-demand account API.
-Each status-line receipt renews its capture timestamp, even when the percentage
-is unchanged. The newest capture with limit data wins across sessions; a session
+The installed command starts the collector at most once per 30 seconds per Claude
+process, tracked by a gate file named after that process under `agent-limits/gates/`.
+Claude can rerun its status line every second, and each collector start costs about
+60 ms of CPU; the refreshes in between run the original command alone. Each
+collected receipt renews its capture timestamp, even when the percentage is
+unchanged. The newest capture with limit data wins across sessions; a session
 without limits cannot hide another session's reading. No window is inferred when
 the CLI omits it. Both providers expire at reset or after five minutes without a
 new observation (a status-line receipt for Claude). The

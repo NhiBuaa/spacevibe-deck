@@ -24,6 +24,8 @@ const options = () => ({
   settingsPath: path.join(root, "settings.json"),
 });
 const document = async () => JSON.parse(await fs.readFile(options().settingsPath, "utf8"));
+// `run` spawns the command's shell from this process, so `$PPID` is our pid.
+const gateOf = (pid: number) => path.join(options().directory, "gates", String(pid));
 
 function run(command: string, input: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -83,6 +85,12 @@ describe.skipIf(process.platform === "win32")("Claude status-line collector", ()
     expect(currentLimitWindows(await readClaudeLimits(options().directory), Date.now())).toEqual(
       [],
     );
+    // Inside the capture interval the user's command still runs, uncaptured.
+    expect(await run(configured.statusLine.command, payload)).toBe(payload);
+    expect(currentLimitWindows(await readClaudeLimits(options().directory), Date.now())).toEqual(
+      [],
+    );
+    await fs.writeFile(gateOf(process.pid), "0\n");
     const receivedAfter = Date.now();
     expect(await run(configured.statusLine.command, payload)).toBe(payload);
     const refreshed = await readClaudeLimits(options().directory);
@@ -94,6 +102,27 @@ describe.skipIf(process.platform === "win32")("Claude status-line collector", ()
     await installClaudeLimitCollector(options());
     await restoreClaudeLimitCollector(options());
     expect(await document()).toEqual(original);
+  });
+  it("collects through an unreadable gate and prunes gates older than an hour", async () => {
+    await fs.writeFile(options().settingsPath, "{}");
+    await installClaudeLimitCollector(options());
+    await fs.writeFile(gateOf(process.pid), "not a number\n");
+    const stale = gateOf(999_999_999);
+    await fs.writeFile(stale, "0\n");
+    const old = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    await fs.utimes(stale, old, old);
+    const payload = JSON.stringify({
+      session_id: "session-gate",
+      rate_limits: {
+        five_hour: { used_percentage: 7, resets_at: Math.floor(Date.now() / 1000) + 3600 },
+      },
+    });
+    expect(await run((await document()).statusLine.command, payload)).toBe("");
+    expect((await readClaudeLimits(options().directory)).windows[0].usedPercent).toBe(7);
+    expect(Number(await fs.readFile(gateOf(process.pid), "utf8"))).toBeGreaterThan(
+      Date.now() / 1000,
+    );
+    await expect(fs.access(stale)).rejects.toMatchObject({ code: "ENOENT" });
   });
   it("does not overwrite a newer user command during restoration", async () => {
     await fs.writeFile(options().settingsPath, "{}");

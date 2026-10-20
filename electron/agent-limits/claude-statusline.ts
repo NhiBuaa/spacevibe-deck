@@ -6,6 +6,7 @@ const path = require("node:path");
 const { spawn } = require("node:child_process");
 const MAX_INPUT_BYTES = 1024 * 1024;
 const MAX_SESSIONS = 64;
+const GATE_MAX_AGE_MS = 60 * 60 * 1000;
 const original = process.argv[2];
 const { ELECTRON_RUN_AS_NODE, ...originalEnv } = process.env;
 let delegate = null;
@@ -54,6 +55,16 @@ process.stdin.on("end", () => {
     for (const entry of entries.slice(MAX_SESSIONS)) {
       try { fs.unlinkSync(path.join(dir, entry.name)); } catch (error) {
         if (error.code !== "ENOENT") console.error("Deck: old limit capture cleanup failed.");
+      }
+    }
+    // The wrapper command leaves one gate per Claude process it ever ran under.
+    const gates = path.join(__dirname, "gates");
+    fs.mkdirSync(gates, { recursive: true, mode: 0o700 });
+    for (const name of fs.readdirSync(gates)) {
+      try {
+        if (Date.now() - fs.statSync(path.join(gates, name)).mtimeMs > GATE_MAX_AGE_MS) fs.unlinkSync(path.join(gates, name));
+      } catch (error) {
+        if (error.code !== "ENOENT") console.error("Deck: old status line gate cleanup failed.");
       }
     }
   } catch { console.error("Deck: status line limit capture failed."); }
