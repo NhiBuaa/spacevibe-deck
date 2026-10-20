@@ -67,6 +67,7 @@ import { registerShell } from "./ipc/register-shell";
 import { registerUpdater } from "./ipc/register-updater";
 import { registerTelemetry } from "./ipc/register-telemetry";
 import { registerAccount } from "./ipc/register-account";
+import { createUnavailableCloneService, registerClone } from "./ipc/register-clone";
 import { registerDevServers } from "./ipc/register-dev-servers";
 import { registerChanges } from "./ipc/register-changes";
 import { registerAgentSignals } from "./ipc/register-agent-signals";
@@ -390,6 +391,7 @@ function createWindow(label: string): BrowserWindow {
     // unsaved, and ⌘Q would ask about a window that no longer exists.
     dirtyFiles.forgetWindow(label);
     watchers.forgetWindow(label);
+    void cloneService.releaseOwner(label);
     // Crash path: no close event fired and no busy guard ran, so the panes this
     // window still owned would otherwise outlive it with nobody reading them.
     for (const paneId of coordinator.handleWindowDestroyed(label)) {
@@ -551,6 +553,16 @@ const telemetry = registerTelemetry({ stores, windows, emitTo });
 // Optional Google account (spec 2026-10-20-accounts). Signed out by default,
 // and signed out sends nothing.
 registerAccount({ userData: app.getPath("userData"), windows, emitTo });
+
+// ------------------------------------------------------------- Clone
+// Clone & add workspace (plan 2026-10-20-clone-workspace-mvp). A job belongs to
+// the window that started it: closing the window cancels it, and a committed
+// quit (`will-quit`, never the cancelable `before-quit`) cancels all of them.
+const cloneService = createUnavailableCloneService();
+registerClone({ service: cloneService, labelOf, emitTo });
+app.once("will-quit", () => void cloneService.dispose());
+// `app.exit()` skips `will-quit`; the service signals its children synchronously.
+process.once("exit", () => void cloneService.dispose());
 
 // ------------------------------------------------------------------ Quit
 ipcMain.handle(CHANNELS.confirmQuit, (_event, { requestId }) => {

@@ -247,6 +247,29 @@ describe("Electron IPC contract", () => {
     }
   });
 
+  it("carries the three clone channels flat on both sides, with no owner key", () => {
+    // The owner is the sending window, resolved in main; a payload key naming
+    // one would let a renderer claim another window's job.
+    const expected: Record<string, string[]> = {
+      clone_start: ["requestId", "repository", "parent", "name"],
+      clone_status: [],
+      clone_cancel: ["jobId"],
+    };
+    for (const [channel, keys] of Object.entries(expected)) {
+      const sites = callSites.filter((site) => site.channel === channel);
+      expect(sites.length).toBeGreaterThan(0);
+      for (const site of sites) {
+        expect(site.keys).toEqual(keys);
+      }
+      const registered = handlers.filter((handler) => handler.channel === channel);
+      for (const handler of registered) {
+        expect(handler.required).toEqual(keys);
+      }
+    }
+    expect(handlers.some((handler) => handler.channel === "clone_start")).toBe(true);
+    expect(handlers.some((handler) => handler.channel === "clone_cancel")).toBe(true);
+  });
+
   it("git_changes carries the flat { root } payload on both sides", () => {
     // The Changes list's snapshot read, pinned like `create_entry` above so the
     // generic scanner provably reaches it.

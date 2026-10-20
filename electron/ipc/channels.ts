@@ -207,6 +207,14 @@ export const CHANNELS = {
   accountSignIn: "account_sign_in",
   accountCancelSignIn: "account_cancel_sign_in",
   accountSignOut: "account_sign_out",
+  // Clone & add workspace (docs/plans/2026-10-20-clone-workspace-mvp.md).
+  // Electron-only like the blocks above. Flat `{ requestId, repository, parent,
+  // name }`, `{}` and `{ jobId }` per R6; main derives the owning window from the
+  // sender, so no owner key exists in any payload. Replies are `CloneResult`
+  // (`src/lib/clone-contract.ts`); `clone_status` answers the latest owned job.
+  cloneStart: "clone_start",
+  cloneStatus: "clone_status",
+  cloneCancel: "clone_cancel",
 } as const;
 
 /** Events: main → renderer, fire and forget. */
@@ -247,6 +255,8 @@ export const EVENTS = {
   // Every account state change, broadcast so all windows agree (A12). The
   // payload is the same display state `account_state` returns.
   accountState: "account:state-changed",
+  // One full `CloneJob` snapshot, sent only to the window that owns the job.
+  cloneChanged: "clone:changed",
 } as const;
 
 /**
