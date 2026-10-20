@@ -37,4 +37,5 @@ export const REASONS = {
   browser: "Could not open the browser.",
   noEmail: "Google did not return an email address.",
   expired: "Your session ended. Sign in again.",
+  savedAccount: "Could not remove the saved account. It may return after restarting.",
 } as const;

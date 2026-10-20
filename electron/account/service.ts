@@ -26,7 +26,7 @@ import {
   type AccountPlan,
   type AccountState,
 } from "./model";
-import type { SessionStore } from "./session-store";
+import { createSessionStorageScope, type SessionStore, type StorageAdapter } from "./session-store";
 import { asPlan, displayUser, storedAccessToken, storedUser } from "./stored-session";
 
 export interface AccountServiceDeps {
@@ -61,7 +61,7 @@ const GLOBAL_TIMERS: Timers = {
 
 function buildClient(
   config: AccountConfig,
-  store: SessionStore,
+  store: StorageAdapter,
   fetchImpl: typeof fetch,
 ): SupabaseClient {
   return createClient(config.url, config.key, {
@@ -87,6 +87,8 @@ export function createAccountService(deps: AccountServiceDeps): AccountService {
   let unsubscribe: (() => void) | null = null;
   let flow: Flow | null = null;
   let started: Promise<void> | null = null;
+  let storageScope: ReturnType<typeof createSessionStorageScope> | null = null;
+  let teardown = Promise.resolve();
 
   function setState(next: AccountState): void {
     state = next;
@@ -97,12 +99,16 @@ export function createAccountService(deps: AccountServiceDeps): AccountService {
     setState({ status: "signed-out", reason });
   }
 
-  function dropClient(): void {
+  function dropClient(): Promise<void> {
+    const drained = storageScope?.revoke() ?? Promise.resolve();
+    storageScope = null;
+    teardown = teardown.then(() => drained);
     unsubscribe?.();
     unsubscribe = null;
     const dropped = client;
     client = null;
     void dropped?.auth.stopAutoRefresh().catch(() => undefined);
+    return teardown;
   }
 
   function ensureClient(): SupabaseClient {
@@ -112,7 +118,8 @@ export function createAccountService(deps: AccountServiceDeps): AccountService {
     if (config === null) {
       throw new Error("accounts are not configured");
     }
-    const created = buildClient(config, store, deps.fetch);
+    storageScope = createSessionStorageScope(store);
+    const created = buildClient(config, storageScope.storage, deps.fetch);
     const { data } = created.auth.onAuthStateChange((event) => {
       // A refresh the server rejected: supabase-js has removed the session.
       // Network failures never emit this, so they keep the user signed in (A10).
@@ -182,18 +189,18 @@ export function createAccountService(deps: AccountServiceDeps): AccountService {
     return started;
   }
 
-  /** Ends the open flow, once. `wipe` also forgets a session it just created. */
-  async function endFlow(current: Flow, reason: string | null, wipe = false): Promise<void> {
+  /** Revoke the old client and finish local cleanup before another flow can start. */
+  async function endFlow(current: Flow, reason: string | null): Promise<void> {
     if (flow !== current) {
       return;
     }
     flow = null;
     current.listener?.cancel();
-    dropClient();
-    if (wipe) {
-      await store.discard();
-    }
-    signedOut(reason);
+    teardown = dropClient().then(async () => {
+      const removed = await store.discard();
+      signedOut(removed ? reason : REASONS.savedAccount);
+    });
+    await teardown;
   }
 
   async function finishFlow(current: Flow, listener: CallbackListener): Promise<void> {
@@ -219,19 +226,17 @@ export function createAccountService(deps: AccountServiceDeps): AccountService {
       const { data, error } = await owner.auth.exchangeCodeForSession(outcome.code);
       const user = error === null ? displayUser(data.session?.user) : null;
       if (flow !== current) {
-        // Cancelled while the exchange ran: the session it created must not stay.
+        // The revoked storage scope already refused this stale client's writes.
         outcome.respond(false);
-        await store.discard();
         return;
       }
       if (error !== null || data.session === null || user === null) {
         outcome.respond(false);
-        return endFlow(current, error === null ? REASONS.noEmail : REASONS.failed, error === null);
+        return endFlow(current, error === null ? REASONS.noEmail : REASONS.failed);
       }
       outcome.respond(true);
       const plan = await readPlan(owner, data.session.user.id);
       if (flow !== current) {
-        await store.discard();
         return;
       }
       flow = null;
@@ -239,7 +244,7 @@ export function createAccountService(deps: AccountServiceDeps): AccountService {
     } catch (error) {
       log("the sign-in exchange failed", error);
       outcome.respond(false);
-      await endFlow(current, REASONS.failed, true);
+      await endFlow(current, REASONS.failed);
     }
   }
 
@@ -252,6 +257,14 @@ export function createAccountService(deps: AccountServiceDeps): AccountService {
 
     async signIn() {
       await start();
+      // Sign-out may expose its in-memory state before disk cleanup completes.
+      let pending: Promise<void>;
+      do {
+        pending = teardown;
+        // Local cleanups must finish in order; a concurrent sign-out can append another.
+        // eslint-disable-next-line no-await-in-loop
+        await pending;
+      } while (pending !== teardown);
       if (state.status !== "signed-out") {
         return state; // already signing in, or signed in: one flow at a time
       }
@@ -305,9 +318,12 @@ export function createAccountService(deps: AccountServiceDeps): AccountService {
       const revoker = client;
       flow?.listener?.cancel();
       flow = null;
-      dropClient();
+      const drained = dropClient();
       signedOut(null);
-      await store.clear();
+      teardown = drained.then(async () => {
+        if (!(await store.clear())) signedOut(REASONS.savedAccount);
+      });
+      await teardown;
       if (revoker !== null && token !== null) {
         // Best effort: offline sign-out has already completed locally.
         void revoker.auth.admin.signOut(token, "local").catch(() => undefined);

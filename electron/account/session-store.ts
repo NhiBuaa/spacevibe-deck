@@ -45,13 +45,14 @@ export interface SessionStore extends StorageAdapter {
   load(): Promise<FileState>;
   /** A snapshot of the persisted entries (never the code verifier). */
   entries(): ReadonlyMap<string, string>;
-  /** Sign-out: forgets every entry and deletes `account.json`, whatever it held (A11). */
-  clear(): Promise<void>;
+  /** Sign-out: forgets every entry; false means the saved credential could not be deleted. */
+  clear(): Promise<boolean>;
   /**
    * Abandons a flow: forgets every entry, and deletes the file only if this
    * store wrote it, so an unreadable file survives a sign-in that failed (A9).
+   * False means a credential this flow wrote could not be deleted.
    */
-  discard(): Promise<void>;
+  discard(): Promise<boolean>;
 }
 
 /** supabase-js keeps the PKCE verifier beside the session; it must not persist. */
@@ -150,17 +151,19 @@ export function createSessionStore(deps: {
     return writing;
   }
 
-  function remove(): Promise<void> {
+  function remove(): Promise<boolean> {
+    let removed = false;
     writing = writing.then(async () => {
       try {
         await deps.io.remove();
         fileState = "none";
         wroteFile = false;
+        removed = true;
       } catch (error) {
         log("the session file could not be removed", error);
       }
     });
-    return writing;
+    return writing.then(() => removed);
   }
 
   return {
@@ -190,15 +193,45 @@ export function createSessionStore(deps: {
       await load();
       persisted.clear();
       volatile.clear();
-      await remove();
+      return remove();
     },
     async discard() {
       await load();
       persisted.clear();
       volatile.clear();
-      if (wroteFile) {
-        await remove();
-      }
+      return wroteFile ? remove() : true;
+    },
+  };
+}
+
+/** A dropped SDK client cannot mutate the next client's shared session. */
+export function createSessionStorageScope(store: StorageAdapter): {
+  readonly storage: StorageAdapter;
+  revoke(): Promise<void>;
+} {
+  let active = true;
+  let pending = Promise.resolve();
+  function mutate(operation: () => Promise<void>): Promise<void> {
+    const next = pending.then(async () => {
+      if (active) await operation();
+    });
+    pending = next.catch(() => undefined);
+    return next;
+  }
+  return {
+    storage: {
+      async getItem(key) {
+        if (!active) return null;
+        const value = await store.getItem(key);
+        return active ? value : null;
+      },
+      setItem: (key, value) => mutate(() => store.setItem(key, value)),
+      removeItem: (key) => mutate(() => store.removeItem(key)),
+    },
+    revoke() {
+      active = false;
+      // Cleanup waits for a write already inside the store, including its await load().
+      return pending;
     },
   };
 }

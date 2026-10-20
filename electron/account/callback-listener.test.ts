@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 import net from "node:net";
+import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { build } from "esbuild";
 import { startCallbackListener, type CallbackListener, type Timers } from "./callback-listener";
 
 const open: CallbackListener[] = [];
@@ -116,3 +119,53 @@ describe("callback listener", () => {
     expect(await accepts(timed.redirectTo)).toBe(false);
   });
 });
+
+it("rejects malformed request targets without throwing in the host process", async () => {
+  const bundle = await build({
+    entryPoints: [fileURLToPath(new URL("./callback-listener.ts", import.meta.url))],
+    bundle: true,
+    write: false,
+    platform: "node",
+    format: "cjs",
+  });
+  const script =
+    bundle.outputFiles[0].text +
+    `
+    (async () => {
+      const listener = await module.exports.startCallbackListener({
+        timers: { setTimeout, clearTimeout }, timeoutMs: 3000,
+      });
+      const url = new URL(listener.redirectTo);
+      const status = await new Promise((resolve, reject) => {
+        require("node:http").get({ hostname: url.hostname, port: url.port, path: "//[" }, response => {
+          response.resume();
+          response.on("end", () => resolve(response.statusCode));
+        }).on("error", reject);
+      });
+      if (status !== 400) throw new Error("Expected malformed target rejection");
+      const page = fetch(listener.redirectTo + "?code=fixture");
+      const result = await listener.result;
+      if (result.kind !== "code") throw new Error("Listener was closed by malformed target");
+      result.respond(true);
+      await (await page).text();
+      process.exit(0);
+    })().catch(error => { console.error(error); process.exit(1); });
+  `;
+  const outcome = await new Promise<{ code: number | null; stderr: string }>((resolve) => {
+    const child = spawn(process.execPath, ["-e", script], { stdio: ["ignore", "ignore", "pipe"] });
+    let stderr = "";
+    const watchdog = setTimeout(() => child.kill(), 5000);
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk;
+    });
+    child.once("error", (error) => {
+      clearTimeout(watchdog);
+      resolve({ code: null, stderr: error.message });
+    });
+    child.once("close", (code) => {
+      clearTimeout(watchdog);
+      resolve({ code, stderr });
+    });
+  });
+  expect(outcome, outcome.stderr).toMatchObject({ code: 0 });
+}, 7000);

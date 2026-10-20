@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createSessionStore, type SessionCipher } from "./session-store";
+import { createSessionStorageScope, createSessionStore, type SessionCipher } from "./session-store";
 
 const cipher: SessionCipher = {
   isEncryptionAvailable: () => true,
@@ -22,6 +22,49 @@ function harness() {
 }
 
 describe("session store", () => {
+  it("drains an already-started write before cleanup and refuses queued stale mutations", async () => {
+    let begin!: () => void;
+    let release!: () => void;
+    const started = new Promise<void>((resolve) => {
+      begin = resolve;
+    });
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let contents: string | null = null;
+    const store = createSessionStore({
+      cipher,
+      io: {
+        read: async () => null,
+        write: async (next) => {
+          begin();
+          await held;
+          contents = next;
+        },
+        remove: async () => {
+          contents = null;
+        },
+      },
+    });
+    const old = createSessionStorageScope(store);
+    const write = old.storage.setItem("session", "old");
+    await started;
+    let removed = false;
+    const cleanup = old.revoke().then(async () => {
+      await store.clear();
+      removed = true;
+    });
+    const stale = old.storage.setItem("session", "stale");
+    await Promise.resolve();
+    expect(removed).toBe(false);
+    release();
+    await Promise.all([write, stale, cleanup]);
+    expect(contents).toBeNull();
+    const current = createSessionStorageScope(store);
+    await current.storage.setItem("session", "new");
+    await old.storage.removeItem("session");
+    expect(await current.storage.getItem("session")).toBe("new");
+  });
   it("keeps the PKCE verifier in memory only", async () => {
     const { store, file } = harness();
     await store.setItem("sb-x-auth-token-code-verifier", "verifier-secret");

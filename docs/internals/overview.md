@@ -138,6 +138,12 @@ a token that crossed IPC would be readable by any script running in any renderer
 for that run rather than reaching disk in the clear. See the
 [spec](../specs/2026-10-20-accounts.md) for the requirements.
 
+The [storage scope](../../electron/account/session-store.ts) is revoked and its pending
+writes drain before local teardown: a cancelled SDK client must never write or discard
+the next client's credential. Failed credential deletion is reported in the existing
+signed-out reason rather than claimed as durable logout by the
+[account service](../../electron/account/service.ts).
+
 ## Load-bearing seams (R4)
 
 These modules require a plan and cross-boundary verification, not a drive-by refactor:

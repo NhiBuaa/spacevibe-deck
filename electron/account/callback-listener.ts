@@ -81,7 +81,13 @@ export async function startCallbackListener(deps: {
       reply(response, 404, "");
       return;
     }
-    const url = new URL(request.url ?? "/", `http://${host}`);
+    let url: URL;
+    try {
+      url = new URL(request.url ?? "/", `http://${host}`);
+    } catch {
+      reply(response, 400, "");
+      return;
+    }
     if (request.method !== "GET" || url.pathname !== CALLBACK_PATH) {
       reply(response, 404, "");
       return;

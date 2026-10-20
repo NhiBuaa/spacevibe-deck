@@ -9,9 +9,9 @@ const CONFIG = { url: "https://stub.supabase.test", key: "sb_publishable_stub" }
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 const KEY = "sb-stub-auth-token";
 
-function jwt(): string {
+function jwt(userId = USER_ID): string {
   const part = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
-  return `${part({ alg: "HS256", typ: "JWT" })}.${part({ sub: USER_ID, exp: 4102444800 })}.sig`;
+  return `${part({ alg: "HS256", typ: "JWT" })}.${part({ sub: userId, exp: 4102444800 })}.sig`;
 }
 
 function sessionJson(expiresAt: number, metadata: object = { full_name: "Ada Lovelace" }) {
@@ -32,15 +32,31 @@ function sessionJson(expiresAt: number, metadata: object = { full_name: "Ada Lov
   };
 }
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+const json = (body: unknown, status = 200, onRead?: () => void) => {
+  const response = new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+  for (const method of ["json", "text"] as const) {
+    const read = response[method].bind(response);
+    response[method] = async () => {
+      const value = await read();
+      onRead?.();
+      return value;
+    };
+  }
+  return response;
+};
 
 interface StubOptions {
+  onResponseRead?: (kind: "exchange" | "profile") => void;
   plan?: unknown;
   planStatus?: number;
   exchange?: "rejected";
   refresh?: "ok" | "rejected" | "offline";
   session?: object;
+  exchangeResponse?: () => Promise<object>;
+  beforePlan?: () => Promise<void>;
 }
 
 /** A stubbed GoTrue + PostgREST behind a counting fetch. */
@@ -56,7 +72,13 @@ function stubFetch(options: StubOptions = {}) {
       if (options.exchange === "rejected") {
         return json({ code: 400, error_code: "validation_failed", msg: "invalid flow state" }, 400);
       }
-      return json(options.session ?? sessionJson(Math.floor(Date.now() / 1000) + 3600));
+      return json(
+        options.exchangeResponse
+          ? await options.exchangeResponse()
+          : (options.session ?? sessionJson(Math.floor(Date.now() / 1000) + 3600)),
+        200,
+        () => options.onResponseRead?.("exchange"),
+      );
     }
     if (url.pathname === "/auth/v1/token") {
       if (options.refresh === "offline") {
@@ -75,8 +97,9 @@ function stubFetch(options: StubOptions = {}) {
       throw new TypeError("fetch failed");
     }
     if (url.pathname === "/rest/v1/profiles") {
+      await options.beforePlan?.();
       return options.planStatus === undefined || options.planStatus === 200
-        ? json({ plan: options.plan ?? "free" })
+        ? json({ plan: options.plan ?? "free" }, 200, () => options.onResponseRead?.("profile"))
         : json({ message: "boom" }, options.planStatus);
     }
     return json({}, 404);
@@ -97,7 +120,7 @@ const cipher = (available = true): SessionCipher => ({
 });
 
 function memoryFile(initial: string | null = null) {
-  const file = { contents: initial, writes: 0, removes: 0 };
+  const file = { contents: initial, writes: 0, removes: 0, removeDenied: false };
   const io: SessionFileIo = {
     read: async () => file.contents,
     write: async (contents) => {
@@ -105,6 +128,7 @@ function memoryFile(initial: string | null = null) {
       file.contents = contents;
     },
     remove: async () => {
+      if (file.removeDenied) throw Object.assign(new Error("fixture denied"), { code: "EACCES" });
       file.removes += 1;
       file.contents = null;
     },
@@ -435,5 +459,114 @@ describe("a stored session", () => {
     // The revoke is attempted with the old access token, and its failure is swallowed.
     await vi.waitFor(() => expect(stub.logouts).toHaveLength(1));
     expect(stub.logouts[0]).toMatch(/^Bearer /);
+  });
+});
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
+function savedEmail(contents: string | null): string | undefined {
+  if (contents === null) return undefined;
+  const entries = JSON.parse(
+    cipher().decryptString(Buffer.from(JSON.parse(contents).data, "base64")),
+  );
+  const saved = Object.entries(entries).find(([key]) => key.endsWith("-auth-token"));
+  return saved ? JSON.parse(saved[1] as string).user.email : undefined;
+}
+
+describe("account teardown", () => {
+  it("a cancelled exchange cannot replace or erase the next account", async () => {
+    const held = deferred<object>();
+    const consumed = deferred<void>();
+    let responseReads = 0;
+    let exchanges = 0;
+    const secondId = "22222222-2222-4222-8222-222222222222";
+    const second = {
+      ...sessionJson(Math.floor(Date.now() / 1000) + 3600),
+      access_token: jwt(secondId),
+      user: {
+        ...sessionJson(0).user,
+        id: secondId,
+        email: "second@example.test",
+      },
+    };
+    const { service, states, file } = setup({
+      browser: approve,
+      stub: {
+        exchangeResponse: async () => (++exchanges === 1 ? held.promise : second),
+        onResponseRead: (kind) => {
+          if (kind === "exchange" && ++responseReads === 2) consumed.resolve();
+        },
+      },
+    });
+    await service.signIn();
+    await vi.waitFor(() => expect(exchanges).toBe(1));
+    await service.cancelSignIn();
+    await service.signIn();
+    await vi.waitFor(() =>
+      expect(lastState(states)).toMatchObject({
+        status: "signed-in",
+        email: "second@example.test",
+      }),
+    );
+    expect(savedEmail(file.contents)).toBe("second@example.test");
+    const writes = file.writes;
+    held.resolve(sessionJson(Math.floor(Date.now() / 1000) + 3600));
+    await consumed.promise;
+    // The body is consumed; finish its SDK/service promise continuations this turn.
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(savedEmail(file.contents)).toBe("second@example.test");
+    expect(file.writes).toBe(writes);
+  });
+
+  it("a cancelled profile read cannot erase the next account", async () => {
+    const held = deferred<void>();
+    const consumed = deferred<void>();
+    let responseReads = 0;
+    let plans = 0;
+    const { service, states, file } = setup({
+      browser: approve,
+      stub: {
+        beforePlan: async () => {
+          if (++plans === 1) await held.promise;
+        },
+        onResponseRead: (kind) => {
+          if (kind === "profile" && ++responseReads === 2) consumed.resolve();
+        },
+      },
+    });
+    await service.signIn();
+    await vi.waitFor(() => expect(plans).toBe(1));
+    await service.cancelSignIn();
+    await service.signIn();
+    await vi.waitFor(() => expect(lastState(states).status).toBe("signed-in"));
+    expect(savedEmail(file.contents)).toBe("ada@example.com");
+    held.resolve();
+    await consumed.promise;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(savedEmail(file.contents)).toBe("ada@example.com");
+  });
+
+  it("reports a retained credential after deletion fails and allows a safe retry", async () => {
+    const { service, states, file } = setup({ browser: approve });
+    await service.signIn();
+    await vi.waitFor(() => expect(lastState(states).status).toBe("signed-in"));
+    file.removeDenied = true;
+    const result = await service.signOut();
+    expect(result).toMatchObject({
+      status: "signed-out",
+      reason: expect.stringContaining("saved account"),
+    });
+    expect(file.contents).not.toBeNull();
+    file.removeDenied = false;
+    expect(await service.signOut()).toEqual({ status: "signed-out", reason: null });
+    expect(file.contents).toBeNull();
+    const restarted = setup({ file: file.contents });
+    expect(await restarted.service.state()).toEqual({ status: "signed-out", reason: null });
   });
 });
