@@ -4,6 +4,7 @@ import { foregroundProcess, parsePsTable } from "../platform/macos";
 import * as macos from "../platform/macos";
 import * as windows from "../platform/windows";
 import type { WindowsProcessRow } from "../platform/windows";
+import { allIdle, censusFor } from "../quit-flow";
 import type { PtySessionSnapshot } from "./session-store";
 
 const rows = parsePsTable(
@@ -40,6 +41,29 @@ describe("buildPtyInfo", () => {
       agent: null,
     });
   });
+
+  it.each(["bash /workspace/build.sh", "bash -c 'while :; do :; done'", "bash"])(
+    "keeps a foreground child shell busy in the quit census: %s",
+    (command) => {
+      const scriptRows = parsePsTable(
+        ["100 100 200 ttys001 /bin/zsh -l", `200 200 200 ttys001 ${command}`].join("\n"),
+      );
+      const infos = buildPtyInfo([snapshot(1, 100, "ttys001")], scriptRows, new Map(), macos);
+      expect(infos[0].kind).toBe("busy");
+      expect(allIdle(infos)).toBe(false);
+      expect(censusFor(1, infos).busyPanes).toBe(1);
+    },
+  );
+
+  it.each(["bash /workspace/build.sh", "bash -s", "bash -ls"])(
+    "detects a script exec'd over the pane's original shell PID: %s",
+    (command) => {
+      const scriptRows = parsePsTable(`100 100 100 ttys001 ${command}`);
+      const infos = buildPtyInfo([snapshot(1, 100, "ttys001")], scriptRows, new Map(), macos);
+      expect(infos[0].kind).toBe("busy");
+      expect(censusFor(1, infos).busyPanes).toBe(1);
+    },
+  );
 
   it("reports a foreground agent with its id", () => {
     const [info] = buildPtyInfo([snapshot(2, 610, "ttys002")], rows, new Map(), macos);

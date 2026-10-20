@@ -385,8 +385,8 @@ interface Descendant {
  * Every process below `shellPid`, breadth first.
  *
  * The creation-date filter is the PID-reuse guard from `collect_descendants`:
- * Windows recycles pids aggressively, so a row that is OLDER than the shell
- * cannot be its child no matter what its parent pid says — without this, a
+ * Windows recycles pids aggressively, so a row that is OLDER than its current
+ * parent cannot be its child no matter what its parent pid says — without this, a
  * recycled pid grafts an unrelated process tree onto a pane and can report a
  * busy agent in an idle shell.
  */
@@ -409,17 +409,17 @@ export function collectDescendants(
   }
   const descendants: Descendant[] = [];
   const visited = new Set<number>([shellPid]);
-  const queue: Array<readonly [number, number]> = [[shellPid, 0]];
+  const queue: Array<readonly [WindowsProcessRow, number]> = [[root, 0]];
   while (queue.length > 0) {
-    const [parentPid, parentDepth] = queue.shift()!;
-    for (const row of children.get(parentPid) ?? []) {
-      if (row.creationDate < root.creationDate || visited.has(row.pid)) {
+    const [parent, parentDepth] = queue.shift()!;
+    for (const row of children.get(parent.pid) ?? []) {
+      if (row.creationDate < parent.creationDate || visited.has(row.pid)) {
         continue;
       }
       visited.add(row.pid);
       const depth = parentDepth + 1;
       descendants.push({ row, depth });
-      queue.push([row.pid, depth]);
+      queue.push([row, depth]);
     }
   }
   return descendants;

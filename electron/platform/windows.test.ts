@@ -266,6 +266,19 @@ describe("collectDescendants", () => {
     expect(collectDescendants(rows, 100).map((d) => d.row.pid)).toEqual([102]);
   });
 
+  it("rejects reused intermediate parents and all of the orphan's descendants", () => {
+    const rows = [
+      row(100, 1, "pwsh.exe", 10),
+      row(200, 100, "bash.exe", 30),
+      row(300, 200, "unrelated.exe", 20),
+      row(400, 300, "claude.exe", 40),
+    ];
+    expect(collectDescendants(rows, 100).map(({ row: descendant }) => descendant.pid)).toEqual([
+      200,
+    ]);
+    expect(foregroundProcess(rows, "", 100)?.pid).toBe(200);
+  });
+
   it("terminates on a parent cycle", () => {
     const rows = [
       row(100, 1, "pwsh.exe", 10),

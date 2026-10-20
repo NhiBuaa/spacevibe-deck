@@ -62,6 +62,31 @@ describe("classifyProcess", () => {
     ).toEqual({ kind: "agent", agent: "Reviewer" });
   });
 
+  it.each([
+    ["bash", "bash /workspace/build.sh"],
+    ["bash", "bash -c 'while :; do :; done'"],
+    ["sh", "sh -lc 'build'"],
+    ["zsh", "zsh -C /workspace/build.sh"],
+    ["pwsh", "pwsh /workspace/build.ps1"],
+    ["fish", "fish --command build"],
+    ["pwsh", "pwsh -File build.ps1"],
+    ["powershell", "powershell -Command build"],
+  ])("keeps noninteractive %s workloads busy: %s", (name, command) => {
+    expect(classifyProcess(name, true, command).kind).toBe("busy");
+  });
+
+  it.each([
+    ["bash", "bash --rcfile '/tmp/Deck Scripts/bashrc'"],
+    ["zsh", "zsh -l"],
+    ["fish", "fish -l --init-command 'set -gx PATH /tmp/wrappers $PATH'"],
+    [
+      "pwsh",
+      '"C:\\Program Files\\PowerShell\\7\\pwsh.exe" -NoLogo -NoExit -Command "function prompt {}"',
+    ],
+  ])("preserves the interactive %s bootstrap: %s", (name, command) => {
+    expect(classifyProcess(name, true, command).kind).toBe("idle-shell");
+  });
+
   it("classifies idle, busy and incomplete processes", () => {
     expect(classifyProcess("zsh", true)).toEqual({
       kind: "idle-shell",

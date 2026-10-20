@@ -99,7 +99,13 @@ export function buildPtyInfo(
     }
     const commandLine =
       rows.find((row) => row.pid === foreground.pid)?.args ?? foreground.name ?? "";
-    const { kind, agent } = classifyProcess(foreground.name, true, commandLine, agentMatchers);
+    const { kind, agent } = classifyProcess(
+      foreground.name,
+      true,
+      commandLine,
+      agentMatchers,
+      foreground.pid === snapshot.pid,
+    );
     return {
       id: snapshot.id,
       processId: foreground.pid,

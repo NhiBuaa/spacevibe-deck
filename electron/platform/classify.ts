@@ -33,7 +33,7 @@ const AGENT_BY_BINARY: ReadonlyMap<string, PaneAgent> = new Map(
   ACTIVE_AGENT_IDS.map((id) => [id, id] as const),
 );
 
-/** Shells that mean "nothing is running here". */
+/** Shell names; only the original interactive pane shell can mean idle. */
 const SHELL_NAMES: ReadonlySet<string> = new Set([
   "zsh",
   "bash",
@@ -163,6 +163,35 @@ function interpretedEntrypoint(commandLine: string): string | null {
   return null;
 }
 
+/** ps/WMI expose a command line, not argv. Retain quoted bootstrap paths and
+ * arguments when distinguishing a script/command from the interactive shell. */
+function shellRunsCommand(shell: string, commandLine: string): boolean {
+  const args = (commandLine.match(/"[^"]*"|'[^']*'|\S+/g) ?? []).slice(1);
+  if (shell === "pwsh" || shell === "powershell") {
+    // Deck starts PowerShell with -NoExit -Command to install its prompt.
+    // That original PID stays interactive after the integration finishes.
+    if (args.some((arg) => arg.toLowerCase() === "-noexit")) return false;
+    return args.some(
+      (arg) => /^-(?:c|command|e|enc|encodedcommand|f|file)$/i.test(arg) || !arg.startsWith("-"),
+    );
+  }
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    // -s executes a stdin script too, including when exec retained the pane PID.
+    if (/^-[^-]*[cs]/.test(arg) || arg === "--command") return true;
+    if (
+      ["--rcfile", "--init-file", "-o", "+o", "-O", "+O"].includes(arg) ||
+      (shell === "fish" && ["--init-command", "-C"].includes(arg))
+    ) {
+      index += 1;
+      continue;
+    }
+    if (arg === "--") return index + 1 < args.length;
+    if (!arg.startsWith("-") && !arg.startsWith("+")) return true;
+  }
+  return false;
+}
+
 /**
  * Classify a foreground process name.
  *
@@ -175,6 +204,7 @@ export function classifyProcess(
   complete: boolean,
   commandLine: string = process ?? "",
   customMatchers: readonly AgentProcessMatcher[] = [],
+  isPaneShell = true,
 ): Classification {
   if (!complete) {
     return UNKNOWN;
@@ -203,7 +233,7 @@ export function classifyProcess(
       return { kind: "agent", agent: customAgent };
     }
   }
-  if (SHELL_NAMES.has(normalized)) {
+  if (SHELL_NAMES.has(normalized) && isPaneShell && !shellRunsCommand(normalized, commandLine)) {
     return { kind: "idle-shell", agent: null };
   }
   return { kind: "busy", agent: null };
