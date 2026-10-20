@@ -24,6 +24,7 @@ import {
 import { createUpdaterErrorLog, parseUpdaterError } from "../updater/error-log";
 import { UpdateFlight } from "../updater/update-flight";
 import type { UpdateCounterKey } from "../telemetry/model";
+import type { BusyCensus } from "../quit-flow";
 
 export interface UpdaterDependencies {
   /** The window a request came from, as every other register module names it. */
@@ -34,6 +35,8 @@ export interface UpdaterDependencies {
    * `isInstalling`), so nothing else on that path does this work.
    */
   prepareForInstall(): Promise<void>;
+  /** Main-owned census across every window; null means inspection failed. */
+  census(): Promise<BusyCensus | null>;
   /** Usage analytics' count of each lifecycle outcome. */
   countOutcome(outcome: UpdateCounterKey): void;
 }
@@ -60,6 +63,10 @@ export interface UpdaterHandle {
 
 export function registerUpdater(deps: UpdaterDependencies): UpdaterHandle {
   const flight = new UpdateFlight();
+  ipcMain.handle(CHANNELS.updateCensus, (event) => {
+    deps.labelOf(event);
+    return deps.census();
+  });
   ipcMain.handle(CHANNELS.beginUpdateCheck, (event) => flight.tryBegin(deps.labelOf(event)));
   ipcMain.handle(CHANNELS.endUpdateCheck, (event) => {
     const label = deps.labelOf(event);

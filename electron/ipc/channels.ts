@@ -112,6 +112,7 @@ export const CHANNELS = {
   updateCheck: "update_check",
   updateDownload: "update_download",
   updateInstall: "update_install",
+  updateCensus: "update_census",
   updateReportError: "update_report_error",
   applySettingsPatch: "apply_settings_patch",
   suspendMenuAccelerators: "suspend_menu_accelerators",

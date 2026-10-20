@@ -13,13 +13,7 @@ import { listen, type UnlistenFn } from "../host/bridge";
 import { getCurrentWindow, currentWindowLabel } from "../host/window-host";
 import { ask, message, open as openDialog } from "../host/dialog-host";
 import { installQuitGuard } from "../lib/quit-guard";
-import {
-  confirmClose,
-  QUIT_COPY,
-  UPDATE_COPY,
-  WINDOW_CLOSE_COPY,
-  type ConfirmCopy,
-} from "../terminal/close-guard";
+import { QUIT_COPY, WINDOW_CLOSE_COPY, type ConfirmCopy } from "../terminal/close-guard";
 import {
   flushSettingsSave,
   initSettings,
@@ -185,6 +179,7 @@ import { UpdateAction } from "../updater/update-action";
 // It answers the Electron host and fails soft in a browser preview.
 import {
   checkForUpdate,
+  confirmUpdateInstall,
   relaunchDeck,
   reportUpdateError,
 } from "../updater/electron-updater-adapter";
@@ -196,7 +191,6 @@ import { defaultLinkClient } from "../terminal/link-client";
 import { buildOpenEditorRequest } from "../lib/editor-command";
 import {
   activeWorkspace,
-  dirtyPaths,
   dockCollapseArmed,
   dockWidthLive,
   setActiveWorkspace,
@@ -339,18 +333,7 @@ export function App({ boot = { kind: "normal" } }: { boot?: BootMode } = {}) {
     updaterRef.current = createUpdateController({
       platform: getDesktopEnvironment().platform,
       check: checkForUpdate,
-      confirmInstall: () => {
-        const manager = tabsRef.current;
-        // Installing an update is a FOURTH exit, which the quit/window-close/
-        // tab-close set did not count: `app_relaunch` calls `app.exit(0)` and
-        // never reaches `before-quit`, so main's dirty registry is never
-        // consulted on this path. The renderer therefore has to supply the
-        // unsaved-file list itself. It is empty until a file surface exists,
-        // and correct the moment one does.
-        return manager === null
-          ? Promise.resolve(false)
-          : confirmClose(manager.allPaneIds(), defaultPtyClient, UPDATE_COPY, dirtyPaths());
-      },
+      confirmInstall: confirmUpdateInstall,
       flush: flushSettingsSave,
       relaunch: relaunchDeck,
       report: (message, error) => {

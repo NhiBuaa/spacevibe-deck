@@ -12,8 +12,40 @@ vi.mock("../host/shell-host", () => ({
   relaunch: mocks.electronRelaunch,
 }));
 
-import { checkForUpdate, relaunchDeck, reportUpdateError } from "./electron-updater-adapter";
+import {
+  checkForUpdate,
+  confirmUpdateInstall,
+  relaunchDeck,
+  reportUpdateError,
+} from "./electron-updater-adapter";
 import { UPDATE_UNSUPPORTED } from "./update-controller";
+
+describe("confirmUpdateInstall", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubGlobal("__deckHost", {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+  it.each([
+    null,
+    {},
+    { busyProcesses: [], busyPanes: 0, fullyNamed: true },
+    { busyProcesses: [], busyPanes: -1, fullyNamed: true, dirtyFiles: [] },
+    { busyProcesses: [], busyPanes: 0, fullyNamed: true, dirtyFiles: [7] },
+  ])("fails closed for an unavailable or malformed main census: %j", async (census) => {
+    mocks.invoke.mockResolvedValue(census);
+    await expect(confirmUpdateInstall()).resolves.toBe(false);
+    expect(mocks.invoke).toHaveBeenCalledWith("update_census");
+  });
+  it("fails closed when main cannot inspect processes", async () => {
+    mocks.invoke.mockRejectedValue(new Error("census unavailable"));
+    await expect(confirmUpdateInstall()).resolves.toBe(false);
+  });
+});
 
 describe("checkForUpdate", () => {
   beforeEach(() => {

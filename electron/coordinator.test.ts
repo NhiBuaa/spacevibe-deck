@@ -47,6 +47,50 @@ beforeEach(() => {
 });
 
 describe("routing", () => {
+  it("requires the source to reserve a destination even when the caller knows the token", () => {
+    coordinator.register(1, "main");
+    const token = coordinator.beginTransfer("main", 1);
+    coordinator.stagePayload(token, "main", payload(1));
+    expect(() => coordinator.claim(token, "deck-2")).toThrow(/reserved destination/);
+    expect(() => coordinator.reserveDestination(token, "deck-3", "deck-3")).toThrow(/source/);
+    coordinator.reserveDestination(token, "main", "deck-2");
+    expect(() => coordinator.reserveDestination(token, "deck-3", "deck-3")).toThrow(/source/);
+    coordinator.claim(token, "deck-2");
+    expect(() => coordinator.reserveDestination(token, "main", "deck-3")).toThrow(/claimed/);
+    coordinator.commit(token, "deck-2");
+    expect(coordinator.owner(1)).toBe("deck-2");
+  });
+
+  it("does not reuse predictable transfer counters across coordinator instances", () => {
+    const peer = new WindowCoordinator(() => {});
+    coordinator.register(1, "main");
+    peer.register(1, "main");
+    const first = coordinator.beginTransfer("main", 1);
+    const second = peer.beginTransfer("main", 1);
+    expect(first).toMatch(/^[0-9a-f-]{36}$/);
+    expect(second).not.toBe(first);
+  });
+
+  it("does not let an unrelated window claim a reserved transfer or its output", () => {
+    coordinator.register(1, "main");
+    const token = coordinator.beginTransfer("main", 1);
+    coordinator.stagePayload(token, "main", payload(1));
+    coordinator.reserveDestination(token, "main", "deck-2");
+    coordinator.deliver(1, "pty:output", { id: 1, data: "private" });
+
+    expect(() => coordinator.claim(token, "deck-3")).toThrow(/reserved destination/);
+    expect(coordinator.owner(1)).toBeNull();
+    expect(events("deck-3")).toEqual([]);
+    expect(coordinator.claim(token, "deck-2")).toEqual(payload(1));
+    coordinator.commit(token, "deck-2");
+    expect(coordinator.owner(1)).toBe("deck-2");
+    expect(events("deck-2")[0]).toMatchObject({
+      event: "pty:output",
+      payload: { data: "private" },
+    });
+    expect(() => coordinator.claim(token, "deck-3")).toThrow(/not open/);
+  });
+
   it("delivers output only to the owning window", () => {
     coordinator.register(1, "main");
 
@@ -98,6 +142,7 @@ describe("transfer lifecycle", () => {
     const token = coordinator.beginTransfer("main", 1);
     coordinator.deliver(1, "pty:output", { id: 1, data: "buffered" });
     coordinator.stagePayload(token, "main", payload(1));
+    coordinator.reserveDestination(token, "main", "deck-2");
     coordinator.claim(token, "deck-2");
 
     expect(events("deck-2")).toEqual([]);
@@ -112,6 +157,7 @@ describe("transfer lifecycle", () => {
     coordinator.register(1, "main");
     const token = coordinator.beginTransfer("main", 1);
     coordinator.stagePayload(token, "main", payload(1));
+    coordinator.reserveDestination(token, "main", "deck-2");
     coordinator.claim(token, "deck-2");
     coordinator.commit(token, "deck-2");
 
@@ -131,6 +177,7 @@ describe("transfer lifecycle", () => {
     coordinator.register(1, "main");
     const token = coordinator.beginTransfer("main", 1);
     coordinator.stagePayload(token, "main", payload(1));
+    coordinator.reserveDestination(token, "main", "deck-2");
     coordinator.claim(token, "deck-2");
     coordinator.commit(token, "deck-2");
 
@@ -143,7 +190,7 @@ describe("transfer lifecycle", () => {
     // over rather than wait out the timeout.
     coordinator.register(1, "main");
     const token = coordinator.beginTransfer("main", 1);
-    coordinator.reserveDestination(token, "deck-2");
+    coordinator.reserveDestination(token, "main", "deck-2");
 
     coordinator.abort(token);
 
@@ -154,6 +201,7 @@ describe("transfer lifecycle", () => {
     coordinator.register(1, "main");
     const token = coordinator.beginTransfer("main", 1);
     coordinator.stagePayload(token, "main", payload(1));
+    coordinator.reserveDestination(token, "main", "deck-2");
     coordinator.claim(token, "deck-2");
     coordinator.commit(token, "deck-2");
 
@@ -165,6 +213,7 @@ describe("transfer lifecycle", () => {
     coordinator.register(1, "main");
     const token = coordinator.beginTransfer("main", 1);
     coordinator.stagePayload(token, "main", payload(1));
+    coordinator.reserveDestination(token, "main", "deck-2");
     coordinator.claim(token, "deck-2");
 
     expect(() => coordinator.claim(token, "deck-3")).toThrow(/already claimed/);
@@ -174,6 +223,7 @@ describe("transfer lifecycle", () => {
     coordinator.register(1, "main");
     const token = coordinator.beginTransfer("main", 1);
     coordinator.stagePayload(token, "main", payload(1));
+    coordinator.reserveDestination(token, "main", "deck-2");
     coordinator.claim(token, "deck-2");
 
     expect(() => coordinator.commit(token, "deck-3")).toThrow(
@@ -261,10 +311,12 @@ describe("window death", () => {
     coordinator.register(2, "deck-2");
     const toDeadDestination = coordinator.beginTransfer("main", 1);
     coordinator.stagePayload(toDeadDestination, "main", payload(1));
+    coordinator.reserveDestination(toDeadDestination, "main", "deck-2");
     coordinator.claim(toDeadDestination, "deck-2");
 
     const fromDeadSource = coordinator.beginTransfer("deck-2", 2);
     coordinator.stagePayload(fromDeadSource, "deck-2", payload(2));
+    coordinator.reserveDestination(fromDeadSource, "deck-2", "main");
     coordinator.claim(fromDeadSource, "main");
 
     coordinator.handleWindowDestroyed("deck-2");
@@ -284,7 +336,7 @@ describe("window death", () => {
     coordinator.register(3, "main");
     const token = coordinator.beginTransfer("main", 3);
     coordinator.stagePayload(token, "main", payload(3));
-    coordinator.reserveDestination(token, "deck-2");
+    coordinator.reserveDestination(token, "main", "deck-2");
 
     expect(coordinator.handleWindowDestroyed("main")).not.toContain(3);
 
@@ -304,7 +356,7 @@ describe("window death", () => {
   it("aborts transfers in either role when a window closes", () => {
     coordinator.register(1, "main");
     const token = coordinator.beginTransfer("main", 1);
-    coordinator.reserveDestination(token, "deck-2");
+    coordinator.reserveDestination(token, "main", "deck-2");
 
     coordinator.abortInvolving("deck-2");
 
@@ -323,6 +375,7 @@ describe("pty exit mid-transfer", () => {
     coordinator.deliver(1, "pty:exit", { id: 1 });
     coordinator.unregister(1);
     coordinator.stagePayload(token, "main", payload(1));
+    coordinator.reserveDestination(token, "main", "deck-2");
     coordinator.claim(token, "deck-2");
 
     coordinator.commit(token, "deck-2");

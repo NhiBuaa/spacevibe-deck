@@ -26,6 +26,8 @@
  * preserved call for call.
  */
 
+import { randomUUID } from "node:crypto";
+
 /** A transfer that has not committed by this point is abandoned back to its
  * source. Enforced lazily on every entry point rather than by a timer, so
  * there is no wakeup to schedule and no timer to leak. */
@@ -128,7 +130,6 @@ export class WindowCoordinator {
   /** Panes a settle handed back to a window that no longer exists; the caller
    * drains and kills them. */
   private pendingOrphans: number[] = [];
-  private nextToken = 0;
 
   constructor(private readonly sink: EventSink) {}
 
@@ -242,8 +243,7 @@ export class WindowCoordinator {
     if (route.label !== from) {
       throw new Error(`Pane #${paneId} is owned by window ${route.label}`);
     }
-    this.nextToken += 1;
-    const token = `xfer-${this.nextToken}`;
+    const token = randomUUID();
     this.routes.set(paneId, {
       kind: "transferring",
       transfer: {
@@ -302,16 +302,25 @@ export class WindowCoordinator {
     if (transfer.staged === null) {
       throw new Error(`Transfer ${token} has no staged payload`);
     }
+    if (transfer.reservedTo !== caller) {
+      throw new Error(`Transfer ${token} can only be claimed by its reserved destination`);
+    }
     transfer.to = caller;
     return transfer.staged;
   }
 
   /** Name the window a pending adoption was opened for, before it claims, so a
    * destination dying before `claim` still aborts the transfer. */
-  reserveDestination(token: string, label: string): void {
+  reserveDestination(token: string, caller: string, label: string): void {
     const found = this.findTransfer(token);
     if (found === null) {
       throw new Error(`Transfer ${token} is not open`);
+    }
+    if (found.transfer.from !== caller) {
+      throw new Error(`Transfer ${token} can only be offered by its source`);
+    }
+    if (found.transfer.to !== null) {
+      throw new Error(`Transfer ${token} was already claimed`);
     }
     found.transfer.reservedTo = label;
   }

@@ -34,6 +34,35 @@ const SERVICES = readFileSync("electron/ipc/register-services.ts", "utf8");
 const SHELL = readFileSync("electron/ipc/register-shell.ts", "utf8");
 const STORE = readFileSync("electron/ipc/register-store.ts", "utf8");
 
+describe("security lifecycle wiring", () => {
+  it("installs the app image boundary before boot can create a window", () => {
+    const boot = MAIN.slice(MAIN.indexOf("app.whenReady().then(async () =>"));
+    expect(boot).toContain("session.defaultSession.webRequest");
+    expect(boot).toContain("app.isPackaged ? undefined : DEV_SERVER_URL");
+    expect(boot.indexOf("installAppImagePolicy(")).toBeLessThan(boot.indexOf("createWindow("));
+  });
+  it("binds transfer reservations to the authenticated source before opening or offering", () => {
+    const open = MAIN.slice(
+      MAIN.indexOf("ipcMain.handle(CHANNELS.openPaneWindow"),
+      MAIN.indexOf("ipcMain.handle(CHANNELS.offerTransfer"),
+    );
+    expect(open).toContain("coordinator.reserveDestination(token, labelOf(event), label)");
+    expect(open.indexOf("coordinator.reserveDestination")).toBeLessThan(
+      open.indexOf("createWindow(label)"),
+    );
+    expect(MAIN).toContain("coordinator.reserveDestination(token, labelOf(event), targetLabel)");
+  });
+
+  it("builds update confirmation from all main-owned panes and dirty files", () => {
+    const updater = MAIN.slice(MAIN.indexOf("const updater = registerUpdater("));
+    expect(updater).toContain("censusOrDeny(coordinator.allPanes())");
+    expect(updater).toContain("infos === null ? null : censusFor(0, infos, dirtyFiles.all())");
+    const app = readFileSync("src/ui/app.tsx", "utf8");
+    expect(app).toContain("confirmInstall: confirmUpdateInstall");
+    expect(app).not.toContain("confirmClose(manager.allPaneIds(), defaultPtyClient, UPDATE_COPY");
+  });
+});
+
 describe("window_boot_mode", () => {
   const registry = new WindowRegistry();
 

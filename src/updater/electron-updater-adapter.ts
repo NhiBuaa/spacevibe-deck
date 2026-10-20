@@ -13,6 +13,7 @@
  */
 import { relaunch as relaunchElectron } from "../host/shell-host";
 import { invoke } from "../host/bridge";
+import { confirmCloseCensus, UPDATE_COPY } from "../terminal/close-guard";
 import {
   UPDATE_UNSUPPORTED,
   UpdateInstallError,
@@ -39,6 +40,40 @@ function hasDeckHost(): boolean {
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null;
+}
+
+/** Update closes every window, so its confirmation must use main's census. */
+export async function confirmUpdateInstall(): Promise<boolean> {
+  if (!hasDeckHost()) return false;
+  try {
+    const census = await invoke<unknown>("update_census");
+    if (
+      !isRecord(census) ||
+      !Array.isArray(census.busyProcesses) ||
+      census.busyProcesses.some((name) => typeof name !== "string") ||
+      typeof census.busyPanes !== "number" ||
+      !Number.isSafeInteger(census.busyPanes) ||
+      census.busyPanes < 0 ||
+      typeof census.fullyNamed !== "boolean" ||
+      !Array.isArray(census.dirtyFiles) ||
+      census.dirtyFiles.some((path) => typeof path !== "string")
+    ) {
+      console.warn("Deck: update census is unavailable; install cancelled");
+      return false;
+    }
+    return await confirmCloseCensus(
+      {
+        busyProcesses: census.busyProcesses,
+        busyPanes: census.busyPanes,
+        fullyNamed: census.fullyNamed,
+        dirtyFiles: census.dirtyFiles,
+      },
+      UPDATE_COPY,
+    );
+  } catch (error: unknown) {
+    console.warn("Deck: update census failed; install cancelled", error);
+    return false;
+  }
 }
 
 /**

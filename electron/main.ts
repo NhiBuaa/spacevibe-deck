@@ -36,6 +36,7 @@ import {
   dialog,
   ipcMain,
   Notification,
+  session,
   shell,
   type IpcMainInvokeEvent,
 } from "electron";
@@ -77,6 +78,7 @@ import { provisionAgentShell } from "./agent-shell/provision";
 import { bootstrapLaunch, type AgentShellPaths } from "./agent-shell/shell-bootstrap";
 import { createCodexCapabilities } from "./agent-shell/codex-capabilities";
 import { hooksSupported } from "./agent-hooks/hooks-supported";
+import { installAppImagePolicy } from "./app-image-policy";
 
 // __dirname is `dist-electron/electron`, so the Vite output is two levels up.
 const RENDERER_DIR = path.join(__dirname, "..", "..", "dist");
@@ -629,7 +631,7 @@ ipcMain.handle(CHANNELS.windowBootMode, (event) => registry.bootMode(labelOf(eve
  * crossed the IPC boundary. The contract is frozen in that shape; do not fold
  * these back into an object.
  */
-ipcMain.handle(CHANNELS.openPaneWindow, (_event, payload) => {
+ipcMain.handle(CHANNELS.openPaneWindow, (event, payload) => {
   // Flat arguments, never a wrapper object — the frozen contract. Optional
   // keys are read off the payload rather than destructured in the signature
   // so the contract test does not read them as required.
@@ -639,8 +641,8 @@ ipcMain.handle(CHANNELS.openPaneWindow, (_event, payload) => {
     screenY?: number;
   };
   const label = registry.allocateLabel();
+  coordinator.reserveDestination(token, labelOf(event), label);
   registry.reserveAdoption(label, token);
-  coordinator.reserveDestination(token, label);
   const window = createWindow(label);
   if (screenX !== undefined && screenY !== undefined) {
     window.setPosition(Math.round(screenX), Math.round(screenY));
@@ -652,19 +654,23 @@ ipcMain.handle(CHANNELS.openPaneWindow, (_event, payload) => {
 // Rust's `target_label`) and the renderer already sends it. Caught by
 // `scripts/electron-ipc-contract.test.ts` on its first run — the same class of
 // mismatch that shipped `open_pane_window`.
-ipcMain.handle(CHANNELS.offerTransfer, (_event, { token, targetLabel }) => {
+ipcMain.handle(CHANNELS.offerTransfer, (event, { token, targetLabel }) => {
   if (!windows.has(targetLabel)) {
     // Must fail loudly: after staging, `transfer:settled` is the source's only
     // signal, and a silent success would leave it waiting for the timeout.
     throw new Error(`Window ${targetLabel} no longer exists`);
   }
-  coordinator.reserveDestination(token, targetLabel);
+  coordinator.reserveDestination(token, labelOf(event), targetLabel);
   emitTo(targetLabel, EVENTS.transferOffer, { token });
 });
 
 // --------------------------------------------------------------- Updater
 const updater = registerUpdater({
   labelOf,
+  census: async () => {
+    const infos = await censusOrDeny(coordinator.allPanes());
+    return infos === null ? null : censusFor(0, infos, dirtyFiles.all());
+  },
   // The same order `confirm_quit` uses below. An install exit skips that
   // handler entirely, so without this the PTYs would die with the process and
   // the debounced stores would never reach disk.
@@ -733,6 +739,10 @@ app.on("second-instance", () => {
 
 // ------------------------------------------------------------------ Boot
 app.whenReady().then(async () => {
+  installAppImagePolicy(
+    session.defaultSession.webRequest,
+    app.isPackaged ? undefined : DEV_SERVER_URL,
+  );
   // Before any pane spawns: a restored `claude --resume` must find the
   // `claude.exe` that Claude Code's native Windows installer leaves off PATH.
   if (process.platform === "win32") {

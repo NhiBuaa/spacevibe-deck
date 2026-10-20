@@ -151,6 +151,47 @@ export function unknownMessage(action: string, dirtyFiles: readonly string[] = [
 
 let prompting = false;
 
+/** A main-owned census may cover more windows than this renderer can see. */
+export interface CloseCensus {
+  readonly busyProcesses: readonly string[];
+  readonly busyPanes: number;
+  readonly fullyNamed: boolean;
+  readonly dirtyFiles: readonly string[];
+}
+
+async function askCloseCensus(census: CloseCensus, copy: ConfirmCopy): Promise<boolean> {
+  if (census.fullyNamed && census.busyPanes === 0 && census.dirtyFiles.length === 0) {
+    return true;
+  }
+  const message =
+    (census.fullyNamed
+      ? confirmMessage(census.busyProcesses, copy.action, census.busyPanes, census.dirtyFiles)
+      : unknownMessage(copy.action, census.dirtyFiles)) +
+    (copy.detail === undefined ? "" : `\n\n${copy.detail}`);
+  try {
+    return await ask(message, {
+      title: copy.title,
+      kind: "warning",
+      okLabel: copy.okLabel,
+      cancelLabel: "Cancel",
+    });
+  } catch (err: unknown) {
+    console.error("Close prompt failed:", err);
+    return false;
+  }
+}
+
+/** Ask over an authoritative census without narrowing it to this window. */
+export async function confirmCloseCensus(census: CloseCensus, copy: ConfirmCopy): Promise<boolean> {
+  if (prompting) return false;
+  prompting = true;
+  try {
+    return await askCloseCensus(census, copy);
+  } finally {
+    prompting = false;
+  }
+}
+
 /**
  * True when closing may proceed. Fetches fresh process info for the target
  * panes (the 2s poll can miss a just-launched process) and shows one native
@@ -176,31 +217,20 @@ export async function confirmClose(
   prompting = true;
   try {
     const infos = await freshPaneInfo(paneIds, pty);
-    if (infos.every((info) => info.kind === "idle-shell") && dirtyFiles.length === 0) {
-      return true;
-    }
-    const names = busyProcesses(infos);
     const fullyNamed = infos.every(
       (info) =>
         info.kind === "idle-shell" ||
         ((info.kind === "agent" || info.kind === "busy") && info.process !== null),
     );
-    const message =
-      (fullyNamed
-        ? confirmMessage(names, copy.action, infos.filter(isBusy).length, dirtyFiles)
-        : unknownMessage(copy.action, dirtyFiles)) +
-      (copy.detail === undefined ? "" : `\n\n${copy.detail}`);
-    try {
-      return await ask(message, {
-        title: copy.title,
-        kind: "warning",
-        okLabel: copy.okLabel,
-        cancelLabel: "Cancel",
-      });
-    } catch (err: unknown) {
-      console.error("Close prompt failed:", err);
-      return false;
-    }
+    return await askCloseCensus(
+      {
+        busyProcesses: busyProcesses(infos),
+        busyPanes: infos.filter(isBusy).length,
+        fullyNamed,
+        dirtyFiles,
+      },
+      copy,
+    );
   } finally {
     prompting = false;
   }
