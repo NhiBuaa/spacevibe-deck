@@ -14,8 +14,11 @@ it off (`restoreSessions`) went with it and validation drops the stale field.
 tabs into `session.json` continuously, debounced 1 second, so the file is current at a hard
 power-off rather than only at a clean quit.
 
-- Keys: `windowLabels` (the store has no list-keys primitive), `window:<label>` records,
+- Keys: `window:<label>` records,
   `archive` (per-workspace, the rail's remembered rows) and `restoreAttempt` (the marker).
+- The [store IPC](../../electron/ipc/register-store.ts) derives the virtual `windowLabels`
+  read from record keys in main. Renderers never maintain a shared index array; a legacy
+  index cannot hide a record or resurrect one that was deleted.
 - A `WindowRecord` holds `savedAt`, `activeTabIndex`, `tabs`, `files` and `activeFileTab`.
   Each `SessionTab` holds `workspacePath`, `layout`, `panes`, `name` and `dotColor`; each
   `SessionPane` holds `cwd`, `agent` and `launchCommand`. The journal stores the **command**,

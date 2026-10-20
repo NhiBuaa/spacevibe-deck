@@ -172,7 +172,9 @@ untouched.
   rather than for the life of the pane. `flush()`
   waits for xterm's write drain so a transfer serializes after every byte landed. Paste is
   bracketed and `\n` becomes `\r`, the only route that lands a multi-line body in an agent
-  TUI's composer as one block.
+  TUI's composer as one block. The [paste boundary](../../src/lib/terminal-paste.ts) removes
+  C0/C1 controls before framing, preserving tabs and line breaks; project asset names
+  containing controls are rejected by the [scanner](../../electron/prompt-assets.ts).
 - **Strip order** starts with the window-wide clock
   ([`open-sequence.ts`](../../src/lib/open-sequence.ts)).
   [`stripPreferences` and `mergeStripOrder`](../../src/lib/strip-order.ts) apply a manual
@@ -533,9 +535,12 @@ runs independently of the switch. Without hooks, API failures cannot produce the
 - **Quit** asks one window with every window's unsaved files deduplicated, and skips the
   question only when there are no panes and nothing dirty. With no window to answer it kills
   the PTYs and exits. `confirm_quit` runs `killAll` → telemetry flush → `saveAll` → exit.
-- **An update install bypasses the census** through `isInstalling()`, because
-  `quitAndInstall` closes every window before `before-quit` and the renderer already
-  confirmed. `prepareForInstall` runs the same three steps.
+- **An update install confirms the whole app** through
+  [`update_census`](../../electron/ipc/register-updater.ts), including transferring panes and
+  every window's dirty files. The [adapter](../../src/updater/electron-updater-adapter.ts)
+  refuses installation when that census cannot be read or validated. After confirmation,
+  `isInstalling()` bypasses duplicate close/quit prompts and `prepareForInstall` runs the same
+  three teardown steps.
 - **Renderer-side** ([`close-coordinator.ts`](../../src/terminal/close-coordinator.ts)): ⌘W
   closes the pane, or the tab when it is the last pane; the busy dialog runs on the final
   target and the id confirmed is the id closed, re-pinned after the dialog because a
@@ -551,7 +556,9 @@ pane to exactly one window or to an in-flight transfer.
 1. `prepare_transfer` moves the route to `transferring`; output buffers up to 4 MiB.
 2. The source serializes the pane (after `flush()`) and `stage_transfer`s the payload.
 3. `open_pane_window` (flat `{ token, screenX?, screenY? }`) or `offer_transfer` names the
-   destination; the destination `claim`s the payload and `commit`s.
+   destination. Only the source can reserve it; only that destination can `claim` the
+   payload and `commit`. The [coordinator](../../electron/coordinator.ts) checks identities
+   even when the caller knows the random transfer token.
 4. Buffered events flush in order, then `transfer:settled` reaches both sides and the route
    is re-owned. Abort, a 10-second timeout, a full buffer or a dead destination settle as
    aborted and return the pane to the source; a dead source does not abort.

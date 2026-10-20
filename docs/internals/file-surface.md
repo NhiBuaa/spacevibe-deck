@@ -127,8 +127,11 @@ host cannot answer.
 - **Every spawn carries `--no-optional-locks`, and that is load-bearing.** A plain `git status`
   rewrites `.git/index` to refresh its stat cache; the watch below reports the index; the
   report would read again and rewrite it again. Drop the flag and an idle Explorer spins. The
-  only verbs allowed are `rev-parse`, `status`, `diff` and `hash-object` without `-w`, and the
-  inherited `GIT_*` environment is dropped, so a hook or test that exports `GIT_DIR` cannot
+  observation also reads config, tracked paths and attributes before status. The
+  [runner](../../electron/git/changes.ts) disables fsmonitor and refuses tracked files
+  assigned executable clean/process filters, because suppressing their normalization
+  would produce misleading diffs. Dirty submodule traversal is skipped; submodule commit
+  changes remain visible. The inherited local `GIT_*` environment is dropped, so a hook or test that exports `GIT_DIR` cannot
   redirect a read. A folder inside a repository is read relative to its own prefix, and a
   rename's old path is dropped when it lies outside the root.
 - **Two watches, because one cannot see everything**
@@ -203,9 +206,11 @@ host cannot answer.
 macOS only) flips a document. The view is a read-only picture of the **live buffer**,
 debounced 150ms, so it rides the external-change path for free.
 
-The policy ([`markdown-policy.ts`](../../src/files/markdown-policy.ts)) is pure and exists so
-the feature needs no Content Security Policy; nothing in it may grow a rule only a CSP would
-enforce.
+The pure [markup policy](../../src/files/markdown-policy.ts) classifies links and images.
+The app session also enforces an [image request boundary](../../electron/app-image-policy.ts):
+Mermaid can create an image before sanitizing its SVG, so checking the returned markup is
+too late. Packaged app renderers cannot load HTTP(S) images; development permits only Vite's
+configured origin for bundled assets. The browser panel keeps its separate session.
 
 - Raw HTML is escaped and shown verbatim, not sanitized.
 - A link carries its decision in `data-md-target` and its destination in `data-md-href`,
