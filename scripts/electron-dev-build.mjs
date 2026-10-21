@@ -153,6 +153,17 @@ export function watchMain({
         },
         ...args,
       );
+    const watchDirectory = host.watchDirectory;
+    host.watchDirectory = (dir, callback, ...args) =>
+      watchDirectory(
+        dir,
+        (...event) => {
+          started = performance.now();
+          invalidate();
+          callback(...event);
+        },
+        ...args,
+      );
     host.setTimeout = (callback, _delay, ...args) =>
       setTimeout(() => {
         if (closed) return;

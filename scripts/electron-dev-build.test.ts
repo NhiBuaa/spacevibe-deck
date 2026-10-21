@@ -7,7 +7,7 @@ import { watchMain } from "./electron-dev-build.mjs";
 // Generous on purpose: this is the one wait on a directory created after a failed import
 // lookup. Alone it recovers in ~150 ms; it outran 3 s in loaded local macOS full runs with
 // no reproduced cause. A longer wait still fails if the watch event is lost.
-const LOADED_REBUILD_WAIT_MS = 25000;
+const LOADED_REBUILD_WAIT_MS = 10000;
 
 const cleanup: Array<() => void> = [];
 afterEach(() =>
@@ -46,8 +46,10 @@ async function fixture() {
   );
   put("electron/preload.ts", "export const preload = 1;");
   put("electron/browser-preload.ts", "export const browser = 1;");
-  const events: Array<{ ok: boolean; changed: boolean; durationMs: number }> = [];
+  const events: Array<{ ok: boolean; changed: boolean; durationMs: number; time: number }> = [];
+  const diagnostics: string[] = [];
   let invalidated = false;
+  const startFixture = performance.now();
   const watcher = watchMain({
     root,
     onInvalidated: () => {
@@ -55,9 +57,11 @@ async function fixture() {
     },
     onBuild: (event) => {
       invalidated = false;
-      events.push(event);
+      events.push({ ...event, time: performance.now() - startFixture });
     },
-    onDiagnostic: () => {},
+    onDiagnostic: (message) => {
+      diagnostics.push(`[${(performance.now() - startFixture).toFixed(1)}ms] ${String(message)}`);
+    },
   });
   cleanup.push(() => watcher.close());
   // Let macOS arm native file subscriptions before the first simulated save.
@@ -66,6 +70,7 @@ async function fixture() {
     root,
     put,
     events,
+    diagnostics,
     invalidated: () => invalidated,
     output: (name: string) => readFileSync(path.join(root, "dist-electron/dev", name), "utf8"),
   };
@@ -124,7 +129,7 @@ describe("incremental Electron development compiler", () => {
     f.put("src/missing/value.ts", "export const value = 7;");
     await expect.poll(() => f.events.at(-1)?.ok, { timeout: LOADED_REBUILD_WAIT_MS }).toBe(true);
     expect(f.output("src/missing/value.cjs")).toContain("= 7");
-  }, 35_000);
+  }, 15_000);
 
   it("rejects bad compiler options and recovers when the config is fixed", async () => {
     const f = await fixture();
