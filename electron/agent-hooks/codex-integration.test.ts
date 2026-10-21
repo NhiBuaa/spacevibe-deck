@@ -175,105 +175,117 @@ describe("Codex lifecycle bridge", () => {
     expect(syncHooks.mock.calls.map((call) => call[2])).toEqual([true, false]);
   });
 
-  it("runs the generated script through pane env and the authenticated endpoint", async () => {
+  it("never touches global hooks on startup when Codex integration is disabled", async () => {
     const deps = await setup();
-    const integration = createCodexIntegration({ ...deps, supported: true });
-    await integration.sync(on);
-    const document = JSON.parse(await fs.readFile(deps.hooksPath, "utf8"));
-    const command = document.hooks.Stop[0].hooks[0].command;
-    const events: HookEventPayload[] = [];
-    const server = createHookServer({
-      tokenFor: (id) => (id === 7 ? "secret" : null),
-      ttyFor: (id) => (id === 7 ? "ttys009" : null),
-      emitToOwner: (_id, payload) => {
-        if (integration.enabled()) events.push(payload);
-      },
-    });
-    servers.push(server);
-    const port = await server.listen();
-    expect(port).not.toBeNull();
-    // The hook's parent is `codex` on the pane's tty, as it is under `codex --no-daemon`.
-    const bin = await writeFakePs(deps.dir, [
-      "- 300 ttys009 sh",
-      "300 200 ttys009 codex",
-      "200 1 ?? zsh",
-    ]);
-    const env = {
-      ...buildEnv(process.env, "test", {
-        paneId: 7,
-        hookToken: "secret",
-        hookPort: port,
-        codexHookScript: integration.scriptPath(),
-      }),
-    };
-    env.PATH = `${bin}:${env.PATH ?? ""}`;
-    expect(env.DECK_CODEX_HOOK_SCRIPT).toBe(integration.scriptPath());
-    const payload = {
-      hook_event_name: "Stop",
-      session_id: "session-1",
-      turn_id: "turn-1",
-      last_assistant_message: "Finished.\nMore details.",
-      cwd: "/repo",
-    };
-    expect(await run(command, env, payload)).toEqual({
-      code: 0,
-      stdout: "",
-      stderr: "",
-    });
-    expect(events).toHaveLength(1);
-    expect(events[0]).toMatchObject({
-      agent: "codex",
-      paneId: 7,
-      event: "Stop",
-      turnId: "turn-1",
-      sessionId: "session-1",
-      message: "Finished.",
-    });
-    const decoded = parseHookEvent(events[0]);
-    expect(decoded).not.toBeNull();
-    const signal = contractSignalOf(decoded!);
-    const tracker = createAgentAttentionTracker();
-    tracker.noteProcess(7, "codex", true);
-    tracker.noteContract(7, signal!);
-    expect(tracker.snapshot(7)).toMatchObject({ phase: "idle", attention: "completed" });
-    const outside = await run(
-      command,
-      { ...env, DECK_CODEX_HOOK_SCRIPT: "/another/install" },
-      payload,
-    );
-    expect(outside).toEqual({ code: 0, stdout: "", stderr: "" });
-    expect(events).toHaveLength(1);
-    await fs.writeFile(path.join(deps.dir, ".curlrc"), "proxy = http://127.0.0.1:1\n");
-    const proxied = await run(
-      command,
-      {
-        ...env,
-        CURL_HOME: deps.dir,
-        http_proxy: "http://127.0.0.1:1",
-        ALL_PROXY: "http://127.0.0.1:1",
-        NO_PROXY: "",
-        no_proxy: "",
-      },
-      payload,
-    );
-    expect(proxied).toEqual({ code: 0, stdout: "", stderr: "" });
-    expect(events).toHaveLength(2);
-    const refused = await run(command, { ...env, DECK_HOOK_TOKEN: "wrong" }, payload);
-    expect(refused.code).toBe(0);
-    expect(refused.stdout).toBe("");
-    expect(refused.stderr).toContain("could not be delivered");
-    expect(events).toHaveLength(2);
+    const syncHooks = vi.fn();
+    const integration = createCodexIntegration({ ...deps, supported: true, syncHooks });
     await integration.sync(off);
-    await run(command, env, payload);
-    expect(events).toHaveLength(2);
-    expect(
-      buildEnv({ DECK_CODEX_HOOK_SCRIPT: "stale" }, "test", {
-        paneId: 8,
-        hookToken: "secret",
-        hookPort: null,
-      }),
-    ).not.toHaveProperty("DECK_CODEX_HOOK_SCRIPT");
+    expect(syncHooks).not.toHaveBeenCalled();
+    expect(integration.enabled()).toBe(false);
   });
+
+  it.skipIf(process.platform === "win32")(
+    "runs the generated script through pane env and the authenticated endpoint",
+    async () => {
+      const deps = await setup();
+      const integration = createCodexIntegration({ ...deps, supported: true });
+      await integration.sync(on);
+      const document = JSON.parse(await fs.readFile(deps.hooksPath, "utf8"));
+      const command = document.hooks.Stop[0].hooks[0].command;
+      const events: HookEventPayload[] = [];
+      const server = createHookServer({
+        tokenFor: (id) => (id === 7 ? "secret" : null),
+        ttyFor: (id) => (id === 7 ? "ttys009" : null),
+        emitToOwner: (_id, payload) => {
+          if (integration.enabled()) events.push(payload);
+        },
+      });
+      servers.push(server);
+      const port = await server.listen();
+      expect(port).not.toBeNull();
+      // The hook's parent is `codex` on the pane's tty, as it is under `codex --no-daemon`.
+      const bin = await writeFakePs(deps.dir, [
+        "- 300 ttys009 sh",
+        "300 200 ttys009 codex",
+        "200 1 ?? zsh",
+      ]);
+      const env = {
+        ...buildEnv(process.env, "test", {
+          paneId: 7,
+          hookToken: "secret",
+          hookPort: port,
+          codexHookScript: integration.scriptPath(),
+        }),
+      };
+      env.PATH = `${bin}:${env.PATH ?? ""}`;
+      expect(env.DECK_CODEX_HOOK_SCRIPT).toBe(integration.scriptPath());
+      const payload = {
+        hook_event_name: "Stop",
+        session_id: "session-1",
+        turn_id: "turn-1",
+        last_assistant_message: "Finished.\nMore details.",
+        cwd: "/repo",
+      };
+      expect(await run(command, env, payload)).toEqual({
+        code: 0,
+        stdout: "",
+        stderr: "",
+      });
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({
+        agent: "codex",
+        paneId: 7,
+        event: "Stop",
+        turnId: "turn-1",
+        sessionId: "session-1",
+        message: "Finished.",
+      });
+      const decoded = parseHookEvent(events[0]);
+      expect(decoded).not.toBeNull();
+      const signal = contractSignalOf(decoded!);
+      const tracker = createAgentAttentionTracker();
+      tracker.noteProcess(7, "codex", true);
+      tracker.noteContract(7, signal!);
+      expect(tracker.snapshot(7)).toMatchObject({ phase: "idle", attention: "completed" });
+      const outside = await run(
+        command,
+        { ...env, DECK_CODEX_HOOK_SCRIPT: "/another/install" },
+        payload,
+      );
+      expect(outside).toEqual({ code: 0, stdout: "", stderr: "" });
+      expect(events).toHaveLength(1);
+      await fs.writeFile(path.join(deps.dir, ".curlrc"), "proxy = http://127.0.0.1:1\n");
+      const proxied = await run(
+        command,
+        {
+          ...env,
+          CURL_HOME: deps.dir,
+          http_proxy: "http://127.0.0.1:1",
+          ALL_PROXY: "http://127.0.0.1:1",
+          NO_PROXY: "",
+          no_proxy: "",
+        },
+        payload,
+      );
+      expect(proxied).toEqual({ code: 0, stdout: "", stderr: "" });
+      expect(events).toHaveLength(2);
+      const refused = await run(command, { ...env, DECK_HOOK_TOKEN: "wrong" }, payload);
+      expect(refused.code).toBe(0);
+      expect(refused.stdout).toBe("");
+      expect(refused.stderr).toContain("could not be delivered");
+      expect(events).toHaveLength(2);
+      await integration.sync(off);
+      await run(command, env, payload);
+      expect(events).toHaveLength(2);
+      expect(
+        buildEnv({ DECK_CODEX_HOOK_SCRIPT: "stale" }, "test", {
+          paneId: 8,
+          hookToken: "secret",
+          hookPort: null,
+        }),
+      ).not.toHaveProperty("DECK_CODEX_HOOK_SCRIPT");
+    },
+  );
 
   it("rejects unscoped, malformed and subagent events", () => {
     const body = { session_id: "session-1", hook_event_name: "Stop" };
@@ -317,5 +329,24 @@ describe("Codex lifecycle bridge", () => {
     const disabling = integration.sync(off);
     expect(integration.enabled()).toBe(false);
     await disabling;
+  });
+
+  it("never touches user hooks on startup with disabled or legacy revision <= 5 settings", async () => {
+    const deps = await setup();
+    const syncHooks = vi.fn();
+    const integration = createCodexIntegration({ ...deps, supported: true, syncHooks });
+
+    // Initial sync with empty or legacy settings
+    await integration.sync({});
+    expect(syncHooks).not.toHaveBeenCalled();
+    expect(integration.enabled()).toBe(false);
+
+    // Legacy settings with revision 5 and codex: true from upstream
+    await integration.sync({
+      signalAdaptersRevision: 5,
+      agentSignalAdapters: { codex: true },
+    });
+    expect(syncHooks).not.toHaveBeenCalled();
+    expect(integration.enabled()).toBe(false);
   });
 });

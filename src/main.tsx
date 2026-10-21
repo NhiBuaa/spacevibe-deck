@@ -10,14 +10,8 @@ import { initRepositories } from "./repositories/repositories-store";
 import { initializeDesktopEnvironmentFromBackend } from "./lib/platform";
 import { App } from "./ui/app";
 import { defaultTransferClient } from "./terminal/transfer-client";
-import { initRendererCrashReporting } from "./telemetry/crash-reporting";
 
 async function main(): Promise<void> {
-  // First, so a failure anywhere in the boot below is reported. Losing the
-  // SDK must never cost the user a window, so a load failure only warns.
-  await initRendererCrashReporting().catch((error: unknown) => {
-    console.warn("Deck: crash reporting is unavailable", error);
-  });
   await initializeDesktopEnvironmentFromBackend();
   // Read before anything renders (spec §9.2): deciding inside App's mount
   // effect would paint the Open board for one frame in a window whose whole

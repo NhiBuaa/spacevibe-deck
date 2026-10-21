@@ -18,8 +18,7 @@ export const CURSOR_AGENT: AgentDefinition = {
   id: "cursor-agent",
   label: "Cursor",
   withdrawn: true,
-  // `--force` is the long form; `--yolo` is documented as its alias.
-  defaultCommand: "cursor-agent --force",
+  defaultCommand: "cursor-agent",
   url: "https://cursor.com/cli",
   resume: {
     id: (id) => `cursor-agent --resume ${id}`,

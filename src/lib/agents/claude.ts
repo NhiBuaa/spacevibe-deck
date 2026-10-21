@@ -11,7 +11,7 @@ const PERMISSION_MODE = ["--permission-mode"];
 export const CLAUDE: AgentDefinition = {
   id: "claude",
   label: "Claude Code",
-  defaultCommand: "claude --dangerously-skip-permissions",
+  defaultCommand: "claude",
   url: "https://claude.com/claude-code",
   // The page's "Native Install (Recommended)" tab; Homebrew and WinGet were the alternatives.
   install: {

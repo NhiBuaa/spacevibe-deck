@@ -19,8 +19,8 @@
 # `~/Library/Application Support/SpaceVibe Deck` while Tauri's is
 # `~/Library/Application Support/dev.spacevibe.deck`, so no settings or
 # workspaces carry over, and no updater bridges the two.
-appId: dev.spacevibe.deck
-productName: SpaceVibe Deck
+appId: io.github.nhibuaa.spacedeck.local
+productName: SpaceDeck Local
 directories:
   output: dist-electron-release
 # Electron Builder writes this into the packaged app's package.json — `main`
@@ -29,7 +29,7 @@ directories:
 # CFBundleName, and it is what names the userData directory.
 extraMetadata:
   main: dist-electron/electron/main.cjs
-  productName: SpaceVibe Deck
+  productName: SpaceDeck Local
 files:
   - dist/**
   - dist-electron/electron/**/*.cjs
@@ -111,17 +111,5 @@ nsis:
   # is not resolved here; removing the chooser would be the mitigation, and
   # the spec records keeping it as the chosen trade.
   allowToChangeInstallationDirectory: true
-publish:
-  # `channel` is deliberately absent (fork F4). app-builder-lib fills it from
-  # the app version's prerelease component when it is unset
-  # (PublishManager.js:416-429), so version `X.Y.Z-electron.N` produces
-  # `electron-mac.yml` — the same name GitHubProvider derives from the tag on
-  # the client side (GitHubProvider.js:132-134). Naming it here would let the
-  # two drift apart on the next version bump.
-  #
-  # The tag must stay parseable as semver: GitHubProvider.js:71 skips every
-  # release whose tag fails `semver.valid`, so `electron-v1.0.0` would be
-  # invisible to the updater while everything else looked healthy.
-  - provider: github
-    owner: mxrsv
-    repo: spacevibe-deck
+# Disconnected upstream updater publishing for SpaceDeck Local. Distribution uses manual downloads.
+publish: null

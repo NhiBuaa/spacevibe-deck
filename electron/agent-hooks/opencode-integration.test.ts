@@ -39,11 +39,19 @@ describe("opencode integration — runtime marker and delivery gate (OC1)", () =
     expect([await exists(marker), integration.enabled()]).toEqual([true, true]);
   });
 
-  it("is on for a fresh install with no settings file", async () => {
+  it.each([
+    undefined,
+    {},
+    ...[1, 2, 3, 4, 5].map((revision) => ({
+      signalAdaptersRevision: revision,
+      agentSignalAdapters: { opencode: true },
+    })),
+  ])("keeps OpenCode Signals off without a trusted opt-in (%j)", async (stored) => {
     const deps = await setup();
     const integration = createOpencodeIntegration({ ...deps, supported: true });
-    await integration.sync(undefined);
-    expect(integration.enabled()).toBe(true);
+    await integration.sync(stored);
+    expect(integration.enabled()).toBe(false);
+    expect(await exists(opencodeSignalsMarkerPath(deps.userData))).toBe(false);
   });
 
   it("removes a marker a crash left behind when the switch is off", async () => {

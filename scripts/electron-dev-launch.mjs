@@ -19,8 +19,8 @@ import electronBin from "electron";
 
 const SCRIPT = fileURLToPath(import.meta.url);
 const ROOT = path.dirname(path.dirname(SCRIPT));
-const DEV_NAME = "Deck Dev";
-const DEV_BUNDLE_ID = "dev.spacevibe.deck.dev";
+const DEV_NAME = "SpaceDeck Local Dev";
+const DEV_BUNDLE_ID = "io.github.nhibuaa.spacedeck.local.dev";
 
 export function prepareDevElectron() {
   if (process.platform !== "darwin") return electronBin;
@@ -53,9 +53,10 @@ export function prepareDevElectron() {
       verbatimSymlinks: true,
     });
     const plist = path.join(stagedBundle, "Contents", "Info.plist");
-    // Preserve CFBundleName: Electron uses it for its default userData path.
+    // Set CFBundleName to DEV_NAME so Electron's default userData uses DEV_NAME.
     // The bundle filename and display name provide the native Dock identity.
     for (const [key, value] of [
+      ["CFBundleName", DEV_NAME],
       ["CFBundleDisplayName", DEV_NAME],
       ["CFBundleIdentifier", DEV_BUNDLE_ID],
       ["CFBundleIconFile", "deck-dev.icns"],

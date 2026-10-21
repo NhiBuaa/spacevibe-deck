@@ -135,8 +135,8 @@ describe("LaunchProfileEditor", () => {
 
     // The catalog's recommendation, not a bare binary and not something the
     // user had to type — this is what a fresh install shows.
-    expect(host.textContent).toContain("--dangerously-skip-permissions");
-    expect(host.textContent).toContain("--dangerously-bypass-approvals-and-sandbox");
+    expect(host.textContent).toContain("claude");
+    expect(host.textContent).toContain("codex -c tui.animations=false");
     expect(updateSettings).not.toHaveBeenCalled();
   });
 
@@ -395,13 +395,13 @@ describe("LaunchProfileEditor", () => {
     click(byLabel("Configure Claude Code"));
     click(byLabel("Configure Codex"));
 
-    expect((byLabel("Permissions for Claude Code") as HTMLSelectElement).value).toBe("skip");
-    expect(inPanel("codex", "No approvals or sandbox")?.getAttribute("aria-checked")).toBe("true");
+    expect((byLabel("Permissions for Claude Code") as HTMLSelectElement).value).toBe("");
+    expect(inPanel("codex", "No approvals or sandbox")?.getAttribute("aria-checked")).toBe("false");
     expect(inPanel("codex", "Web search")?.getAttribute("aria-checked")).toBe("false");
     expect(inPanel("claude", "No approvals or sandbox")).toBeNull();
     // The field holds the whole command, so focusing it shows what launches.
     expect((byLabel("Command for Codex") as HTMLInputElement).value).toBe(
-      "codex --dangerously-bypass-approvals-and-sandbox -c tui.animations=false",
+      "codex -c tui.animations=false",
     );
   });
 
@@ -455,8 +455,8 @@ describe("LaunchProfileEditor", () => {
     install("claude");
     mount();
     click(byLabel("Configure Claude Code"));
-    editCommand("Claude Code", " claude --dangerously-skip-permissions ");
-    choose("Permissions for Claude Code", "skip");
+    editCommand("Claude Code", " claude ");
+    choose("Permissions for Claude Code", "");
 
     expect(updateSettings).not.toHaveBeenCalled();
   });
@@ -486,7 +486,7 @@ describe("LaunchProfileEditor", () => {
     expect(byLabel("Reset command for Claude Code")).toBeNull();
     choose("Permissions for Claude Code", "plan");
     const reset = byLabel("Reset command for Claude Code")!;
-    expect(reset.title).toBe("Reset command to claude --dangerously-skip-permissions");
+    expect(reset.title).toBe("Reset command to claude");
     expect(reset.closest(".cfg-row")?.querySelector("input")?.getAttribute("aria-label")).toBe(
       "Command for Claude Code",
     );
@@ -494,7 +494,7 @@ describe("LaunchProfileEditor", () => {
 
     expect(settings.value.launchProfiles).toEqual([]);
     expect(settings.value.defaultLaunchProfiles).toEqual({});
-    expect((byLabel("Permissions for Claude Code") as HTMLSelectElement).value).toBe("skip");
+    expect((byLabel("Permissions for Claude Code") as HTMLSelectElement).value).toBe("");
   });
 
   it("adds a typed command and stars it for its agent", () => {
@@ -592,9 +592,7 @@ describe("LaunchProfileEditor", () => {
     expect(panel("claude").querySelector('[role="alert"]')).not.toBeNull();
     editCommand("Claude Code", "");
     expect(settings.value.launchProfiles).toEqual([]);
-    expect((byLabel("Command for Claude Code") as HTMLInputElement).value).toBe(
-      "claude --dangerously-skip-permissions",
-    );
+    expect((byLabel("Command for Claude Code") as HTMLInputElement).value).toBe("claude");
     expect(panel("claude").querySelector('[role="alert"]')).toBeNull();
   });
 

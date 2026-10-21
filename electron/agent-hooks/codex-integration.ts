@@ -100,6 +100,11 @@ export function createCodexIntegration(deps: IntegrationDeps) {
       const pending = queue
         .then(async () => {
           if (!supported || applied === requested) return;
+          if (applied === null && !requested) {
+            await fs.rm(marker, { force: true });
+            applied = false;
+            return;
+          }
           // The Codex wrapper adds its flags only while the marker exists. Turning off drops it
           // FIRST, before anything that can fail (a full disk must not leave the flags on);
           // turning on creates it last, once the hooks are registered.

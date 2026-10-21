@@ -9,37 +9,34 @@ import type { SignalAdapters } from "../lib/launch-augment";
  * `signalAdaptersRevision`; a file without a revision of at least 2 reads as the
  * defaults, whatever it stores.
  *
- * Each agent's slice turns Signals on by default through a rung of
- * `SIGNAL_ADAPTER_LADDER`. A file saved under an older revision keeps every
- * stored value and has the agents of the rungs above its revision forced on
- * once; from the current revision on, stored values are the user's choice.
- * Revision 2 cannot tell a chosen "off" from the old default, so that one
- * agent comes back on (DEF1).
+ * In SpaceDeck Local, privacy-first defaults apply: all agent signal adapters
+ * default to false unless explicitly opted into by the user under trusted
+ * revision >= 6. Legacy settings from upstream releases (revisions 1 through 5),
+ * which automatically forced adapters on via upgrade ladder rungs, are treated
+ * as unverified defaults and resolve to false for all adapters.
  *
  * The renderer's settings validator and main's boot-time hook sync share
  * `resolveSignalAdapters`, because main reads the stored file before any
  * window has validated it. Pure on purpose: main imports it.
  */
 export const DEFAULT_SIGNAL_ADAPTERS: SignalAdapters = {
-  claude: true,
-  codex: true,
-  opencode: true,
+  claude: false,
+  codex: false,
+  opencode: false,
 };
 
-/** Revision N switches on the agent it maps to for installs saved below N. */
-const SIGNAL_ADAPTER_LADDER: Readonly<Record<number, keyof SignalAdapters>> = {
-  3: "claude",
-  4: "codex",
-  5: "opencode",
-};
+/**
+ * First revision whose stored booleans represent an explicit user opt-in in this fork.
+ * Upstream SpaceVibe Deck automatically enabled adapters through ladder rungs
+ * (3 for claude, 4 for codex, 5 for opencode), saving revision 5 with auto-enabled
+ * `true` values.
+ *
+ * SpaceDeck Local treats revisions <= 5 as legacy unverified defaults, resetting them
+ * to false. Revision 6 or higher represents an explicit choice in this fork.
+ */
+export const FIRST_TRUSTED_REVISION = 6;
 
-/** First revision whose stored booleans are trusted at all. */
-const FIRST_TRUSTED_REVISION = 2;
-
-export const SIGNAL_ADAPTERS_REVISION = Math.max(
-  FIRST_TRUSTED_REVISION,
-  ...Object.keys(SIGNAL_ADAPTER_LADDER).map(Number),
-);
+export const SIGNAL_ADAPTERS_REVISION = FIRST_TRUSTED_REVISION;
 
 /** The adapters a stored (unvalidated) settings value stands for. */
 export function resolveSignalAdapters(settings: unknown): SignalAdapters {
@@ -54,14 +51,8 @@ export function resolveSignalAdapters(settings: unknown): SignalAdapters {
     typeof stored === "object" && stored !== null && !Array.isArray(stored)
       ? (stored as Record<string, unknown>)
       : {};
-  const forced = new Set(
-    Object.entries(SIGNAL_ADAPTER_LADDER)
-      .filter(([rung]) => revision < Number(rung))
-      .map(([, agent]) => agent),
-  );
   const flag = (key: keyof SignalAdapters): boolean =>
-    forced.has(key) ||
-    (typeof record[key] === "boolean" ? (record[key] as boolean) : DEFAULT_SIGNAL_ADAPTERS[key]);
+    typeof record[key] === "boolean" ? (record[key] as boolean) : DEFAULT_SIGNAL_ADAPTERS[key];
   return { claude: flag("claude"), codex: flag("codex"), opencode: flag("opencode") };
 }
 

@@ -25,11 +25,16 @@
  *
  * The package these lines produce is described in docs/operations/release.md.
  */
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+
+const BASH =
+  process.platform === "win32" && existsSync("C:\\Program Files\\Git\\bin\\bash.exe")
+    ? "C:\\Program Files\\Git\\bin\\bash.exe"
+    : "/bin/bash";
 
 const RELEASE_CONFIG_PATH = new URL("../electron-builder.release.yml", import.meta.url);
 const LOCAL_CONFIG_PATH = new URL("../electron-builder.yml", import.meta.url);
@@ -152,10 +157,10 @@ describe("the shipping Electron release config", () => {
     );
   });
 
-  it("publishes to the GitHub repository the updater feed names", () => {
-    expect(declares(releaseConfig, "- provider: github")).toBe(true);
-    expect(declares(releaseConfig, "owner: mxrsv")).toBe(true);
-    expect(declares(releaseConfig, "repo: spacevibe-deck")).toBe(true);
+  it("does not publish to upstream GitHub repository", () => {
+    expect(declares(releaseConfig, "owner: mxrsv")).toBe(false);
+    expect(declares(releaseConfig, "repo: spacevibe-deck")).toBe(false);
+    expect(declares(releaseConfig, "publish: null")).toBe(true);
   });
 
   it("leaves the channel to the version, so both sides derive the same name", () => {
@@ -427,7 +432,7 @@ describe("release train executes fail-closed shell checks", () => {
         '#!/bin/sh\nprintf "%s\\n" "$*" >> "$DECK_COMMAND_LOG"\nexit 7\n',
         { mode: 0o700 },
       );
-      const result = spawnSync("/bin/bash", ["-c", shellStep("Validate source")], {
+      const result = spawnSync(BASH, ["-c", shellStep("Validate source")], {
         cwd,
         env: {
           ...process.env,
@@ -451,7 +456,7 @@ describe("release train executes fail-closed shell checks", () => {
           `## 2.2.1\n${nonempty ? "- Reviewed notes." : ""}\n## 2.2.0\nOld notes.\n`,
         );
         const result = spawnSync(
-          "/bin/bash",
+          BASH,
           ["-c", shellStep("Require the exact nonempty release notes")],
           { cwd, env: { ...process.env, TAG: "v2.2.1" } },
         );
@@ -493,7 +498,7 @@ fi
           { mode: 0o700 },
         );
         const result = spawnSync(
-          "/bin/bash",
+          BASH,
           ["-c", shellStep("Confirm the draft carries the full two-platform asset set")],
           {
             cwd,

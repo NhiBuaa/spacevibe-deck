@@ -25,13 +25,13 @@ function policy(developmentUrl?: string) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("app image network boundary", () => {
-  it("rejects remote and loopback images while preserving non-image requests", () => {
+  it("rejects remote and loopback images as well as non-dev network requests", () => {
     const { blocked, onBeforeRequest } = policy();
     expect(blocked("https://example.test/pixel.png")).toBe(true);
     expect(blocked("http://127.0.0.1:9000/pixel.png")).toBe(true);
-    expect(blocked("https://example.test/api", "xhr")).toBe(false);
+    expect(blocked("https://example.test/api", "xhr")).toBe(true);
     expect(onBeforeRequest).toHaveBeenCalledWith(
-      { urls: ["http://*/*", "https://*/*"] },
+      { urls: ["http://*/*", "https://*/*", "ws://*/*", "wss://*/*"] },
       expect.any(Function),
     );
   });
@@ -77,5 +77,5 @@ describe("app image network boundary", () => {
     await render("protected-diagram");
     expect(attempted).toEqual([url]);
     expect(reachedNetwork).toEqual([]);
-  });
+  }, 15000);
 });

@@ -55,7 +55,7 @@ function run(args: string[], options: { help?: string; marker?: boolean } = {}):
   });
 }
 
-const FLAGS = `${NO_DAEMON} ${BYPASS}`;
+const FLAGS = NO_DAEMON;
 const KEPT = "7,tok,1234";
 
 describe.skipIf(process.platform === "win32")("codex wrapper — CX2 flags", () => {
@@ -80,7 +80,7 @@ describe.skipIf(process.platform === "win32")("codex wrapper — CX2 flags", () 
     [["fork", "--last"], `${FLAGS} fork --last`],
     [["-m", "gpt-5", "resume"], `${FLAGS} -m gpt-5 resume`],
     [["-i", "a.png", "b.png"], `${FLAGS} -i a.png b.png`],
-  ])("the interactive form %j gets --no-daemon and the bypass", async (args, expected) => {
+  ])("the interactive form %j gets --no-daemon without bypass", async (args, expected) => {
     const result = await run(args);
     expect(result.args).toBe(expected);
     expect(result.env).toBe(KEPT);
@@ -92,20 +92,19 @@ describe.skipIf(process.platform === "win32")("codex wrapper — CX2 flags", () 
     [["review"], "review"],
     [["login"], "login"],
     [["-c", "model=x", "exec", "go"], "-c model=x exec go"],
-  ])("%j gets the bypass but never --no-daemon", async (args, rest) => {
+  ])("%j runs without automatic bypass or --no-daemon", async (args, rest) => {
     const result = await run(args);
-    expect(result.args).toBe(`${BYPASS} ${rest}`);
+    expect(result.args).toBe(rest);
     expect(result.env).toBe(KEPT);
   });
 
-  it("never doubles a typed bypass or --no-daemon", async () => {
-    expect((await run([BYPASS, "resume"])).args).toBe(`${NO_DAEMON} ${BYPASS} resume`);
-    expect((await run([NO_DAEMON])).args).toBe(`${BYPASS} ${NO_DAEMON}`);
+  it("never doubles a typed --no-daemon", async () => {
+    expect((await run([NO_DAEMON])).args).toBe(NO_DAEMON);
   });
 
   it("ignores a flag that only appears after --", async () => {
-    const result = await run(["--", BYPASS, NO_DAEMON]);
-    expect(result.args).toBe(`${FLAGS} -- ${BYPASS} ${NO_DAEMON}`);
+    const result = await run(["--", NO_DAEMON]);
+    expect(result.args).toBe(`${FLAGS} -- ${NO_DAEMON}`);
   });
 
   it("leaves the information flags untouched", async () => {

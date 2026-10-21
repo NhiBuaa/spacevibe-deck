@@ -53,6 +53,9 @@ class FakeContents {
     setPermissionRequestHandler: (handler: (...args: unknown[]) => void) => {
       this.permissionHandler = handler;
     },
+    webRequest: {
+      onBeforeRequest: vi.fn(),
+    },
   };
 
   on(event: string, handler: Handler): this {
@@ -101,6 +104,13 @@ class FakeContents {
   }
   focus(): void {
     this.focused = true;
+  }
+  webrtcPolicy: string = "default";
+  setWebRTCIPHandlingPolicy(policy: string): void {
+    this.webrtcPolicy = policy;
+  }
+  getWebRTCIPHandlingPolicy(): string {
+    return this.webrtcPolicy;
   }
 }
 
@@ -316,29 +326,45 @@ describe("BrowserPanels", () => {
     expect(view.webContents.closed).toBe(false);
   });
 
-  it("sends a navigation it will not load to the OS browser", () => {
+  it("blocks non-loopback navigation and does not delegate to external browser", () => {
     const { panels, view } = setup();
     panels.open(LABEL, "http://localhost:3000/");
-    const event = { preventDefault: vi.fn() };
-    view.webContents.emit("will-navigate", event, "mailto:someone@example.com");
-    expect(event.preventDefault).toHaveBeenCalled();
-    // `mailto:` is not loadable in the panel, and it is not something Deck
-    // hands to `openExternal` from here either — only http(s) leaves this path.
+    const mailtoEvent = { preventDefault: vi.fn() };
+    view.webContents.emit("will-navigate", mailtoEvent, "mailto:someone@example.com");
+    expect(mailtoEvent.preventDefault).toHaveBeenCalled();
     expect(opened).toEqual([]);
 
-    const allowed = { preventDefault: vi.fn() };
-    view.webContents.emit("will-navigate", allowed, "https://example.com/");
-    expect(allowed.preventDefault).not.toHaveBeenCalled();
+    const remoteEvent = { preventDefault: vi.fn() };
+    view.webContents.emit("will-navigate", remoteEvent, "https://example.com/");
+    expect(remoteEvent.preventDefault).toHaveBeenCalled();
+    expect(opened).toEqual([]);
+
+    const loopbackEvent = { preventDefault: vi.fn() };
+    view.webContents.emit("will-navigate", loopbackEvent, "http://localhost:3000/dashboard");
+    expect(loopbackEvent.preventDefault).not.toHaveBeenCalled();
   });
 
-  it("denies popups and opens them outside instead", () => {
+  it("denies popups without opening them in external browser", () => {
     const { panels, view } = setup();
     panels.open(LABEL, "http://localhost:3000/");
     const result = view.webContents.windowOpenHandler?.({
       url: "https://example.com/docs",
     });
     expect(result).toEqual({ action: "deny" });
-    expect(opened).toEqual(["https://example.com/docs"]);
+    expect(opened).toEqual([]);
+  });
+
+  it("preserves blocked navigation error when an earlier in-flight load completes", () => {
+    const { panels, view } = setup();
+    panels.open(LABEL, "http://localhost:3000/");
+    // Staging a blocked navigation while the allowed one is in flight
+    panels.navigate(LABEL, "https://evil.com/");
+    expect(panels.state(LABEL)?.error).toContain("Blocked");
+
+    // Earlier allowed load finishes now
+    view.webContents.emit("did-finish-load");
+    // Blocked error must remain intact
+    expect(panels.state(LABEL)?.error).toContain("Blocked");
   });
 
   it("denies every permission the page asks for", () => {
@@ -347,6 +373,12 @@ describe("BrowserPanels", () => {
     const callback = vi.fn();
     view.webContents.permissionHandler?.({}, "media", callback);
     expect(callback).toHaveBeenCalledWith(false);
+  });
+
+  it("applies disable_non_proxied_udp WebRTC IP handling policy on panel creation", () => {
+    const { panels, view } = setup();
+    panels.open(LABEL, "http://localhost:3000/");
+    expect(view.webContents.getWebRTCIPHandlingPolicy()).toBe("disable_non_proxied_udp");
   });
 
   it("closing detaches the view and kills the page", () => {

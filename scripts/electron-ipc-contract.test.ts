@@ -445,7 +445,7 @@ describe("Electron IPC contract", () => {
   it("keeps the legacy image read Tauri-only", () => {
     const channel = "read_image_as_data_url";
     const sites = callSites.filter((site) => site.channel === channel);
-    expect(sites.map((site) => site.file).sort()).toEqual([
+    expect(sites.map((site) => site.file.replaceAll("\\", "/")).sort()).toEqual([
       "src/files/markdown-image-source.ts",
       "src/ui/controls/logo-row.tsx",
     ]);

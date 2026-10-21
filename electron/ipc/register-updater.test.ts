@@ -131,46 +131,23 @@ describe("updater IPC diagnostics", () => {
     expect(mocks.updater.quitAndInstall).not.toHaveBeenCalled();
   });
 
-  it("returns a non-retryable reply after late staging failure and logs it", async () => {
-    const handle = setup();
-    await invoke("update_check");
-    await invoke("update_download");
-    const installing = invoke("update_install");
-    await vi.waitFor(() => expect(mocks.updater.quitAndInstall).toHaveBeenCalledOnce());
-    mocks.events.get("error")?.(new Error("signature invalid"));
-    await expect(installing).resolves.toEqual({
-      status: "install-failed",
-      retryable: false,
-      message: "signature invalid",
-    });
-    expect(handle.isInstalling()).toBe(false);
-    await expect(invoke("update_install")).resolves.toMatchObject({ retryable: false });
-    expect(mocks.updater.quitAndInstall).toHaveBeenCalledOnce();
-    expect(readFileSync(join(mocks.root, "updater.log"), "utf8")).toContain("signature invalid");
+  it("always returns unsupported for update check and never contacts autoUpdater", async () => {
+    setup();
+    const result = await invoke("update_check");
+    expect(result).toEqual({ status: "unsupported" });
+    expect(mocks.updater.checkForUpdates).not.toHaveBeenCalled();
+    expect(mocks.updater.setFeedURL).not.toHaveBeenCalled();
   });
 
-  it("connects host, renderer and provider errors to the same local file", async () => {
+  it("handles local error reports safely", async () => {
     setup();
-    mocks.updater.checkForUpdates.mockRejectedValueOnce(new Error("feed unavailable"));
-    await expect(invoke("update_check")).rejects.toThrow("feed unavailable");
-    await invoke("update_check");
-    mocks.updater.downloadUpdate.mockRejectedValueOnce(new Error("disk full"));
-    await expect(invoke("update_download")).rejects.toThrow("disk full");
     invoke("update_report_error", {
       operation: "install",
       name: "Error",
       message: "Could not record attempt",
     });
-    mocks.updater.logger?.error(new Error("provider failed"));
     const content = readFileSync(join(mocks.root, "updater.log"), "utf8");
-    for (const message of [
-      "feed unavailable",
-      "disk full",
-      "Could not record attempt",
-      "provider failed",
-    ]) {
-      expect(content).toContain(message);
-    }
+    expect(content).toContain("Could not record attempt");
     expect(() => invoke("update_report_error", { operation: "shell", message: "invalid" })).toThrow(
       "Invalid updater log operation",
     );

@@ -512,42 +512,35 @@ describe("agentRuntimeDefaults", () => {
 });
 
 describe("agentSignalAdapters (agent-signal contract layer, stage 2)", () => {
-  const DEFAULTS = { claude: true, codex: true, opencode: true };
+  const DEFAULTS = { claude: false, codex: false, opencode: false };
 
-  it("ships all three on, including for a file that predates the field", () => {
+  it("ships all three off, including for a file that predates the field", () => {
     expect(validateSettings({}).agentSignalAdapters).toEqual(DEFAULTS);
   });
 
-  it("resets the unchosen trues a 1.1.x file carries, and marks the result current", () => {
-    // 1.1.x shipped every adapter on and saved the whole object on any change (DECK-102).
-    const written11x = validateSettings({
-      agentSignalAdapters: { claude: true, codex: true, opencode: true },
-    });
-    expect(written11x.agentSignalAdapters).toEqual(DEFAULTS);
-    expect(written11x.signalAdaptersRevision).toBe(SIGNAL_ADAPTERS_REVISION);
+  it("resets the unchosen trues legacy files (<= rev 5) carry, and marks the result current", () => {
+    for (let rev = 1; rev <= 5; rev++) {
+      const written = validateSettings({
+        signalAdaptersRevision: rev,
+        agentSignalAdapters: { claude: true, codex: true, opencode: true },
+      });
+      expect(written.agentSignalAdapters).toEqual(DEFAULTS);
+      expect(written.signalAdaptersRevision).toBe(SIGNAL_ADAPTERS_REVISION);
+    }
   });
 
-  it("switches Codex and opencode on once for a revision-3 file and keeps Claude's choice", () => {
-    expect(
-      validateSettings({
-        signalAdaptersRevision: 3,
-        agentSignalAdapters: { claude: false, codex: false, opencode: false },
-      }).agentSignalAdapters,
-    ).toEqual({ claude: false, codex: true, opencode: true });
-  });
-
-  it("keeps an explicit choice per agent and ignores anything that is not a boolean", () => {
+  it("keeps an explicit choice per agent and ignores anything that is not a boolean under trusted revision", () => {
     const current = { signalAdaptersRevision: SIGNAL_ADAPTERS_REVISION };
     expect(
       validateSettings({
         ...current,
-        agentSignalAdapters: { claude: false, codex: "yes", gemini: true },
+        agentSignalAdapters: { claude: true, codex: "yes", gemini: true },
       }).agentSignalAdapters,
-    ).toEqual({ claude: false, codex: true, opencode: true });
-    expect(
-      validateSettings({ ...current, agentSignalAdapters: { codex: false, opencode: false } })
-        .agentSignalAdapters,
     ).toEqual({ claude: true, codex: false, opencode: false });
+    expect(
+      validateSettings({ ...current, agentSignalAdapters: { codex: true, opencode: false } })
+        .agentSignalAdapters,
+    ).toEqual({ claude: false, codex: true, opencode: false });
     expect(validateSettings({ ...current, agentSignalAdapters: [] }).agentSignalAdapters).toEqual(
       DEFAULTS,
     );

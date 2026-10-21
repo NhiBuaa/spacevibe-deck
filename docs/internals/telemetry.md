@@ -2,6 +2,12 @@
 
 > For maintainers. Using Deck? See [docs/user/](../user/).
 
+> [!IMPORTANT]
+> **Fork note:** In this privacy-first fork (`SpaceDeck Local`), telemetry, crash reporting,
+> and upstream sync are permanently disconnected and disabled. No daily IDs are generated,
+> no counters are transmitted, no timers run, and no flush occurs on quit.
+> The sections below document the historical contract and data schemas of the upstream product.
+
 Release 1.1.0 is the first release that sends cumulative usage snapshots for each day.
 Analytics are always on, with no opt-out, under the 2026-09-06 decision: there is no
 switch, no consent question, and an "off" recorded by a development build is overridden rather

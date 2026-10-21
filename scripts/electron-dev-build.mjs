@@ -153,6 +153,17 @@ export function watchMain({
         },
         ...args,
       );
+    const watchDirectory = host.watchDirectory;
+    host.watchDirectory = (dir, callback, ...args) =>
+      watchDirectory(
+        dir,
+        (...event) => {
+          started = performance.now();
+          invalidate();
+          callback(...event);
+        },
+        ...args,
+      );
     host.setTimeout = (callback, _delay, ...args) =>
       setTimeout(() => {
         if (closed) return;
@@ -170,6 +181,8 @@ export function watchMain({
         }
       }, COMPILE_DELAY_MS);
     host.afterProgramCreate = compile;
+    // Failed-lookup watchers must resolve relative to this compiler's root, not the caller's cwd.
+    host.getCurrentDirectory = () => root;
     program = ts.createWatchProgram(host);
   }
 

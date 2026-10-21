@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { runReleaseCut, commandRunner } from "./release-cut.mjs";
 import {
   chooseVersion,
@@ -143,7 +143,7 @@ describe("release cut pure contracts", () => {
 function fixture(subject = "fix(release): stop batching") {
   const cwd = mkdtempSync(join(tmpdir(), "deck-release-cut-"));
   roots.push(cwd);
-  const origin = join(cwd, "..", `${cwd.split("/").at(-1)}-origin.git`);
+  const origin = join(cwd, "..", `${basename(cwd)}-origin.git`);
   roots.push(origin);
   const git = (...args: string[]) =>
     execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
@@ -254,7 +254,7 @@ describe("release cut with real disposable git repositories", () => {
           if (side === "local") {
             f.git("commit", "--allow-empty", "-m", "chore(peer): advance main");
           } else {
-            const peer = join(f.cwd, "..", `${f.cwd.split("/").at(-1)}-peer`);
+            const peer = join(f.cwd, "..", `${basename(f.cwd)}-peer`);
             roots.push(peer);
             execFileSync("git", ["clone", f.origin, peer], { stdio: "ignore" });
             const git = (...args: string[]) =>
@@ -422,7 +422,7 @@ describe("release cut with real disposable git repositories", () => {
     expect(f.git("rev-parse", "HEAD")).toBe(f.original);
     expect(f.git("status", "--porcelain")).toBe("");
   });
-});
+}, 30000);
 
 describe("GitHub run identity and failure handling", () => {
   function promotionFixture(change: string) {

@@ -80,6 +80,40 @@ describe("Claude integration lifecycle", () => {
     expect(writeFiles).not.toHaveBeenCalled();
     expect(integration.scriptPath()).toBeNull();
   });
+
+  it("never touches user settings on startup when Claude integration is disabled", async () => {
+    const syncSettings = vi.fn();
+    const writeFiles = vi.fn();
+    const integration = createClaudeIntegration({
+      userData: "/deck",
+      supported: true,
+      writeFiles,
+      syncSettings,
+    });
+    await integration.sync({});
+    expect(syncSettings).not.toHaveBeenCalled();
+    expect(writeFiles).not.toHaveBeenCalled();
+    expect(integration.enabled()).toBe(false);
+  });
+
+  it("never touches user settings on startup with legacy revision <= 5 settings", async () => {
+    const syncSettings = vi.fn();
+    const writeFiles = vi.fn();
+    const integration = createClaudeIntegration({
+      userData: "/deck",
+      supported: true,
+      writeFiles,
+      syncSettings,
+    });
+    // Legacy settings with revision 5 and claude: true from upstream
+    await integration.sync({
+      signalAdaptersRevision: 5,
+      agentSignalAdapters: { claude: true },
+    });
+    expect(syncSettings).not.toHaveBeenCalled();
+    expect(writeFiles).not.toHaveBeenCalled();
+    expect(integration.enabled()).toBe(false);
+  });
 });
 
 describe("Claude integration default hook support", () => {
