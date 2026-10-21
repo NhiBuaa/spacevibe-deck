@@ -127,7 +127,11 @@ describe("incremental Electron development compiler", () => {
     f.put("electron/main.ts", 'export { value } from "../src/missing/value";');
     await expect.poll(() => f.events.at(-1)?.ok, { timeout: LOADED_REBUILD_WAIT_MS }).toBe(false);
     f.put("src/missing/value.ts", "export const value = 7;");
-    await expect.poll(() => f.events.at(-1)?.ok, { timeout: LOADED_REBUILD_WAIT_MS }).toBe(true);
+    try {
+      await expect.poll(() => f.events.at(-1)?.ok, { timeout: LOADED_REBUILD_WAIT_MS }).toBe(true);
+    } catch (cause) {
+      throw new Error(JSON.stringify({ events: f.events, diagnostics: f.diagnostics }), { cause });
+    }
     expect(f.output("src/missing/value.cjs")).toContain("= 7");
   }, 15_000);
 

@@ -181,6 +181,8 @@ export function watchMain({
         }
       }, COMPILE_DELAY_MS);
     host.afterProgramCreate = compile;
+    // Failed-lookup watchers must resolve relative to this compiler's root, not the caller's cwd.
+    host.getCurrentDirectory = () => root;
     program = ts.createWatchProgram(host);
   }
 
